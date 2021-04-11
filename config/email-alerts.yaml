@@ -22,3 +22,4 @@ emailAlerts:
     accountPassword: your.account.password
     fromAddress: from.addr@gmail.com
     toAddress: to.addr@gmail.com
+
