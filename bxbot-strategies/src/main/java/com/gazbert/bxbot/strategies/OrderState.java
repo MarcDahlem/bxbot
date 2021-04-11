@@ -13,7 +13,7 @@ public class OrderState {
     private final BigDecimal price;
     private final BigDecimal amount;
     private int orderNotExecutedCount;
-
+    
     OrderState(String id, OrderType type, BigDecimal price, BigDecimal amount) {
         this.id = id;
         this.type = type;
