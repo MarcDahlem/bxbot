@@ -36,6 +36,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.UUID;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTrailingStopStrategy implements TradingStrategy {
@@ -209,9 +210,11 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       // Send the order to the exchange
       LOG.info(() -> market.getName() + " Sending initial BUY order to exchange --->");
 
+      lastOrder.id = "DUMMY_ORDER_ID_" + UUID.randomUUID().toString();
+      /*TODO
       lastOrder.id =
           tradingApi.createOrder(
-              market.getId(), OrderType.BUY, amountOfBaseCurrencyToBuy, currentBidPrice);
+              market.getId(), OrderType.BUY, amountOfBaseCurrencyToBuy, currentBidPrice);*/
 
       LOG.info(
           () -> market.getName() + " Initial BUY Order sent successfully. ID: " + lastOrder.id);
@@ -323,8 +326,10 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         LOG.info(() -> market.getName() + " Sending new SELL order to exchange --->");
 
         // Build the new sell order
+        lastOrder.id = "DUMMY_ORDER_ID_" + UUID.randomUUID().toString();
+        /* TODO
         lastOrder.id =
-            tradingApi.createOrder(market.getId(), OrderType.SELL, lastOrder.amount, newAskPrice);
+            tradingApi.createOrder(market.getId(), OrderType.SELL, lastOrder.amount, newAskPrice);*/
         LOG.info(() -> market.getName() + " New SELL Order sent successfully. ID: " + lastOrder.id);
 
         // update last order state
@@ -426,9 +431,11 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         LOG.info(() -> market.getName() + " Sending new BUY order to exchange --->");
 
         // Send the buy order to the exchange.
+        lastOrder.id = "DUMMY_ORDER_ID_" + UUID.randomUUID().toString();
+        /*TODO
         lastOrder.id =
             tradingApi.createOrder(
-                market.getId(), OrderType.BUY, amountOfBaseCurrencyToBuy, currentBidPrice);
+                market.getId(), OrderType.BUY, amountOfBaseCurrencyToBuy, currentBidPrice);*/
         LOG.info(() -> market.getName() + " New BUY Order sent successfully. ID: " + lastOrder.id);
 
         // update last order details
@@ -521,8 +528,9 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     LOG.info(
         () ->
             market.getName()
-                + " Calculating amount of base currency (BTC) to buy for amount of counter "
-                + "currency "
+                + " Calculating amount of base currency ("
+                + market.getBaseCurrency()
+                + ") to buy for amount of counter currency "
                 + new DecimalFormat(DECIMAL_FORMAT).format(amountOfCounterCurrencyToTrade)
                 + " "
                 + market.getCounterCurrency());
