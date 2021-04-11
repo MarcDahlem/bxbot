@@ -12,6 +12,7 @@ public class OrderState {
     private final OrderType type;
     private final BigDecimal price;
     private final BigDecimal amount;
+    private int orderNotExecutedCount;
 
     OrderState(String id, OrderType type, BigDecimal price, BigDecimal amount) {
         this.id = id;
@@ -44,5 +45,13 @@ public class OrderState {
                 .add("price", getPrice())
                 .add("amount", getAmount())
                 .toString();
+    }
+
+    public void increaseOrderNotExecutedCounter() {
+        this.orderNotExecutedCount++;
+    }
+
+    public int getOrderNotExecutedCounter() {
+        return orderNotExecutedCount;
     }
 }

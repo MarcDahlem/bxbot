@@ -34,6 +34,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.util.List;
 import java.util.UUID;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
@@ -122,8 +123,10 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
           executeBuyPhase();
           break;
         case NEED_SELL:
+          executeSellPhase();
           break;
         case WAIT_FOR_BUY:
+          executeCheckOfTheBuyOrder();
           break;
         default:
           throw new StrategyException("Unknown strategy state encounted: " + strategyState);
@@ -140,8 +143,55 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     }
   }
 
+  private void executeCheckOfTheBuyOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
+    LOG.info(() -> market.getName() + " Wait for BUY order to fulfill.");
+
+    if(isLatestOrderStillAvailable()) {
+      LOG.info(() -> market.getName() + " BUY order '" + currentOrder.getId() + "' is still available. Check if the current price is below the order price.");
+      if(currentOrder.getPrice().compareTo(currentMarketPrice)>0) {
+        LOG.info(() -> market.getName() + " The current buy order's price '" +new DecimalFormat(DECIMAL_FORMAT).format(currentOrder.getPrice()) + " " + market.getCounterCurrency()
+                + "' is above the current market price ('" +new DecimalFormat(DECIMAL_FORMAT).format(currentMarketPrice)+" " + market.getCounterCurrency() + "'). Cancel the order '" +currentOrder.getId() + "'.");
+        tradingApi.cancelOrder(currentOrder.getId(), market.getId());
+        LOG.info(() -> market.getName() + " Order '" + currentOrder.getId() + "' successfully canceled. Reset the strategy to the buy phase...");
+        currentOrder = null;
+        strategyState = IntelligentStrategyState.NEED_BUY;
+        executeBuyPhase();
+      } else {
+        LOG.warn(() -> market.getName() + " The current BUY order is below the current market price. It should soon be fulfilled. If that happens too often, the bid and ask prices may be checked.");
+        currentOrder.increaseOrderNotExecutedCounter();
+        if (currentOrder.getOrderNotExecutedCounter() >= 10) {
+          String errorMsg = market.getName() + " The current BUY order was 10 times below the current market price. It should normally be fulfilled. Stop the bot.";
+          LOG.error(() -> errorMsg);
+          throw new StrategyException(errorMsg);
+        }
+      }
+    } else {
+      LOG.info(() -> market.getName() + " BUY order '" + currentOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Proceed to the sell phase...");
+      strategyState = IntelligentStrategyState.NEED_SELL;
+      executeSellPhase();
+    }
+
+
+  }
+
+  private boolean isLatestOrderStillAvailable() throws ExchangeNetworkException, TradingApiException {
+    final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
+    for (final OpenOrder myOrder : myOrders) {
+      if (myOrder.getId().equals(currentOrder.getId())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
     LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
+    if (currentOrder != null) {
+      String errorMsg = "The BUY phase is to be executed, but there is still an open order '" + currentOrder + "'. This should never happen. Stop the bot!";
+      LOG.error(() -> errorMsg);
+      throw new StrategyException(errorMsg);
+    }
+
     if (marketMovedUp()) {
       LOG.info(() -> market.getName() + " BUY phase - The market moved up. Place a BUY order on the exchange -->");
       final BigDecimal piecesToBuy = getAmountOfPiecesToBuy();
@@ -151,7 +201,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
       LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderId);
 
-      // update last order details
       currentOrder = new OrderState(orderId, OrderType.BUY, currentMarketPrice, piecesToBuy);
       strategyState = IntelligentStrategyState.WAIT_FOR_BUY;
     } else {
@@ -182,6 +231,12 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       LOG.info(() -> market.getName() + " Current market price is a new minimum price. Update lowest price from " + new DecimalFormat(DECIMAL_FORMAT).format(lowestPrice) + " to "+ new DecimalFormat(DECIMAL_FORMAT).format(currentMarketPrice));
       lowestPrice = currentMarketPrice;
     }
+  }
+
+  private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
+    LOG.info(() -> market.getName() + " SELL phase - create a SELL order for the last sucessfull BUY.");
+
+    // TODO
   }
 
   private void computeInitialStrategyState() {
