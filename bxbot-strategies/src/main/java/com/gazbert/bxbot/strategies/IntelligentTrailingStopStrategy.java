@@ -27,7 +27,6 @@ import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
 import com.gazbert.bxbot.trading.api.*;
-import com.google.common.base.MoreObjects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
@@ -35,7 +34,6 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
-import java.util.List;
 import java.util.UUID;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
@@ -52,20 +50,33 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   /** The market this strategy is trading on. */
   private Market market;
 
-  /** The state of the order. */
-  private OrderState lastOrder;
+  private IntelligentStrategyState strategyState;
 
   /**
-   * The counter currency amount to use when placing the buy order. This was loaded from the
-   * strategy entry in the {project-root}/config/strategies.yaml config file.
-   */
-  private BigDecimal counterCurrencyBuyOrderAmount;
-
-  /**
-   * The minimum % gain was to achieve before placing a SELL oder. This was loaded from the strategy
+   * The minimum % gain to reach according to the recorded minimum before placing a BUY oder. This was loaded from the strategy
    * entry in the {project-root}/config/strategies.yaml config file.
    */
-  private BigDecimal minimumPercentageGain;
+  private BigDecimal configuredInitialPercentageGainNeededToPlaceBuyOrder;
+  /**
+   * The % of the the available counter currency balance to be used for buy orders. This was loaded from the strategy
+   * entry in the {project-root}/config/strategies.yaml config file.
+   */
+  private BigDecimal configuredPercentageOfCounterCurrencyBalanceToUse;
+  /**
+   * The emergency stop that should always be left over in the counter currency balance.
+   * This is an entry in the {project-root}/config/strategies.yaml config file.
+   * It should be the same as the value of 'emergencyStopBalance' in the {project-root}/config/engine.yaml
+   */
+  private BigDecimal configuredEmergencyStop;
+
+
+  /* market data downloaded and stored during the engine lifetime */
+  private BigDecimal currentMarketPrice;
+  private BigDecimal lowestPrice;
+
+  /* used to store the latest executed order */
+  private OrderState currentOrder;
+
 
   /**
    * Initialises the Trading Strategy. Called once by the Trading Engine when the bot starts up;
@@ -97,453 +108,96 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
    */
   @Override
   public void execute() throws StrategyException {
-    LOG.info(() -> market.getName() + " Checking order status...");
 
     try {
-      // Grab the latest order book for the market.
-      final MarketOrderBook orderBook = tradingApi.getMarketOrders(market.getId());
-
-      final List<MarketOrder> buyOrders = orderBook.getBuyOrders();
-      if (buyOrders.isEmpty()) {
-        LOG.warn(
-            () ->
-                "Exchange returned empty Buy Orders. Ignoring this trade window. OrderBook: "
-                    + orderBook);
-        return;
+      if (strategyState == null) {
+        LOG.info(() -> market.getName() + " First time that the strategy has been called - get the initial strategy state.");
+        computeInitialStrategyState();
+        LOG.info(() -> market.getName() + " Initial strategy state computed: " + this.strategyState);
       }
 
-      final List<MarketOrder> sellOrders = orderBook.getSellOrders();
-      if (sellOrders.isEmpty()) {
-        LOG.warn(
-            () ->
-                "Exchange returned empty Sell Orders. Ignoring this trade window. OrderBook: "
-                    + orderBook);
-        return;
+      updateMarketPrices();
+      switch(strategyState) {
+        case NEED_BUY:
+          executeBuyPhase();
+          break;
+        case NEED_SELL:
+          break;
+        case WAIT_FOR_BUY:
+          break;
+        default:
+          throw new StrategyException("Unknown strategy state encounted: " + strategyState);
       }
-
-      // Get the current BID and ASK spot prices.
-      final BigDecimal currentBidPrice = buyOrders.get(0).getPrice();
-      final BigDecimal currentAskPrice = sellOrders.get(0).getPrice();
-
-      LOG.info(
-          () ->
-              market.getName()
-                  + " Current BID price="
-                  + new DecimalFormat(DECIMAL_FORMAT).format(currentBidPrice));
-      LOG.info(
-          () ->
-              market.getName()
-                  + " Current ASK price="
-                  + new DecimalFormat(DECIMAL_FORMAT).format(currentAskPrice));
-
-      // Is this the first time the Strategy has been called? If yes, we initialise the OrderState
-      // so we can keep
-      // track of orders during later trace cycles.
-      if (lastOrder == null) {
-        LOG.info(
-            () ->
-                market.getName()
-                    + " First time Strategy has been called - creating new OrderState object.");
-        lastOrder = new OrderState();
-      }
-
-      // Always handy to log what the last order was during each trace cycle.
-      LOG.info(() -> market.getName() + " Last Order was: " + lastOrder);
-
-      // Execute the appropriate algorithm based on the last order type.
-      if (lastOrder.type == OrderType.BUY) {
-        executeAlgoForWhenLastOrderWasBuy();
-
-      } else if (lastOrder.type == OrderType.SELL) {
-        executeAlgoForWhenLastOrderWasSell(currentBidPrice, currentAskPrice);
-
-      } else if (lastOrder.type == null) {
-        executeAlgoForWhenLastOrderWasNone(currentBidPrice);
-      }
-
-    } catch (ExchangeNetworkException e) {
-      // Your timeout handling code could go here.
-      // We are just going to log it and swallow it, and wait for next trade cycle.
-      LOG.error(
-          () ->
-              market.getName()
-                  + " Failed to get market orders because Exchange threw network exception. "
-                  + "Waiting until next trade cycle.",
-          e);
-
-    } catch (TradingApiException e) {
-      // Your error handling code could go here...
+    } catch (TradingApiException | ExchangeNetworkException e) {
       // We are just going to re-throw as StrategyException for engine to deal with - it will
       // shutdown the bot.
       LOG.error(
           market.getName()
-              + " Failed to get market orders because Exchange threw TradingApi exception. "
+              + " Failed to perform the strategy because Exchange threw TradingApiException or ExchangeNetworkexception. "
               + "Telling Trading Engine to shutdown bot!",
           e);
       throw new StrategyException(e);
     }
   }
 
-  /**
-   * Algo for executing when the Trading Strategy is invoked for the first time. We start off with a
-   * buy order at current BID price.
-   *
-   * @param currentBidPrice the current market BID price.
-   * @throws StrategyException if an unexpected exception is received from the Exchange Adapter.
-   *     Throwing this exception indicates we want the Trading Engine to shutdown the bot.
-   */
-  private void executeAlgoForWhenLastOrderWasNone(BigDecimal currentBidPrice)
-      throws StrategyException {
-    LOG.info(
-        () ->
-            market.getName()
-                + " OrderType is NONE - placing new BUY order at ["
-                + new DecimalFormat(DECIMAL_FORMAT).format(currentBidPrice)
-                + "]");
+  private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
+    LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
+    if (marketMovedUp()) {
+      LOG.info(() -> market.getName() + " BUY phase - The market moved up. Place a BUY order on the exchange -->");
+      final BigDecimal piecesToBuy = getAmountOfPiecesToBuy();
 
-    try {
-      // Calculate the amount of base currency (BTC) to buy for given amount of counter currency
-      // (USD).
-      final BigDecimal amountOfBaseCurrencyToBuy =
-          getAmountOfBaseCurrencyToBuyForGivenCounterCurrencyAmount(counterCurrencyBuyOrderAmount);
+      String orderId = "DUMMY_ORDER_ID_" + UUID.randomUUID().toString();
+      // TODO String orderId = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, currentMarketPrice);
 
-      // Send the order to the exchange
-      LOG.info(() -> market.getName() + " Sending initial BUY order to exchange --->");
-
-      lastOrder.id = "DUMMY_ORDER_ID_" + UUID.randomUUID().toString();
-      /*TODO
-      lastOrder.id =
-          tradingApi.createOrder(
-              market.getId(), OrderType.BUY, amountOfBaseCurrencyToBuy, currentBidPrice);*/
-
-      LOG.info(
-          () -> market.getName() + " Initial BUY Order sent successfully. ID: " + lastOrder.id);
+      LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderId);
 
       // update last order details
-      lastOrder.price = currentBidPrice;
-      lastOrder.type = OrderType.BUY;
-      lastOrder.amount = amountOfBaseCurrencyToBuy;
-
-    } catch (ExchangeNetworkException e) {
-      // Your timeout handling code could go here, e.g. you might want to check if the order
-      // actually made it to the exchange? And if not, resend it...
-      // We are just going to log it and swallow it, and wait for next trade cycle.
-      LOG.error(
-          () ->
-              market.getName()
-                  + " Initial order to BUY base currency failed because Exchange threw network "
-                  + "exception. Waiting until next trade cycle.",
-          e);
-
-    } catch (TradingApiException e) {
-      // Your error handling code could go here...
-      // We are just going to re-throw as StrategyException for engine to deal with - it will
-      // shutdown the bot.
-      LOG.error(
-          () ->
-              market.getName()
-                  + " Initial order to BUY base currency failed because Exchange threw TradingApi "
-                  + "exception. Telling Trading Engine to shutdown bot!",
-          e);
-      throw new StrategyException(e);
+      currentOrder = new OrderState(orderId, OrderType.BUY, currentMarketPrice, piecesToBuy);
+      strategyState = IntelligentStrategyState.WAIT_FOR_BUY;
+    } else {
+        LOG.info(() -> market.getName() + " BUY phase - The market gain needed to place a BUY order was not reached. Wait for the next trading strategy tick.");
     }
   }
 
-  /**
-   * Algo for executing when last order we placed on the exchanges was a BUY.
-   *
-   * <p>If last buy order filled, we try and sell at a profit.
-   *
-   * @throws StrategyException if an unexpected exception is received from the Exchange Adapter.
-   *     Throwing this exception indicates we want the Trading Engine to shutdown the bot.
-   */
-  private void executeAlgoForWhenLastOrderWasBuy() throws StrategyException {
-    try {
-      // Fetch our current open orders and see if the buy order is still outstanding/open on the
-      // exchange
-      final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
-      boolean lastOrderFound = false;
-      for (final OpenOrder myOrder : myOrders) {
-        if (myOrder.getId().equals(lastOrder.id)) {
-          lastOrderFound = true;
-          break;
-        }
-      }
+  private boolean marketMovedUp() {
+    // TODO take profit and loss counter into account
+    BigDecimal currentPercentageGainNeededForBuy = configuredInitialPercentageGainNeededToPlaceBuyOrder;
+    BigDecimal amountToMoveUp = lowestPrice.multiply(currentPercentageGainNeededForBuy);
+    BigDecimal goalToReach = lowestPrice.add(amountToMoveUp);
+    DecimalFormat decimalFormat = new DecimalFormat(DECIMAL_FORMAT);
+    LOG.info(() -> market.getName() + " According to the minimum seen price '" + decimalFormat.format(lowestPrice) + " " + market.getCounterCurrency() + "'"
+            + " and the current needed gain of '" + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(new BigDecimal(100)))
+            + "%', the price must go up '" + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency()
+            +"' to " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency() + ". The current market price is '" + decimalFormat.format(currentMarketPrice) + " " + market.getCounterCurrency() + "'.");
+    return currentMarketPrice.compareTo(goalToReach)>0;
+  }
 
-      // If the order is not there, it must have all filled.
-      if (!lastOrderFound) {
-        LOG.info(
-            () ->
-                market.getName()
-                    + " ^^^ Yay!!! Last BUY Order Id ["
-                    + lastOrder.id
-                    + "] filled at ["
-                    + lastOrder.price
-                    + "]");
-
-        /*
-         * The last buy order was filled, so lets see if we can send a new sell order.
-         *
-         * IMPORTANT - new sell order ASK price must be > (last order price + exchange fees)
-         *             because:
-         *
-         * 1. If we put sell amount in as same amount as previous buy, the exchange barfs because
-         *    we don't have enough units to cover the transaction fee.
-         * 2. We could end up selling at a loss.
-         *
-         * For this example strategy, we're just going to add 2% (taken from the
-         * 'minimum-percentage-gain' config item in the {project-root}/config/strategies.yaml
-         * config file) on top of previous bid price to make a little profit and cover the exchange
-         * fees.
-         *
-         * Your algo will have other ideas on how much profit to make and when to apply the
-         * exchange fees - you could try calling the
-         * TradingApi#getPercentageOfBuyOrderTakenForExchangeFee() and
-         * TradingApi#getPercentageOfSellOrderTakenForExchangeFee() when calculating the order to
-         * send to the exchange...
-         */
-        LOG.info(
-            () ->
-                market.getName()
-                    + " Percentage profit (in decimal) to make for the sell order is: "
-                    + minimumPercentageGain);
-
-        final BigDecimal amountToAdd = lastOrder.price.multiply(minimumPercentageGain);
-        LOG.info(
-            () -> market.getName() + " Amount to add to last buy order fill price: " + amountToAdd);
-
-        // Most exchanges (if not all) use 8 decimal places.
-        // It's usually best to round up the ASK price in your calculations to maximise gains.
-        final BigDecimal newAskPrice =
-            lastOrder.price.add(amountToAdd).setScale(8, RoundingMode.HALF_UP);
-        LOG.info(
-            () ->
-                market.getName()
-                    + " Placing new SELL order at ask price ["
-                    + new DecimalFormat(DECIMAL_FORMAT).format(newAskPrice)
-                    + "]");
-
-        LOG.info(() -> market.getName() + " Sending new SELL order to exchange --->");
-
-        // Build the new sell order
-        lastOrder.id = "DUMMY_ORDER_ID_" + UUID.randomUUID().toString();
-        /* TODO
-        lastOrder.id =
-            tradingApi.createOrder(market.getId(), OrderType.SELL, lastOrder.amount, newAskPrice);*/
-        LOG.info(() -> market.getName() + " New SELL Order sent successfully. ID: " + lastOrder.id);
-
-        // update last order state
-        lastOrder.price = newAskPrice;
-        lastOrder.type = OrderType.SELL;
-      } else {
-
-        /*
-         * BUY order has not filled yet.
-         * Could be nobody has jumped on it yet... or the order is only part filled... or market
-         * has gone up and we've been outbid and have a stuck buy order. In which case, we have to
-         * wait for the market to fall for the order to fill... or you could tweak this code to
-         * cancel the current order and raise your bid - remember to deal with any part-filled
-         * orders!
-         */
-        LOG.info(
-            () ->
-                market.getName()
-                    + " !!! Still have BUY Order "
-                    + lastOrder.id
-                    + " waiting to fill at ["
-                    + lastOrder.price
-                    + "] - holding last BUY order...");
-      }
-
-    } catch (ExchangeNetworkException e) {
-      // Your timeout handling code could go here, e.g. you might want to check if the order
-      // actually
-      // made it to the exchange? And if not, resend it...
-      // We are just going to log it and swallow it, and wait for next trade cycle.
-      LOG.error(
-          () ->
-              market.getName()
-                  + " New Order to SELL base currency failed because Exchange threw network "
-                  + "exception. Waiting until next trade cycle. Last Order: "
-                  + lastOrder,
-          e);
-
-    } catch (TradingApiException e) {
-      // Your error handling code could go here...
-      // We are just going to re-throw as StrategyException for engine to deal with - it will
-      // shutdown the bot.
-      LOG.error(
-          () ->
-              market.getName()
-                  + " New order to SELL base currency failed because Exchange threw TradingApi "
-                  + "exception. Telling Trading Engine to shutdown bot! Last Order: "
-                  + lastOrder,
-          e);
-      throw new StrategyException(e);
+  private void updateMarketPrices() throws ExchangeNetworkException, TradingApiException {
+    currentMarketPrice = tradingApi.getLatestMarketPrice(market.getId());
+    LOG.info(() -> market.getName() + " Updated latest market price: " + new DecimalFormat(DECIMAL_FORMAT).format(currentMarketPrice) );
+    if (lowestPrice == null) {
+      LOG.info(() -> market.getName() + " Set first lowest price to "+ new DecimalFormat(DECIMAL_FORMAT).format(currentMarketPrice));
+      lowestPrice = currentMarketPrice;
+    } else if (currentMarketPrice.compareTo(lowestPrice) < 0 ) {
+      LOG.info(() -> market.getName() + " Current market price is a new minimum price. Update lowest price from " + new DecimalFormat(DECIMAL_FORMAT).format(lowestPrice) + " to "+ new DecimalFormat(DECIMAL_FORMAT).format(currentMarketPrice));
+      lowestPrice = currentMarketPrice;
     }
   }
 
-  /**
-   * Algo for executing when last order we placed on the exchange was a SELL.
-   *
-   * <p>If last sell order filled, we send a new buy order to the exchange.
-   *
-   * @param currentBidPrice the current market BID price.
-   * @param currentAskPrice the current market ASK price.
-   * @throws StrategyException if an unexpected exception is received from the Exchange Adapter.
-   *     Throwing this exception indicates we want the Trading Engine to shutdown the bot.
-   */
-  private void executeAlgoForWhenLastOrderWasSell(
-      BigDecimal currentBidPrice, BigDecimal currentAskPrice) throws StrategyException {
-    try {
-      final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
-      boolean lastOrderFound = false;
-      for (final OpenOrder myOrder : myOrders) {
-        if (myOrder.getId().equals(lastOrder.id)) {
-          lastOrderFound = true;
-          break;
-        }
-      }
-
-      // If the order is not there, it must have all filled.
-      if (!lastOrderFound) {
-        LOG.info(
-            () ->
-                market.getName()
-                    + " ^^^ Yay!!! Last SELL Order Id ["
-                    + lastOrder.id
-                    + "] filled at ["
-                    + lastOrder.price
-                    + "]");
-
-        // Get amount of base currency (BTC) we can buy for given counter currency (USD) amount.
-        final BigDecimal amountOfBaseCurrencyToBuy =
-            getAmountOfBaseCurrencyToBuyForGivenCounterCurrencyAmount(
-                counterCurrencyBuyOrderAmount);
-
-        LOG.info(
-            () ->
-                market.getName()
-                    + " Placing new BUY order at bid price ["
-                    + new DecimalFormat(DECIMAL_FORMAT).format(currentBidPrice)
-                    + "]");
-
-        LOG.info(() -> market.getName() + " Sending new BUY order to exchange --->");
-
-        // Send the buy order to the exchange.
-        lastOrder.id = "DUMMY_ORDER_ID_" + UUID.randomUUID().toString();
-        /*TODO
-        lastOrder.id =
-            tradingApi.createOrder(
-                market.getId(), OrderType.BUY, amountOfBaseCurrencyToBuy, currentBidPrice);*/
-        LOG.info(() -> market.getName() + " New BUY Order sent successfully. ID: " + lastOrder.id);
-
-        // update last order details
-        lastOrder.price = currentBidPrice;
-        lastOrder.type = OrderType.BUY;
-        lastOrder.amount = amountOfBaseCurrencyToBuy;
-      } else {
-
-        /*
-         * SELL order not filled yet.
-         * Could be nobody has jumped on it yet... or the order is only part filled... or market
-         * has gone down and we've been undercut and have a stuck sell order. In which case, we
-         * have to wait for market to recover for the order to fill... or you could tweak this
-         * code to cancel the current order and lower your ask - remember to deal with any
-         * part-filled orders!
-         */
-        if (currentAskPrice.compareTo(lastOrder.price) < 0) {
-          LOG.info(
-              () ->
-                  market.getName()
-                      + " <<< Current ask price ["
-                      + currentAskPrice
-                      + "] is LOWER then last order price ["
-                      + lastOrder.price
-                      + "] - holding last SELL order...");
-
-        } else if (currentAskPrice.compareTo(lastOrder.price) > 0) {
-          LOG.error(
-              () ->
-                  market.getName()
-                      + " >>> Current ask price ["
-                      + currentAskPrice
-                      + "] is HIGHER than last order price ["
-                      + lastOrder.price
-                      + "] - IMPOSSIBLE! BX-bot must have sold?????");
-
-        } else if (currentAskPrice.compareTo(lastOrder.price) == 0) {
-          LOG.info(
-              () ->
-                  market.getName()
-                      + " === Current ask price ["
-                      + currentAskPrice
-                      + "] is EQUAL to last order price ["
-                      + lastOrder.price
-                      + "] - holding last SELL order...");
-        }
-      }
-    } catch (ExchangeNetworkException e) {
-      // Your timeout handling code could go here, e.g. you might want to check if the order
-      // actually made it to the exchange? And if not, resend it...
-      // We are just going to log it and swallow it, and wait for next trade cycle.
-      LOG.error(
-          () ->
-              market.getName()
-                  + " New Order to BUY base currency failed because Exchange threw network "
-                  + "exception. Waiting until next trade cycle. Last Order: "
-                  + lastOrder,
-          e);
-
-    } catch (TradingApiException e) {
-      // Your error handling code could go here...
-      // We are just going to re-throw as StrategyException for engine to deal with - it will
-      // shutdown the bot.
-      LOG.error(
-          () ->
-              market.getName()
-                  + " New order to BUY base currency failed because Exchange threw TradingApi "
-                  + "exception. Telling Trading Engine to shutdown bot! Last Order: "
-                  + lastOrder,
-          e);
-      throw new StrategyException(e);
-    }
+  private void computeInitialStrategyState() {
+    // TODO check for open orders and get order prices
+    strategyState = IntelligentStrategyState.NEED_BUY;
   }
 
-  /**
-   * Returns amount of base currency (BTC) to buy for a given amount of counter currency (USD) based
-   * on last market trade price.
-   *
-   * @param amountOfCounterCurrencyToTrade the amount of counter currency (USD) we have to trade
-   *     (buy) with.
-   * @return the amount of base currency (BTC) we can buy for the given counter currency (USD)
-   *     amount.
-   * @throws TradingApiException if an unexpected error occurred contacting the exchange.
-   * @throws ExchangeNetworkException if a request to the exchange has timed out.
-   */
-  private BigDecimal getAmountOfBaseCurrencyToBuyForGivenCounterCurrencyAmount(
-      BigDecimal amountOfCounterCurrencyToTrade)
-      throws TradingApiException, ExchangeNetworkException {
-
+  private BigDecimal getAmountOfPiecesToBuy() throws TradingApiException, ExchangeNetworkException, StrategyException {
+    final BigDecimal balanceToUseForBuyOrder = getBalanceToUseForBuyOrder();
     LOG.info(
         () ->
             market.getName()
                 + " Calculating amount of base currency ("
                 + market.getBaseCurrency()
                 + ") to buy for amount of counter currency "
-                + new DecimalFormat(DECIMAL_FORMAT).format(amountOfCounterCurrencyToTrade)
-                + " "
-                + market.getCounterCurrency());
-
-    // Fetch the last trade price
-    final BigDecimal lastTradePriceInUsdForOneBtc = tradingApi.getLatestMarketPrice(market.getId());
-    LOG.info(
-        () ->
-            market.getName()
-                + " Last trade price for 1 "
-                + market.getBaseCurrency()
-                + " was: "
-                + new DecimalFormat(DECIMAL_FORMAT).format(lastTradePriceInUsdForOneBtc)
+                + new DecimalFormat(DECIMAL_FORMAT).format(balanceToUseForBuyOrder)
                 + " "
                 + market.getCounterCurrency());
 
@@ -551,9 +205,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
      * Most exchanges (if not all) use 8 decimal places and typically round in favour of the
      * exchange. It's usually safest to round down the order quantity in your calculations.
      */
-    final BigDecimal amountOfBaseCurrencyToBuy =
-        amountOfCounterCurrencyToTrade.divide(
-            lastTradePriceInUsdForOneBtc, 8, RoundingMode.HALF_DOWN);
+    final BigDecimal amountOfPiecesInBaseCurrencyToBuy = balanceToUseForBuyOrder.divide(currentMarketPrice, 8, RoundingMode.HALF_DOWN);
 
     LOG.info(
         () ->
@@ -561,95 +213,103 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                 + " Amount of base currency ("
                 + market.getBaseCurrency()
                 + ") to BUY for "
-                + new DecimalFormat(DECIMAL_FORMAT).format(amountOfCounterCurrencyToTrade)
+                + new DecimalFormat(DECIMAL_FORMAT).format(balanceToUseForBuyOrder)
                 + " "
                 + market.getCounterCurrency()
                 + " based on last market trade price: "
-                + amountOfBaseCurrencyToBuy);
+                + amountOfPiecesInBaseCurrencyToBuy);
 
-    return amountOfBaseCurrencyToBuy;
+    return amountOfPiecesInBaseCurrencyToBuy;
   }
 
-  /**
-   * Loads the config for the strategy. We expect the 'counter-currency-buy-order-amount' and
-   * 'minimum-percentage-gain' config items to be present in the
-   * {project-root}/config/strategies.yaml config file.
-   *
-   * @param config the config for the Trading Strategy.
-   */
+  private BigDecimal getBalanceToUseForBuyOrder() throws ExchangeNetworkException, TradingApiException, StrategyException {
+    LOG.info(() -> market.getName() + " Fetching the available balance for the counter currency "+ market.getCounterCurrency());
+    BalanceInfo balanceInfo = tradingApi.getBalanceInfo();
+    final BigDecimal currentBalance = balanceInfo.getBalancesAvailable().get(market.getCounterCurrency());
+    if (currentBalance == null) {
+      final String errorMsg = "Failed to get current counter currency balance as '"+ market.getCounterCurrency()+ "' key in the balances map. Balances returned: " + balanceInfo.getBalancesAvailable();
+      LOG.error(() -> errorMsg);
+      throw new StrategyException(errorMsg);
+    } else {
+      LOG.info(() ->market.getName() + "Counter Currency balance available on exchange is ["
+              + new DecimalFormat(DECIMAL_FORMAT).format(currentBalance)
+              + "] "
+              + market.getCounterCurrency());
+    }
+
+    BigDecimal balanceAvailableForTrading = currentBalance.subtract(configuredEmergencyStop);
+    if (balanceAvailableForTrading.compareTo(BigDecimal.ZERO)<=0) {
+      String errorMsg = "No balance available for trading. When substracting the emergency stop, the remaining balance is " + new DecimalFormat(DECIMAL_FORMAT).format(balanceAvailableForTrading) + " " + market.getCounterCurrency();
+      LOG.error(() -> market.getName() + errorMsg);
+      throw new StrategyException(errorMsg);
+    }
+    LOG.info(() ->market.getName() + "Balance available after being reduced by the emergency stop: " + new DecimalFormat(DECIMAL_FORMAT).format(balanceAvailableForTrading) + " " + market.getCounterCurrency());
+    BigDecimal balanceToUseForBuyOrder = balanceAvailableForTrading.multiply(configuredPercentageOfCounterCurrencyBalanceToUse);
+    LOG.info(() ->market.getName() + "Balance to be used for trading, taking into consideration the configured trading percentage of "
+            + new DecimalFormat(DECIMAL_FORMAT).format(configuredPercentageOfCounterCurrencyBalanceToUse) + ": " + new DecimalFormat(DECIMAL_FORMAT).format(balanceToUseForBuyOrder) + " " + market.getCounterCurrency());
+    return balanceToUseForBuyOrder;
+  }
+
   private void getConfigForStrategy(StrategyConfig config) {
+    readInitialBuyPercentageGain(config);
+    readEmergencyStopBalance(config);
+    readPercentageOfCounterCurrencyBalanceToUse(config);
+  }
 
-    // Get counter currency buy amount...
-    final String counterCurrencyBuyOrderAmountFromConfigAsString =
-        config.getConfigItem("counter-currency-buy-order-amount");
-
-    if (counterCurrencyBuyOrderAmountFromConfigAsString == null) {
-      // game over
+  private void readEmergencyStopBalance(StrategyConfig config) {
+    final String configuredEmergencyStopAsString =
+            config.getConfigItem("configured-emergency-stop-balance");
+    if (configuredEmergencyStopAsString == null) {
       throw new IllegalArgumentException(
-          "Mandatory counter-currency-buy-order-amount value missing in strategy.xml config.");
+              "Mandatory configuration for the emergency stop to be substracted from the available balance is missing or missing a value in the strategy.xml config.");
     }
     LOG.info(
-        () ->
-            "<counter-currency-buy-order-amount> from config is: "
-                + counterCurrencyBuyOrderAmountFromConfigAsString);
+            () ->
+                    "<configured-emergency-stop-balance> from config is: " + configuredEmergencyStopAsString);
 
     // Will fail fast if value is not a number
-    counterCurrencyBuyOrderAmount = new BigDecimal(counterCurrencyBuyOrderAmountFromConfigAsString);
-    LOG.info(() -> "counterCurrencyBuyOrderAmount: " + counterCurrencyBuyOrderAmount);
+    configuredEmergencyStop = new BigDecimal(configuredEmergencyStopAsString);
+    LOG.info(() -> "configuredEmergencyStop is: " + configuredEmergencyStop);
+  }
 
-    // Get min % gain...
-    final String minimumPercentageGainFromConfigAsString =
-        config.getConfigItem("minimum-percentage-gain");
-    if (minimumPercentageGainFromConfigAsString == null) {
+  private void readPercentageOfCounterCurrencyBalanceToUse(StrategyConfig config) {
+    final String percentageToUseAsString =
+            config.getConfigItem("percentage-of-counter-currency-balance-to-use");
+    if (percentageToUseAsString == null) {
       // game over
       throw new IllegalArgumentException(
-          "Mandatory minimum-percentage-gain value missing in strategy.xml config.");
+              "Mandatory percentage of counter currency balance to use for trading is missing a value in the strategy.xml config.");
+    }
+    LOG.info(
+            () ->
+                    "<percentage-of-counter-currency-balance-to-use> from config is: " + percentageToUseAsString);
+
+    // Will fail fast if value is not a number
+    final BigDecimal percentageOfBalanceToUseForTrading =
+            new BigDecimal(percentageToUseAsString);
+    configuredPercentageOfCounterCurrencyBalanceToUse = percentageOfBalanceToUseForTrading.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
+
+    LOG.info(() -> "percentageOfBalanceToUseForTrading in decimal is: " + configuredPercentageOfCounterCurrencyBalanceToUse);
+  }
+
+  private void readInitialBuyPercentageGain(StrategyConfig config) {
+    final String initialBuyPercentageGainAsString =
+        config.getConfigItem("initial-percentage-gain-needed-to-place-buy-order");
+    if (initialBuyPercentageGainAsString == null) {
+      // game over
+      throw new IllegalArgumentException(
+          "Mandatory initial-percentage-gain-needed-to-place-buy-order value missing in strategy.xml config.");
     }
     LOG.info(
         () ->
-            "<minimum-percentage-gain> from config is: " + minimumPercentageGainFromConfigAsString);
+            "<initial-percentage-gain-needed-to-place-buy-order> from config is: " + initialBuyPercentageGainAsString);
 
     // Will fail fast if value is not a number
     final BigDecimal minimumPercentageGainFromConfig =
-        new BigDecimal(minimumPercentageGainFromConfigAsString);
-    minimumPercentageGain =
+        new BigDecimal(initialBuyPercentageGainAsString);
+    configuredInitialPercentageGainNeededToPlaceBuyOrder =
         minimumPercentageGainFromConfig.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
 
-    LOG.info(() -> "minimumPercentageGain in decimal is: " + minimumPercentageGain);
-  }
-
-  /**
-   * Models the state of an Order placed on the exchange.
-   *
-   * <p>Typically, you would maintain order state in a database or use some other persistence method
-   * to recover from restarts and for audit purposes. In this example, we are storing the state in
-   * memory to keep it simple.
-   */
-  private static class OrderState {
-
-    /** Id - default to null. */
-    private String id = null;
-
-    /**
-     * Type: buy/sell. We default to null which means no order has been placed yet, i.e. we've just
-     * started!
-     */
-    private OrderType type = null;
-
-    /** Price to buy/sell at - default to zero. */
-    private BigDecimal price = BigDecimal.ZERO;
-
-    /** Number of units to buy/sell - default to zero. */
-    private BigDecimal amount = BigDecimal.ZERO;
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("id", id)
-          .add("type", type)
-          .add("price", price)
-          .add("amount", amount)
-          .toString();
-    }
+    LOG.info(() -> "configuredInitialPercentageGainNeededToPlaceBuyOrder in decimal is: " + configuredInitialPercentageGainNeededToPlaceBuyOrder);
   }
 }
