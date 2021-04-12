@@ -16,7 +16,7 @@ public class OrderState {
     private final BigDecimal amount;
     private int orderNotExecutedCount;
 
-    OrderState(String id, OrderType type, BigDecimal price, BigDecimal amount) {
+    OrderState(String id, OrderType type, BigDecimal amount, BigDecimal price) {
         this.id = id;
         this.type = type;
         this.price = price;
@@ -37,12 +37,6 @@ public class OrderState {
 
     public BigDecimal getAmount() {
         return amount;
-    }
-
-    public BigDecimal getTotalIncludingFees(BigDecimal percentageOfFees) {
-        BigDecimal total = getPrice().multiply(getAmount());
-        BigDecimal fees = total.multiply(percentageOfFees);
-        return total.add(fees);
     }
 
     @Override
