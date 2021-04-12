@@ -70,6 +70,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
    */
   private BigDecimal configuredEmergencyStop;
 
+  private BigDecimal configuredSellStopLimitPercentageBelowBreakEven;
+  private BigDecimal configuredSellStopLimitPercentageAboveBreakEven;
 
   /* market data downloaded and stored during the engine lifetime */
   private BigDecimal currentMarketPrice;
@@ -214,10 +216,11 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     BigDecimal amountToMoveUp = lowestPrice.multiply(currentPercentageGainNeededForBuy);
     BigDecimal goalToReach = lowestPrice.add(amountToMoveUp);
     DecimalFormat decimalFormat = new DecimalFormat(DECIMAL_FORMAT);
-    LOG.info(() -> market.getName() + " According to the minimum seen price '" + decimalFormat.format(lowestPrice) + " " + market.getCounterCurrency() + "'"
-            + " and the current needed gain of '" + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(new BigDecimal(100)))
-            + "%', the price must go up '" + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency()
-            +"' to " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency() + ". The current market price is '" + decimalFormat.format(currentMarketPrice) + " " + market.getCounterCurrency() + "'.");
+    LOG.info(() -> market.getName() + " Price needed: " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency()
+            + ". Current price: " + decimalFormat.format(currentMarketPrice) + " " + market.getCounterCurrency()
+            + ". Minimum seen price :" + decimalFormat.format(lowestPrice) + " " + market.getCounterCurrency() + "'"
+            + ". Gain needed from this minimum price '" + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(new BigDecimal(100)))
+            + "%' = '" + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency());
     return currentMarketPrice.compareTo(goalToReach)>0;
   }
 
@@ -235,8 +238,27 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
   private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
     LOG.info(() -> market.getName() + " SELL phase - create a SELL order for the last sucessfull BUY.");
+    BigDecimal breakEven = calculateBreakEven();
+    BigDecimal aboveBreakEvenPriceLimit = currentMarketPrice.subtract(currentMarketPrice.multiply(configuredSellStopLimitPercentageAboveBreakEven));
+    if(aboveBreakEvenPriceLimit.compareTo(breakEven) >= 0)  {
+      LOG.info(() -> market.getName() + " SELL phase - the minimum needed gain is reached. Create a sell order at '" + new DecimalFormat(DECIMAL_FORMAT).format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' above the break even");
+      // TODO
+    } else {
+      BigDecimal belowBreakEvenPriceLimit = currentMarketPrice.subtract(currentMarketPrice.multiply(configuredSellStopLimitPercentageBelowBreakEven));
+      LOG.info(() -> market.getName() + " SELL phase - still below break even. Create a sell order at '" + new DecimalFormat(DECIMAL_FORMAT).format(belowBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' below the break even (above pricelimit would be: '"+ new DecimalFormat(DECIMAL_FORMAT).format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "')");
+      // TODO
+    }
+  }
 
-    // TODO
+  private BigDecimal calculateBreakEven() throws TradingApiException, ExchangeNetworkException {
+    /* (p1 * (1+f)) / (1-f) <= p2 */
+    BigDecimal buyFees = (new BigDecimal(1)).add(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId()));
+    BigDecimal sellFees = (new BigDecimal(1)).subtract(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId()));
+
+    BigDecimal totalBuy = currentOrder.getPrice().multiply(buyFees);
+    BigDecimal estimatedBreakEven = totalBuy.divide(sellFees, 8, RoundingMode.HALF_UP);
+    LOG.info(() -> market.getName() + " The estimated break even for selling would be '" +new DecimalFormat(DECIMAL_FORMAT).format(estimatedBreakEven ) + market.getCounterCurrency() + "'");
+    return estimatedBreakEven;
   }
 
   private void computeInitialStrategyState() {
@@ -306,9 +328,11 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   }
 
   private void getConfigForStrategy(StrategyConfig config) {
-    readInitialBuyPercentageGain(config);
+    configuredInitialPercentageGainNeededToPlaceBuyOrder = readPercentageConfigValue(config, "initial-percentage-gain-needed-to-place-buy-order");
+    configuredPercentageOfCounterCurrencyBalanceToUse = readPercentageConfigValue(config,"percentage-of-counter-currency-balance-to-use");
+    configuredSellStopLimitPercentageBelowBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-below-break-even");
+    configuredSellStopLimitPercentageAboveBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-above-break-even");
     readEmergencyStopBalance(config);
-    readPercentageOfCounterCurrencyBalanceToUse(config);
   }
 
   private void readEmergencyStopBalance(StrategyConfig config) {
@@ -327,44 +351,18 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     LOG.info(() -> "configuredEmergencyStop is: " + configuredEmergencyStop);
   }
 
-  private void readPercentageOfCounterCurrencyBalanceToUse(StrategyConfig config) {
-    final String percentageToUseAsString =
-            config.getConfigItem("percentage-of-counter-currency-balance-to-use");
-    if (percentageToUseAsString == null) {
-      // game over
+  private BigDecimal readPercentageConfigValue(StrategyConfig config, String configKeyToPercentageValue) {
+    final String initialPercentageValueAsString =
+            config.getConfigItem(configKeyToPercentageValue);
+    if (initialPercentageValueAsString == null) {
       throw new IllegalArgumentException(
-              "Mandatory percentage of counter currency balance to use for trading is missing a value in the strategy.xml config.");
+              "Mandatory <" + configKeyToPercentageValue + "> misses a value in strategy.xml config.");
     }
-    LOG.info(
-            () ->
-                    "<percentage-of-counter-currency-balance-to-use> from config is: " + percentageToUseAsString);
+    LOG.info(() -> "<" + configKeyToPercentageValue + "> from config is: " + initialPercentageValueAsString);
 
-    // Will fail fast if value is not a number
-    final BigDecimal percentageOfBalanceToUseForTrading =
-            new BigDecimal(percentageToUseAsString);
-    configuredPercentageOfCounterCurrencyBalanceToUse = percentageOfBalanceToUseForTrading.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
+    BigDecimal initialPercentageValue = new BigDecimal(initialPercentageValueAsString);
 
-    LOG.info(() -> "percentageOfBalanceToUseForTrading in decimal is: " + configuredPercentageOfCounterCurrencyBalanceToUse);
-  }
-
-  private void readInitialBuyPercentageGain(StrategyConfig config) {
-    final String initialBuyPercentageGainAsString =
-        config.getConfigItem("initial-percentage-gain-needed-to-place-buy-order");
-    if (initialBuyPercentageGainAsString == null) {
-      // game over
-      throw new IllegalArgumentException(
-          "Mandatory initial-percentage-gain-needed-to-place-buy-order value missing in strategy.xml config.");
-    }
-    LOG.info(
-        () ->
-            "<initial-percentage-gain-needed-to-place-buy-order> from config is: " + initialBuyPercentageGainAsString);
-
-    // Will fail fast if value is not a number
-    final BigDecimal minimumPercentageGainFromConfig =
-        new BigDecimal(initialBuyPercentageGainAsString);
-    configuredInitialPercentageGainNeededToPlaceBuyOrder =
-        minimumPercentageGainFromConfig.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
-
-    LOG.info(() -> "configuredInitialPercentageGainNeededToPlaceBuyOrder in decimal is: " + configuredInitialPercentageGainNeededToPlaceBuyOrder);
+    BigDecimal initialPercentageValueInDecimal = initialPercentageValue.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
+    return initialPercentageValueInDecimal;
   }
 }

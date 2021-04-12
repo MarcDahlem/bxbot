@@ -42,3 +42,6 @@ strategies:
       percentage-of-counter-currency-balance-to-use: 50
       configured-emergency-stop-balance: 50
       initial-percentage-gain-needed-to-place-buy-order: 0.1
+      sell-stop-limit-percentage-below-break-even: 1
+      sell-stop-limit-percentage-above-break-even: 0.2
+

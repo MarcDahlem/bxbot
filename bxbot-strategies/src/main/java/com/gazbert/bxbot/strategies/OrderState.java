@@ -1,6 +1,8 @@
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.OrderType;
+import com.gazbert.bxbot.trading.api.TradingApi;
 import com.google.common.base.MoreObjects;
 
 import java.math.BigDecimal;
@@ -13,7 +15,7 @@ public class OrderState {
     private final BigDecimal price;
     private final BigDecimal amount;
     private int orderNotExecutedCount;
-    
+
     OrderState(String id, OrderType type, BigDecimal price, BigDecimal amount) {
         this.id = id;
         this.type = type;
@@ -35,6 +37,12 @@ public class OrderState {
 
     public BigDecimal getAmount() {
         return amount;
+    }
+
+    public BigDecimal getTotalIncludingFees(BigDecimal percentageOfFees) {
+        BigDecimal total = getPrice().multiply(getAmount());
+        BigDecimal fees = total.multiply(percentageOfFees);
+        return total.add(fees);
     }
 
     @Override
