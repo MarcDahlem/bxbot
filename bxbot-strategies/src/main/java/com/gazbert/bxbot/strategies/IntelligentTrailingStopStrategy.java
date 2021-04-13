@@ -120,13 +120,14 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   public void execute() throws StrategyException {
 
     try {
+
+      updateMarketPrices();
       if (strategyState == null) {
         LOG.info(() -> market.getName() + " First time that the strategy has been called - get the initial strategy state.");
         computeInitialStrategyState();
         LOG.info(() -> market.getName() + " Initial strategy state computed: " + this.strategyState);
       }
       intelligentLimitAdapter.printCurrentStatistics();
-      updateMarketPrices();
       switch(strategyState) {
         case NEED_BUY:
           executeBuyPhase();
@@ -163,7 +164,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       if(currentBuyOrder.getPrice().compareTo(currentTicker.getLast())>0) {
         LOG.info(() -> market.getName() + " The current buy order's price '" +decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
                 + "' is above the current market price ('" +decimalFormat.format(currentTicker.getLast())+" " + market.getCounterCurrency() + "'). Cancel the order '" + currentBuyOrder.getId() + "'.");
-        tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
+        if(!debugModeEnabled) tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
         LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Reset the strategy to the buy phase...");
         currentBuyOrder = null;
         strategyState = IntelligentStrategyState.NEED_BUY;
@@ -227,7 +228,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         if (sellPrice.compareTo(currentSellOrder.getPrice())>0) {
           LOG.info(() -> market.getName() + " The new SELL order's price '" +decimalFormat.format(sellPrice) + " " + market.getCounterCurrency()
                   + "' is higher than the the current sell order's price ('" +decimalFormat.format(currentSellOrder.getPrice())+" " + market.getCounterCurrency() + "'). Cancel the current sell order '" + currentSellOrder.getId() + "' and trail the stop according to the higher stop limit.");
-          tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
+          if (!debugModeEnabled) tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
           LOG.info(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' successfully canceled. Reset the strategy to the sell phase...");
           currentSellOrder = null;
           strategyState = IntelligentStrategyState.NEED_SELL;
@@ -283,7 +284,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   }
 
   private boolean marketMovedUp() {
-    // TODO take profit and loss counter into account
     BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
     BigDecimal amountToMoveUp = lowestPrice.multiply(currentPercentageGainNeededForBuy);
     BigDecimal goalToReach = lowestPrice.add(amountToMoveUp);
@@ -355,9 +355,33 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     return estimatedBreakEven;
   }
 
-  private void computeInitialStrategyState() {
-    // TODO check for open orders and get order types with prices and amount
-    strategyState = IntelligentStrategyState.NEED_BUY;
+  private void computeInitialStrategyState() throws ExchangeNetworkException, TradingApiException, StrategyException {
+    final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
+    //TODO check balance
+    if (myOrders.isEmpty()) {
+      LOG.info(() -> market.getName() + " No open orders found. No resume needed, set current phase to BUY");
+      strategyState = IntelligentStrategyState.NEED_BUY;
+      return;
+    }
+    if (myOrders.size() != 1) {
+      String errorMsg = " More than one open order (" + myOrders.size() + " open orders) in the market. Impossible to resume strategy.";
+      LOG.info(() -> market.getName() + errorMsg);
+      throw new StrategyException(errorMsg);
+    }
+
+    OpenOrder currentOpenOrder = myOrders.get(0);
+    LOG.info(() -> market.getName() +  " Found an open order on the market: '" + currentOpenOrder + "'. Try to calculate the resuming state...");
+    if(currentOpenOrder.getType() == OrderType.BUY) {
+      LOG.info(() -> market.getName() +  " The current order is a BUY order. Resume with waiting for BUY to be fulfilled");
+      currentBuyOrder = new OrderState(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getOriginalQuantity(), currentOpenOrder.getPrice());
+      strategyState = IntelligentStrategyState.WAIT_FOR_BUY;
+    } else {
+      LOG.info(() -> market.getName() +  " The current order is a SELL order. Resume with waiting for SELL to be fulfilled or changing SELL prices.");
+      BigDecimal estimatedBuyPrice = currentTicker.getLast().max(currentOpenOrder.getPrice());
+      currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMGED_BUY_ORDER", OrderType.BUY, currentOpenOrder.getQuantity(), estimatedBuyPrice);
+      currentSellOrder = new OrderState(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getQuantity(), currentOpenOrder.getPrice());
+      strategyState = IntelligentStrategyState.WAIT_FOR_SELL;
+    }
   }
 
   private BigDecimal getAmountOfPiecesToBuy() throws TradingApiException, ExchangeNetworkException, StrategyException {

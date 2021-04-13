@@ -45,5 +45,5 @@ strategies:
       sell-stop-limit-percentage-below-break-even: 4
       sell-stop-limit-percentage-above-break-even: 0.5
       intelligent-limits-percentage-scale-factor: 20
-      #debug-mode-enabled: true
+      debug-mode-enabled: true
 
