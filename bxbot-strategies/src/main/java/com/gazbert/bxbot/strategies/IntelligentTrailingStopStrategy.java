@@ -125,7 +125,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         computeInitialStrategyState();
         LOG.info(() -> market.getName() + " Initial strategy state computed: " + this.strategyState);
       }
-
+      intelligentLimitAdapter.printCurrentStatistics();
       updateMarketPrices();
       switch(strategyState) {
         case NEED_BUY:
@@ -433,7 +433,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
   private boolean readBoolean(StrategyConfig config, String key, boolean defaultValue) {
     final String valueAsString = config.getConfigItem(key);
-    if (valueAsString.isEmpty()) {
+    if (valueAsString == null || valueAsString.isEmpty()) {
       LOG.info(() -> "Configuration value of <" + key + "> is not available in the strategy.xml config. Use the default value '" + defaultValue + "' instead.");
       return defaultValue;
     } else {

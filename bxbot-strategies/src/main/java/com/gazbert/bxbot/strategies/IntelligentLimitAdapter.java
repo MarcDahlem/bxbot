@@ -58,7 +58,7 @@ public class IntelligentLimitAdapter {
         printCurrentStatistics();
     }
 
-    private void printCurrentStatistics() {
+    public void printCurrentStatistics() {
         LOG.info(() -> "The current statistics are:\n"
                 + "* Overall strategy gain: " +decimalFormat.format(overallStrategyGain) + "\n"
                 + "* Positive trades: " + amountOfPositiveTrades + "\n"
