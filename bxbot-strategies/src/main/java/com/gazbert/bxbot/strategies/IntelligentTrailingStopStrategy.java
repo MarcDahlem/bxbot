@@ -362,8 +362,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       final BigDecimal currentBaseCurrencyBalance = getAvailableCurrencyBalance(market.getBaseCurrency());
       if(currentBaseCurrencyBalance.compareTo(BigDecimal.ZERO)>0) {
         LOG.info(() -> market.getName() + " Open balance in base currency found. Resume needed. Set current phase to SELL and use as BUY price the current market price");
-        final BigDecimal amountOfPiecesInCounterCurrencyToSell = currentBaseCurrencyBalance.divide(currentTicker.getLast(), 8, RoundingMode.HALF_DOWN);
-        currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, amountOfPiecesInCounterCurrencyToSell, currentTicker.getLast());
+        currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, currentBaseCurrencyBalance, currentTicker.getLast());
         strategyState = IntelligentStrategyState.NEED_SELL;
         return;
       } else {
