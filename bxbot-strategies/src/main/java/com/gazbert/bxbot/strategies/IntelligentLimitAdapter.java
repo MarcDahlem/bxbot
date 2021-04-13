@@ -1,6 +1,5 @@
 package com.gazbert.bxbot.strategies;
 
-import jdk.jshell.execution.JdiExecutionControlProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -14,10 +13,10 @@ public class IntelligentLimitAdapter {
     private static final DecimalFormat decimalFormat = new DecimalFormat("#.########");
     private static final BigDecimal oneHundred = new BigDecimal(100);
 
-    private BigDecimal initialPercentageGainNeededToPlaceBuyOrder;
-    private BigDecimal initialSellStopLimitPercentageBelowBreakEven;
-    private BigDecimal initialSellStopLimitPercentageAboveBreakEven;
-    private BigDecimal initialScalePercentage;
+    private final BigDecimal initialPercentageGainNeededToPlaceBuyOrder;
+    private final BigDecimal initialSellStopLimitPercentageBelowBreakEven;
+    private final BigDecimal initialSellStopLimitPercentageAboveBreakEven;
+    private final BigDecimal initialScalePercentage;
 
     private BigDecimal overallStrategyGain;
     private int amountOfPositiveTrades;
@@ -76,18 +75,18 @@ public class IntelligentLimitAdapter {
     }
 
     public BigDecimal getCurrentPercentageGainNeededForBuy() {
-        return scale(initialPercentageGainNeededToPlaceBuyOrder);
+        return scaleDown(initialPercentageGainNeededToPlaceBuyOrder);
     }
 
     public BigDecimal getCurrentSellStopLimitPercentageAboveBreakEven() {
-        return scale(initialSellStopLimitPercentageAboveBreakEven);
+        return scaleUp(initialSellStopLimitPercentageAboveBreakEven);
     }
 
     public BigDecimal getCurrentSellStopLimitPercentageBelowBreakEven() {
-        return scale(initialSellStopLimitPercentageBelowBreakEven);
+        return scaleUp(initialSellStopLimitPercentageBelowBreakEven);
     }
 
-    private BigDecimal scale(BigDecimal initialPercentage) {
+    private BigDecimal scaleUp(BigDecimal initialPercentage) {
         BigDecimal result = initialPercentage;
         int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades;
         if (currentSellLossRatio == 0) return result;
@@ -99,6 +98,24 @@ public class IntelligentLimitAdapter {
         } else {
             while (currentSellLossRatio <0) {
                 result = result.subtract(result.multiply(initialScalePercentage));
+                currentSellLossRatio++;
+            }
+        }
+        return result;
+    }
+
+    private BigDecimal scaleDown(BigDecimal initialPercentage) {
+        BigDecimal result = initialPercentage;
+        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades;
+        if (currentSellLossRatio == 0) return result;
+        if (currentSellLossRatio >0) {
+            while (currentSellLossRatio >0) {
+                result = result.subtract(result.multiply(initialScalePercentage));
+                currentSellLossRatio--;
+            }
+        } else {
+            while (currentSellLossRatio <0) {
+                result = result.add(result.multiply(initialScalePercentage));
                 currentSellLossRatio++;
             }
         }
