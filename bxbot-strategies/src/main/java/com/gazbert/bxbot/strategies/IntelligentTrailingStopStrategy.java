@@ -357,11 +357,20 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
   private void computeInitialStrategyState() throws ExchangeNetworkException, TradingApiException, StrategyException {
     final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
-    //TODO check balance
     if (myOrders.isEmpty()) {
-      LOG.info(() -> market.getName() + " No open orders found. No resume needed, set current phase to BUY");
-      strategyState = IntelligentStrategyState.NEED_BUY;
-      return;
+      LOG.info(() -> market.getName() + " No open orders found. Check available balance for the base currency, to know if a new sell order should be created.");
+      final BigDecimal currentBaseCurrencyBalance = getAvailableCurrencyBalance(market.getBaseCurrency());
+      if(currentBaseCurrencyBalance.compareTo(BigDecimal.ZERO)>0) {
+        LOG.info(() -> market.getName() + " Open balance in base currency found. Resume needed. Set current phase to SELL and use as BUY price the current market price");
+        final BigDecimal amountOfPiecesInCounterCurrencyToSell = currentBaseCurrencyBalance.divide(currentTicker.getLast(), 8, RoundingMode.HALF_DOWN);
+        currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, amountOfPiecesInCounterCurrencyToSell, currentTicker.getLast());
+        strategyState = IntelligentStrategyState.NEED_SELL;
+        return;
+      } else {
+        LOG.info(() -> market.getName() + " No open balance in base currency found. No resume needed. Set current phase to BUY ");
+        strategyState = IntelligentStrategyState.NEED_BUY;
+        return;
+      }
     }
     if (myOrders.size() != 1) {
       String errorMsg = " More than one open order (" + myOrders.size() + " open orders) in the market. Impossible to resume strategy.";
@@ -378,7 +387,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     } else {
       LOG.info(() -> market.getName() +  " The current order is a SELL order. Resume with waiting for SELL to be fulfilled or changing SELL prices.");
       BigDecimal estimatedBuyPrice = currentTicker.getLast().max(currentOpenOrder.getPrice());
-      currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMGED_BUY_ORDER", OrderType.BUY, currentOpenOrder.getQuantity(), estimatedBuyPrice);
+      currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_SELL_ORDER", OrderType.BUY, currentOpenOrder.getQuantity(), estimatedBuyPrice);
       currentSellOrder = new OrderState(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getQuantity(), currentOpenOrder.getPrice());
       strategyState = IntelligentStrategyState.WAIT_FOR_SELL;
     }
@@ -418,19 +427,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   }
 
   private BigDecimal getBalanceToUseForBuyOrder() throws ExchangeNetworkException, TradingApiException, StrategyException {
-    LOG.info(() -> market.getName() + " Fetching the available balance for the counter currency "+ market.getCounterCurrency());
-    BalanceInfo balanceInfo = tradingApi.getBalanceInfo();
-    final BigDecimal currentBalance = balanceInfo.getBalancesAvailable().get(market.getCounterCurrency());
-    if (currentBalance == null) {
-      final String errorMsg = "Failed to get current counter currency balance as '"+ market.getCounterCurrency()+ "' key in the balances map. Balances returned: " + balanceInfo.getBalancesAvailable();
-      LOG.error(() -> errorMsg);
-      throw new StrategyException(errorMsg);
-    } else {
-      LOG.info(() ->market.getName() + "Counter Currency balance available on exchange is ["
-              + decimalFormat.format(currentBalance)
-              + "] "
-              + market.getCounterCurrency());
-    }
+    final BigDecimal currentBalance = getAvailableCurrencyBalance(market.getCounterCurrency());
 
     BigDecimal balanceAvailableForTrading = currentBalance.subtract(configuredEmergencyStop);
     if (balanceAvailableForTrading.compareTo(BigDecimal.ZERO)<=0) {
@@ -443,6 +440,23 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     LOG.info(() ->market.getName() + "Balance to be used for trading, taking into consideration the configured trading percentage of "
             + decimalFormat.format(configuredPercentageOfCounterCurrencyBalanceToUse) + ": " + decimalFormat.format(balanceToUseForBuyOrder) + " " + market.getCounterCurrency());
     return balanceToUseForBuyOrder;
+  }
+
+  private BigDecimal getAvailableCurrencyBalance(String currency) throws ExchangeNetworkException, TradingApiException, StrategyException {
+    LOG.info(() -> market.getName() + " Fetching the available balance for the currency '"+ currency + "'.");
+    BalanceInfo balanceInfo = tradingApi.getBalanceInfo();
+    final BigDecimal currentBalance = balanceInfo.getBalancesAvailable().get(currency);
+    if (currentBalance == null) {
+      final String errorMsg = "Failed to get current currency balance as '"+ currency+ "' key is not available in the balances map. Balances returned: " + balanceInfo.getBalancesAvailable();
+      LOG.error(() -> errorMsg);
+      throw new StrategyException(errorMsg);
+    } else {
+      LOG.info(() ->market.getName() + "Currency balance available on exchange is ["
+              + decimalFormat.format(currentBalance)
+              + "] "
+              + currency);
+    }
+    return currentBalance;
   }
 
   private void getConfigForStrategy(StrategyConfig config) {
