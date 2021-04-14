@@ -41,9 +41,9 @@ strategies:
     configItems:
       percentage-of-counter-currency-balance-to-use: 50
       configured-emergency-stop-balance: 50
-      initial-percentage-gain-needed-to-place-buy-order: 0.5
-      sell-stop-limit-percentage-below-break-even: 4
-      sell-stop-limit-percentage-above-break-even: 0.5
-      intelligent-limits-percentage-scale-factor: 20
+      initial-percentage-gain-needed-to-place-buy-order: 2
+      sell-stop-limit-percentage-below-break-even: 7
+      sell-stop-limit-percentage-above-break-even: 1
+      intelligent-limits-percentage-scale-factor: 10
       debug-mode-enabled: false
 

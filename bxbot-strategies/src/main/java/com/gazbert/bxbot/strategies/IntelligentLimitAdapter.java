@@ -60,6 +60,7 @@ public class IntelligentLimitAdapter {
 
     public void printCurrentStatistics() {
         LOG.info(() -> "The current statistics are:\n"
+                + "######### LIMIT ADAPTION STATISTICS #########\n"
                 + "* Overall strategy gain: " +decimalFormat.format(overallStrategyGain) + "\n"
                 + "* Positive trades: " + amountOfPositiveTrades + "\n"
                 + "* Sum of positive wins: " +decimalFormat.format(overallPositiveGains) + "\n"
@@ -70,7 +71,8 @@ public class IntelligentLimitAdapter {
                 + "* current sell stop limit percentage below break even:: " +decimalFormat.format(getCurrentSellStopLimitPercentageBelowBreakEven().multiply(new BigDecimal(100))) + "%\n"
                 + "* initial percentage gain needed for buy: " +decimalFormat.format(initialPercentageGainNeededToPlaceBuyOrder.multiply(new BigDecimal(100))) + "%\n"
                 + "* initial sell stop limit percentage above break even: " +decimalFormat.format(initialSellStopLimitPercentageAboveBreakEven.multiply(new BigDecimal(100))) + "%\n"
-                + "* initial sell stop limit percentage below break even:: " +decimalFormat.format(initialSellStopLimitPercentageBelowBreakEven.multiply(new BigDecimal(100))) + "%"
+                + "* initial sell stop limit percentage below break even:: " +decimalFormat.format(initialSellStopLimitPercentageBelowBreakEven.multiply(new BigDecimal(100))) + "%\n"
+                + "#############################################"
         );
     }
 

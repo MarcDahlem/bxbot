@@ -210,9 +210,25 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   private void executeCheckOfTheSellOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
     LOG.info(() -> market.getName() + " Wait for SELL order to fulfill.");
 
+    BigDecimal currentMarketPrice = currentTicker.getLast();
+    BigDecimal currentSellOrderPrice = currentSellOrder.getPrice();
     if(isLatestSellOrderStillAvailable()) {
+      BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
+      BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
+      BigDecimal breakEven = calculateBreakEven();
+      LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Current sell statistics: \n" +
+              "######### SELL ORDER STATISTICS #########\n" +
+              "current BUY order price: " +decimalFormat.format(currentBuyOrder.getPrice())+" " + market.getCounterCurrency()+ "\n" +
+              "current SELL order price: " +decimalFormat.format(currentSellOrderPrice)+" " + market.getCounterCurrency()+ "\n" +
+              "current market price: " +decimalFormat.format(currentMarketPrice)+" " + market.getCounterCurrency()+ "\n" +
+              "break even: " +decimalFormat.format(breakEven)+" " + market.getCounterCurrency()+ "\n" +
+              "limit above break even: " +decimalFormat.format(aboveBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
+              "limit below break even: " +decimalFormat.format(belowBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
+              "#########################################"
+
+      );
       LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Check if the current price is below the order price.");
-      if(currentSellOrder.getPrice().compareTo(currentTicker.getLast())>0) {
+      if(currentSellOrderPrice.compareTo(currentMarketPrice)>0) {
         LOG.warn(() -> market.getName() + " The current SELL order is above the current market price. It should soon be fulfilled. If that happens too often, the bid and ask prices may be checked.");
         currentSellOrder.increaseOrderNotExecutedCounter();
         if (currentSellOrder.getOrderNotExecutedCounter() >= 10) { // TODO make 10 configurable or another approach
@@ -221,13 +237,13 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
           throw new StrategyException(errorMsg);
         }
       } else {
-        LOG.info(() -> market.getName() + " The current SELL order's price '" +decimalFormat.format(currentSellOrder.getPrice()) + " " + market.getCounterCurrency()
-                + "' is below the current market price ('" +decimalFormat.format(currentTicker.getLast())+" " + market.getCounterCurrency() + "'). Check if the order must be updated and the stop limit must be increased");
+        LOG.info(() -> market.getName() + " The current SELL order's price '" +decimalFormat.format(currentSellOrderPrice) + " " + market.getCounterCurrency()
+                + "' is below the current market price ('" +decimalFormat.format(currentMarketPrice)+" " + market.getCounterCurrency() + "'). Check if the order must be updated and the stop limit must be increased");
 
         BigDecimal sellPrice = computeCurrentSellPrice();
-        if (sellPrice.compareTo(currentSellOrder.getPrice())>0) {
+        if (sellPrice.compareTo(currentSellOrderPrice)>0) {
           LOG.info(() -> market.getName() + " The new SELL order's price '" +decimalFormat.format(sellPrice) + " " + market.getCounterCurrency()
-                  + "' is higher than the the current sell order's price ('" +decimalFormat.format(currentSellOrder.getPrice())+" " + market.getCounterCurrency() + "'). Cancel the current sell order '" + currentSellOrder.getId() + "' and trail the stop according to the higher stop limit.");
+                  + "' is higher than the the current sell order's price ('" +decimalFormat.format(currentSellOrderPrice)+" " + market.getCounterCurrency() + "'). Cancel the current sell order '" + currentSellOrder.getId() + "' and trail the stop according to the higher stop limit.");
           if (!debugModeEnabled) tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
           LOG.info(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' successfully canceled. Reset the strategy to the sell phase...");
           currentSellOrder = null;
@@ -235,18 +251,18 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
           executeSellPhase();
         } else {
           LOG.info(() -> market.getName() + " The new SELL order's price '" +decimalFormat.format(sellPrice) + " " + market.getCounterCurrency()
-                  + "' is lower than the the current sell order's price ('" +decimalFormat.format(currentSellOrder.getPrice())+" " + market.getCounterCurrency() + "'). Wait for the order to fulfill or to increase trail in the next strategy tick.");
+                  + "' is lower than the the current sell order's price ('" +decimalFormat.format(currentSellOrderPrice)+" " + market.getCounterCurrency() + "'). Wait for the order to fulfill or to increase trail in the next strategy tick.");
         }
       }
     } else {
       LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Restart gaining money in the buy phase...");
       BigDecimal breakEven = calculateBreakEven();
-      BigDecimal totalGain = currentSellOrder.getPrice().subtract(breakEven).multiply(currentSellOrder.getAmount());
-      LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + decimalFormat.format(totalGain) + "'. (Break even: '" + decimalFormat.format(breakEven) + "', sell order price: '" + decimalFormat.format(currentSellOrder.getPrice()) + "', sell order amount: '" + decimalFormat.format(currentSellOrder.getAmount()) + "')");
+      BigDecimal totalGain = currentSellOrderPrice.subtract(breakEven).multiply(currentSellOrder.getAmount());
+      LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + decimalFormat.format(totalGain) + "'. (Break even: '" + decimalFormat.format(breakEven) + "', sell order price: '" + decimalFormat.format(currentSellOrderPrice) + "', sell order amount: '" + decimalFormat.format(currentSellOrder.getAmount()) + "')");
       intelligentLimitAdapter.addNewExecutedSellOrder(currentSellOrder, totalGain, breakEven);
       currentBuyOrder = null;
       currentSellOrder = null;
-      lowestPrice = currentTicker.getLast();
+      lowestPrice = currentMarketPrice;
       strategyState = IntelligentStrategyState.NEED_BUY;
       executeBuyPhase();
     }
@@ -334,15 +350,23 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   private BigDecimal computeCurrentSellPrice() throws TradingApiException, ExchangeNetworkException {
     BigDecimal breakEven = calculateBreakEven();
     LOG.info(() -> market.getName() + " The calculated break even for selling would be '" +decimalFormat.format(breakEven) + market.getCounterCurrency() + "'");
-    BigDecimal aboveBreakEvenPriceLimit = currentTicker.getLast().subtract(currentTicker.getLast().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven()));
+    BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
     if(aboveBreakEvenPriceLimit.compareTo(breakEven) >= 0)  {
       LOG.info(() -> market.getName() + " SELL phase - the minimum needed gain is reached. Computed sell price could be '" + decimalFormat.format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' above the break even");
       return aboveBreakEvenPriceLimit;
     } else {
-      BigDecimal belowBreakEvenPriceLimit = currentTicker.getLast().subtract(currentTicker.getLast().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven()));
+      BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
       LOG.info(() -> market.getName() + " SELL phase - still below break even. Computed sell price could be '" + decimalFormat.format(belowBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' below the break even (above pricelimit would be: '"+ decimalFormat.format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "')");
       return belowBreakEvenPriceLimit;
     }
+  }
+
+  private BigDecimal calculateBelowBreakEvenPriceLimit() {
+    return currentTicker.getLast().subtract(currentTicker.getLast().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven()));
+  }
+
+  private BigDecimal calculateAboveBreakEvenPriceLimit() {
+    return currentTicker.getLast().subtract(currentTicker.getLast().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven()));
   }
 
   private BigDecimal calculateBreakEven() throws TradingApiException, ExchangeNetworkException {
