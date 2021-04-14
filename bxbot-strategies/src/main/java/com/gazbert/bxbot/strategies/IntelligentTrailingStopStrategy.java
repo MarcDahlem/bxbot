@@ -242,7 +242,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Restart gaining money in the buy phase...");
       BigDecimal breakEven = calculateBreakEven();
       BigDecimal totalGain = currentSellOrder.getPrice().subtract(breakEven).multiply(currentSellOrder.getAmount());
-      LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + decimalFormat.format(totalGain));
+      LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + decimalFormat.format(totalGain) + "'. (Break even: '" + decimalFormat.format(breakEven) + "', sell order price: '" + decimalFormat.format(currentSellOrder.getPrice()) + "', sell order amount: '" + decimalFormat.format(currentSellOrder.getAmount()) + "')");
       intelligentLimitAdapter.addNewExecutedSellOrder(currentSellOrder, totalGain, breakEven);
       currentBuyOrder = null;
       currentSellOrder = null;

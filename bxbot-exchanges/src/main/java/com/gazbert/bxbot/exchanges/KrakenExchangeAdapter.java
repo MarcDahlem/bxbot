@@ -319,16 +319,20 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
       String volumePrecision = "#." + "#".repeat(pairPrecisionConfig.getVolumePrecision(marketId));
 
       params.put(PRICE, new DecimalFormat(pricePrecision, getDecimalFormatSymbols()).format(price));
-      params.put(
-              "volume", new DecimalFormat(volumePrecision, getDecimalFormatSymbols()).format(quantity));
+      params.put("volume",
+              new DecimalFormat(volumePrecision, getDecimalFormatSymbols()).format(quantity));
 
       if (orderType == OrderType.BUY) {
         params.put("type", "buy");
         params.put("ordertype", "limit"); // this exchange adapter only supports buy limit orders
       } else if (orderType == OrderType.SELL) {
         params.put("type", "sell");
-        params.put("ordertype", "stop-loss-limit"); // this exchange adapter only supports sell stop-loss-limit orders
-        params.put("price2", new DecimalFormat(pricePrecision, getDecimalFormatSymbols()).format(price));
+
+        // this exchange adapter only supports sell stop-loss-limit orders
+        params.put("ordertype", "stop-loss-limit");
+
+        params.put("price2",new DecimalFormat(pricePrecision,
+                getDecimalFormatSymbols()).format(price));
       } else {
         final String errorMsg =
             "Invalid order type: "
