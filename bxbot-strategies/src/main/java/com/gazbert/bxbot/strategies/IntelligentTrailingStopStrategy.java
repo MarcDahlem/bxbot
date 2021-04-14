@@ -85,6 +85,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   private IntelligentLimitAdapter intelligentLimitAdapter;
   private BigDecimal configuredIntelligentLimitsPercentageScaleFactor;
   private boolean debugModeEnabled;
+  private BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven;
 
 
   /**
@@ -103,7 +104,12 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     this.tradingApi = tradingApi;
     this.market = market;
     getConfigForStrategy(config);
-    this.intelligentLimitAdapter = new IntelligentLimitAdapter(configuredInitialPercentageGainNeededToPlaceBuyOrder, configuredSellStopLimitPercentageBelowBreakEven, configuredSellStopLimitPercentageAboveBreakEven, configuredIntelligentLimitsPercentageScaleFactor);
+    this.intelligentLimitAdapter = new IntelligentLimitAdapter(
+            configuredInitialPercentageGainNeededToPlaceBuyOrder,
+            configuredSellStopLimitPercentageBelowBreakEven,
+            configuredSellStopLimitPercentageAboveBreakEven,
+            configuredSellStopLimitPercentageMinimumAboveBreakEven,
+            configuredIntelligentLimitsPercentageScaleFactor);
     LOG.info(() -> "Trading Strategy initialised successfully!");
   }
 
@@ -216,6 +222,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
       BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
       BigDecimal breakEven = calculateBreakEven();
+      BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
+
       LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Current sell statistics: \n" +
               "######### SELL ORDER STATISTICS #########\n" +
               "current BUY order price: " +decimalFormat.format(currentBuyOrder.getPrice())+" " + market.getCounterCurrency()+ "\n" +
@@ -223,6 +231,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
               "current market price: " +decimalFormat.format(currentMarketPrice)+" " + market.getCounterCurrency()+ "\n" +
               "break even: " +decimalFormat.format(breakEven)+" " + market.getCounterCurrency()+ "\n" +
               "limit above break even: " +decimalFormat.format(aboveBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
+              "limit minimum above break even: " +decimalFormat.format(minimumAboveBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
               "limit below break even: " +decimalFormat.format(belowBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
               "#########################################"
 
@@ -352,21 +361,36 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     LOG.info(() -> market.getName() + " The calculated break even for selling would be '" +decimalFormat.format(breakEven) + market.getCounterCurrency() + "'");
     BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
     if(aboveBreakEvenPriceLimit.compareTo(breakEven) >= 0)  {
-      LOG.info(() -> market.getName() + " SELL phase - the minimum needed gain is reached. Computed sell price could be '" + decimalFormat.format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' above the break even");
+      LOG.info(() -> market.getName() + " SELL phase - the full above trailing gain is reached. Computed sell price could be '" + decimalFormat.format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' above the break even");
       return aboveBreakEvenPriceLimit;
     } else {
-      BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
-      LOG.info(() -> market.getName() + " SELL phase - still below break even. Computed sell price could be '" + decimalFormat.format(belowBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' below the break even (above pricelimit would be: '"+ decimalFormat.format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "')");
-      return belowBreakEvenPriceLimit;
+      BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
+      if(minimumAboveBreakEvenPriceLimit.compareTo(breakEven) >= 0)  {
+        LOG.info(() -> market.getName() + " SELL phase - the minimum above trailing gain is reached. Computed sell price could be '" + decimalFormat.format(minimumAboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' above the break even");
+        return minimumAboveBreakEvenPriceLimit;
+      } else {
+        BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
+        LOG.info(() -> market.getName() + " SELL phase - still below break even. Computed sell price could be '" + decimalFormat.format(belowBreakEvenPriceLimit) + " " + market.getCounterCurrency() + "' below the break even (above pricelimit would be: '" + decimalFormat.format(aboveBreakEvenPriceLimit) + " " + market.getCounterCurrency() + "')");
+        return belowBreakEvenPriceLimit;
+      }
     }
   }
 
   private BigDecimal calculateBelowBreakEvenPriceLimit() {
-    return currentTicker.getLast().subtract(currentTicker.getLast().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven()));
+    BigDecimal distanceToCurrentMarketPrice = currentTicker.getLast().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven());
+    return currentTicker.getLast().subtract(distanceToCurrentMarketPrice);
   }
 
   private BigDecimal calculateAboveBreakEvenPriceLimit() {
     return currentTicker.getLast().subtract(currentTicker.getLast().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven()));
+  }
+
+  private BigDecimal calculateMinimumAboveBreakEvenPriceLimit(BigDecimal breakEven) {
+    BigDecimal currentSellStopLimitPercentageMinimumAboveBreakEven = intelligentLimitAdapter.getCurrentSellStopLimitPercentageMinimumAboveBreakEven();
+    BigDecimal minimalDistanceToCurrentMarketPrice = currentTicker.getLast().subtract(currentTicker.getLast().multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
+    BigDecimal minimalDistanceNeededToBreakEven = breakEven.add(breakEven.multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
+    return minimalDistanceNeededToBreakEven.min(minimalDistanceToCurrentMarketPrice);
+
   }
 
   private BigDecimal calculateBreakEven() throws TradingApiException, ExchangeNetworkException {
@@ -487,6 +511,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     configuredPercentageOfCounterCurrencyBalanceToUse = readPercentageConfigValue(config,"percentage-of-counter-currency-balance-to-use");
     configuredSellStopLimitPercentageBelowBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-below-break-even");
     configuredSellStopLimitPercentageAboveBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-above-break-even");
+    configuredSellStopLimitPercentageMinimumAboveBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-minimum-above-break-even");
     configuredIntelligentLimitsPercentageScaleFactor = readPercentageConfigValue(config, "intelligent-limits-percentage-scale-factor");
     readEmergencyStopBalance(config);
     debugModeEnabled = readBoolean(config, "debug-mode-enabled", false);

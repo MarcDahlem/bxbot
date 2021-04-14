@@ -16,6 +16,7 @@ public class IntelligentLimitAdapter {
     private final BigDecimal initialPercentageGainNeededToPlaceBuyOrder;
     private final BigDecimal initialSellStopLimitPercentageBelowBreakEven;
     private final BigDecimal initialSellStopLimitPercentageAboveBreakEven;
+    private final BigDecimal initialSellStopLimitPercentageMinimumAboveBreakEven;
     private final BigDecimal initialScalePercentage;
 
     private BigDecimal overallStrategyGain;
@@ -27,11 +28,13 @@ public class IntelligentLimitAdapter {
     public IntelligentLimitAdapter(BigDecimal initialPercentageGainNeededToPlaceBuyOrder,
                             BigDecimal initialSellStopLimitPercentageBelowBreakEven,
                             BigDecimal initialSellStopLimitPercentageAboveBreakEven,
+                            BigDecimal initialSellStopLimitPercentageMinimumAboveBreakEven,
                             BigDecimal initialScalePercentage) {
 
         this.initialPercentageGainNeededToPlaceBuyOrder = initialPercentageGainNeededToPlaceBuyOrder;
         this.initialSellStopLimitPercentageBelowBreakEven = initialSellStopLimitPercentageBelowBreakEven;
         this.initialSellStopLimitPercentageAboveBreakEven = initialSellStopLimitPercentageAboveBreakEven;
+        this.initialSellStopLimitPercentageMinimumAboveBreakEven = initialSellStopLimitPercentageMinimumAboveBreakEven;
         this.initialScalePercentage = initialScalePercentage;
         overallStrategyGain = BigDecimal.ZERO;
         overallPositiveGains = BigDecimal.ZERO;
@@ -68,9 +71,11 @@ public class IntelligentLimitAdapter {
                 + "* Sum of negative losses: " +decimalFormat.format(overallNegativeLosses) + "\n"
                 + "* current percentage gain needed for buy: " +decimalFormat.format(getCurrentPercentageGainNeededForBuy().multiply(new BigDecimal(100))) + "%\n"
                 + "* current sell stop limit percentage above break even: " +decimalFormat.format(getCurrentSellStopLimitPercentageAboveBreakEven().multiply(new BigDecimal(100))) + "%\n"
+                + "* current sell stop limit percentage minimum above break even: " +decimalFormat.format(getCurrentSellStopLimitPercentageMinimumAboveBreakEven().multiply(new BigDecimal(100))) + "%\n"
                 + "* current sell stop limit percentage below break even:: " +decimalFormat.format(getCurrentSellStopLimitPercentageBelowBreakEven().multiply(new BigDecimal(100))) + "%\n"
                 + "* initial percentage gain needed for buy: " +decimalFormat.format(initialPercentageGainNeededToPlaceBuyOrder.multiply(new BigDecimal(100))) + "%\n"
                 + "* initial sell stop limit percentage above break even: " +decimalFormat.format(initialSellStopLimitPercentageAboveBreakEven.multiply(new BigDecimal(100))) + "%\n"
+                + "* initial sell stop limit percentage minimum above break even: " +decimalFormat.format(initialSellStopLimitPercentageMinimumAboveBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "* initial sell stop limit percentage below break even:: " +decimalFormat.format(initialSellStopLimitPercentageBelowBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "#############################################"
         );
@@ -86,6 +91,10 @@ public class IntelligentLimitAdapter {
 
     public BigDecimal getCurrentSellStopLimitPercentageBelowBreakEven() {
         return scaleUp(initialSellStopLimitPercentageBelowBreakEven);
+    }
+
+    public BigDecimal getCurrentSellStopLimitPercentageMinimumAboveBreakEven() {
+        return scaleUp(initialSellStopLimitPercentageMinimumAboveBreakEven);
     }
 
     private BigDecimal scaleUp(BigDecimal initialPercentage) {
@@ -123,4 +132,6 @@ public class IntelligentLimitAdapter {
         }
         return result;
     }
+
+
 }
