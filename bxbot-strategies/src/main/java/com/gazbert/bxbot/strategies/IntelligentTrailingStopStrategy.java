@@ -23,6 +23,7 @@
 
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.strategies.helper.TickerPersister;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -31,9 +32,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -78,6 +81,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     /* market data downloaded and stored during the engine lifetime */
     private Ticker currentTicker;
     private BigDecimal lowestAskPrice;
+    private BarSeries series;
 
     /* used to store the latest executed orders */
     private OrderState currentBuyOrder;
@@ -104,6 +108,11 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         this.market = market;
         getConfigForStrategy(config);
         this.intelligentLimitAdapter = new IntelligentLimitAdapter(config);
+        try {
+            series = TickerPersister.loadTicker(market.getName());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         LOG.info(() -> "Trading Strategy initialised successfully!");
     }
 
@@ -144,12 +153,17 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                 default:
                     throw new StrategyException("Unknown strategy state encounted: " + strategyState);
             }
-        } catch (TradingApiException | ExchangeNetworkException e) {
+        } catch (TradingApiException | ExchangeNetworkException | StrategyException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
             // shutdown the bot.
+            try {
+                TickerPersister.persistTicker(series);
+            } catch (IOException ioException) {
+                LOG.error("Error while saving ticker series to json: ", ioException);
+            }
             LOG.error(
                     market.getName()
-                            + " Failed to perform the strategy because Exchange threw TradingApiException or ExchangeNetworkexception. "
+                            + " Failed to perform the strategy because Exchange threw TradingApiException, ExchangeNetworkexception or StrategyException. "
                             + "Telling Trading Engine to shutdown bot!",
                     e);
             throw new StrategyException(e);
@@ -350,6 +364,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
             LOG.info(() -> market.getName() + " Current market ask price is a new minimum price. Update lowest price from " + decimalFormat.format(lowestAskPrice) + " to " + decimalFormat.format(currentTicker.getAsk()));
             lowestAskPrice = currentTicker.getAsk();
         }
+
+        series.addBar(ZonedDateTime.now(), currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
     }
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {

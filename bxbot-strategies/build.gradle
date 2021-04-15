@@ -8,6 +8,7 @@ dependencies {
     compile libraries.spring_boot_starter
     compile libraries.spring_boot_starter_log4j2
     compile libraries.google_guava
+    compile libraries.google_gson
     compile 'org.ta4j:ta4j-core:0.13'
 
     testCompile libraries.junit
