@@ -18,7 +18,7 @@ public class IntelligentLimitAdapter {
      * The minimum % gain to reach according to the recorded minimum before placing a BUY oder. This was loaded from the strategy
      * entry in the {project-root}/config/strategies.yaml config file.
      */
-    private BigDecimal configuredPercentageGainNeededToPlaceBuyOrder;
+    private final BigDecimal configuredPercentageGainNeededToPlaceBuyOrder;
     private final BigDecimal configuredSellStopLimitPercentageBelowBreakEven;
     private final BigDecimal configuredSellStopLimitPercentageAboveBreakEven;
     private final BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven;

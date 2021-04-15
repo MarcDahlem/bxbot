@@ -43,7 +43,7 @@ strategies:
       configured-emergency-stop-balance: 50
       initial-percentage-gain-needed-to-place-buy-order: 0.5
       sell-stop-limit-percentage-below-break-even: 0.5
-      sell-stop-limit-percentage-above-break-even: 2
+      sell-stop-limit-percentage-above-break-even: 1
       sell-stop-limit-percentage-minimum-above-break-even: 0.4
       intelligent-limits-percentage-scale-factor: 10
       debug-mode-enabled: false

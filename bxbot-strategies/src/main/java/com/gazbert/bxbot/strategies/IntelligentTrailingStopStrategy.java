@@ -45,6 +45,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   /** The decimal format for the logs. */
   private static final String DECIMAL_FORMAT = "#.########";
   private static final DecimalFormat decimalFormat = new DecimalFormat(DECIMAL_FORMAT);
+  private static final BigDecimal oneHundred = new BigDecimal(100);
 
   /** Reference to the main Trading API. */
   private TradingApi tradingApi;
@@ -207,12 +208,17 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
       BigDecimal breakEven = calculateBreakEven();
       BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
+      BigDecimal currentBuyOrderPrice = currentBuyOrder.getPrice();
+      BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketPrice, currentBuyOrderPrice);
+      BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketPrice, breakEven);
 
       LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Current sell statistics: \n" +
               "######### SELL ORDER STATISTICS #########\n" +
-              "current BUY order price: " +decimalFormat.format(currentBuyOrder.getPrice())+" " + market.getCounterCurrency()+ "\n" +
+              "current BUY order price: " +decimalFormat.format(currentBuyOrderPrice)+" " + market.getCounterCurrency()+ "\n" +
               "current SELL order price: " +decimalFormat.format(currentSellOrderPrice)+" " + market.getCounterCurrency()+ "\n" +
               "current market price: " +decimalFormat.format(currentMarketPrice)+" " + market.getCounterCurrency()+ "\n" +
+              "market change to buy price: " +decimalFormat.format(percentageChangeToBuyOrder)+"%\n" +
+              "market change to break even: " +decimalFormat.format(percentageChangeToBreakEven)+"%\n" +
               "break even: " +decimalFormat.format(breakEven)+" " + market.getCounterCurrency()+ "\n" +
               "limit above break even: " +decimalFormat.format(aboveBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
               "limit minimum above break even: " +decimalFormat.format(minimumAboveBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
@@ -263,6 +269,10 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
   }
 
+  private BigDecimal getPercentageChange(BigDecimal newPrice, BigDecimal priceToCompareAgainst) {
+    return newPrice.subtract(priceToCompareAgainst).divide(priceToCompareAgainst).multiply(oneHundred);
+  }
+
   private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
     LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
     if (currentBuyOrder != null) {
@@ -299,7 +309,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     LOG.info(() -> market.getName() + "\n * Price needed: " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency()
             + ".\n * Current price: " + decimalFormat.format(currentTicker.getLast()) + " " + market.getCounterCurrency()
             + ".\n * Minimum seen price :" + decimalFormat.format(lowestPrice) + " " + market.getCounterCurrency() + "'"
-            + ".\n * Gain needed from this minimum price '" + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(new BigDecimal(100)))
+            + ".\n * Gain needed from this minimum price '" + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(oneHundred))
             + "%' = '" + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency());
     return currentTicker.getLast().compareTo(goalToReach)>0;
   }
