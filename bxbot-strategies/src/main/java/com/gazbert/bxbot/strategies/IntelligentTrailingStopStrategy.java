@@ -270,7 +270,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   }
 
   private BigDecimal getPercentageChange(BigDecimal newPrice, BigDecimal priceToCompareAgainst) {
-    return newPrice.subtract(priceToCompareAgainst).divide(priceToCompareAgainst).multiply(oneHundred);
+    return newPrice.subtract(priceToCompareAgainst).divide(priceToCompareAgainst, 10, RoundingMode.HALF_UP).multiply(oneHundred);
   }
 
   private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
