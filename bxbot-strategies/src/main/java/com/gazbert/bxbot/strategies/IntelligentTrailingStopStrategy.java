@@ -211,15 +211,25 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
       BigDecimal currentBuyOrderPrice = currentBuyOrder.getPrice();
       BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketPrice, currentBuyOrderPrice);
       BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketPrice, breakEven);
+      BigDecimal percentageChangeCurrentSellToMarket = getPercentageChange(currentSellOrderPrice, currentMarketPrice);
+      BigDecimal percentageChangeCurrentSellToBreakEven = getPercentageChange(currentSellOrderPrice, breakEven);
+      BigDecimal percentageChangeCurrentSellToBuy = getPercentageChange(currentSellOrderPrice, currentBuyOrderPrice);
 
       LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Current sell statistics: \n" +
               "######### SELL ORDER STATISTICS #########\n" +
+              "current market price (last): " +decimalFormat.format(currentMarketPrice)+" " + market.getCounterCurrency()+ "\n" +
+              "current market price (bid): " +decimalFormat.format(currentTicker.getBid())+" " + market.getCounterCurrency()+ "\n" +
+              "current market price (ask): " +decimalFormat.format(currentTicker.getAsk())+" " + market.getCounterCurrency()+ "\n" +
               "current BUY order price: " +decimalFormat.format(currentBuyOrderPrice)+" " + market.getCounterCurrency()+ "\n" +
               "current SELL order price: " +decimalFormat.format(currentSellOrderPrice)+" " + market.getCounterCurrency()+ "\n" +
-              "current market price: " +decimalFormat.format(currentMarketPrice)+" " + market.getCounterCurrency()+ "\n" +
+              "break even: " +decimalFormat.format(breakEven)+" " + market.getCounterCurrency()+ "\n" +
+              "-----------------------------------------\n" +
               "market change to buy price: " +decimalFormat.format(percentageChangeToBuyOrder)+"%\n" +
               "market change to break even: " +decimalFormat.format(percentageChangeToBreakEven)+"%\n" +
-              "break even: " +decimalFormat.format(breakEven)+" " + market.getCounterCurrency()+ "\n" +
+              "current sell price to buy price: " +decimalFormat.format(percentageChangeCurrentSellToBuy)+"%\n" +
+              "current sell price to market: " +decimalFormat.format(percentageChangeCurrentSellToMarket)+"%\n" +
+              "current sell price to break even: " +decimalFormat.format(percentageChangeCurrentSellToBreakEven)+"%\n" +
+              "-----------------------------------------\n" +
               "limit above break even: " +decimalFormat.format(aboveBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
               "limit minimum above break even: " +decimalFormat.format(minimumAboveBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
               "limit below break even: " +decimalFormat.format(belowBreakEvenPriceLimit)+" " + market.getCounterCurrency()+ "\n" +
@@ -306,11 +316,17 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
     BigDecimal amountToMoveUp = lowestPrice.multiply(currentPercentageGainNeededForBuy);
     BigDecimal goalToReach = lowestPrice.add(amountToMoveUp);
-    LOG.info(() -> market.getName() + "\n * Price needed: " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency()
-            + ".\n * Current price: " + decimalFormat.format(currentTicker.getLast()) + " " + market.getCounterCurrency()
-            + ".\n * Minimum seen price :" + decimalFormat.format(lowestPrice) + " " + market.getCounterCurrency() + "'"
-            + ".\n * Gain needed from this minimum price '" + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(oneHundred))
-            + "%' = '" + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency());
+    BigDecimal percentageChangeMarketToMinimum = getPercentageChange(currentTicker.getLast(), lowestPrice);
+    LOG.info(() -> market.getName() + "\n" +
+            "######### BUY ORDER STATISTICS #########\n" +
+            " * Price needed: " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency() +
+            "\n * Current price: " + decimalFormat.format(currentTicker.getLast()) + " " + market.getCounterCurrency() +
+            "\n * Minimum seen price: " + decimalFormat.format(lowestPrice) + " " + market.getCounterCurrency() +
+            "\n * Gain needed from this minimum price: " + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(oneHundred)) +
+            "% = " + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency() +
+            "\n * Market above minimum: " + decimalFormat.format(percentageChangeMarketToMinimum) + "%\n" +
+            "########################################");
+
     return currentTicker.getLast().compareTo(goalToReach)>0;
   }
 
