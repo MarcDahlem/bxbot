@@ -182,6 +182,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
 
   private BigDecimal buyFeePercentage;
   private BigDecimal sellFeePercentage;
+  private BigDecimal sellLimitDistancePercentage;
 
   private boolean keepAliveDuringMaintenance;
 
@@ -192,6 +193,8 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
   private boolean initializedMacAuthentication = false;
 
   private Gson gson;
+
+
 
   @Override
   public void init(ExchangeConfig config) {
@@ -331,8 +334,9 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
         // this exchange adapter only supports sell stop-loss-limit orders
         params.put("ordertype", "stop-loss-limit");
 
+        BigDecimal limitPrice = price.subtract(price.multiply(sellLimitDistancePercentage));
         params.put("price2",new DecimalFormat(pricePrecision,
-                getDecimalFormatSymbols()).format(price));
+                getDecimalFormatSymbols()).format(limitPrice));
       } else {
         final String errorMsg =
             "Invalid order type: "
@@ -1089,6 +1093,12 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
     } else {
       LOG.info(() -> KEEP_ALIVE_DURING_MAINTENANCE_PROPERTY_NAME + " is not set in exchange.yaml");
     }
+
+    final String sellLimitDistanceInConfig = getOtherConfigItem(otherConfig, "sell-stop-limit-percentage-distance");
+    sellLimitDistancePercentage =
+            new BigDecimal(sellLimitDistanceInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+    LOG.info(() -> "Sell (stop-limit order) limit distance % in BigDecimal format: " + sellLimitDistancePercentage);
+
   }
 
   private void loadPairPrecisionConfig() {
