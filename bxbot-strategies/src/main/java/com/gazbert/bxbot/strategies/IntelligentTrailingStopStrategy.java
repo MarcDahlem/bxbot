@@ -343,21 +343,21 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   private BigDecimal computeCurrentSellPrice() throws TradingApiException, ExchangeNetworkException {
     BigDecimal breakEven = calculateBreakEven();
     LOG.info(() -> market.getName() + " The calculated break even for selling would be '" +decimalFormat.format(breakEven) + market.getCounterCurrency() + "'");
-    BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
-    if(aboveBreakEvenPriceLimit.compareTo(breakEven) >= 0)  {
-      LOG.info(() -> market.getName() + " SELL phase - the full above trailing gain is reached. Computed sell price could be '" + decimalFormat.format(aboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' above the break even");
-      return aboveBreakEvenPriceLimit;
+    BigDecimal maximalPriceLimitAboveBreakEven = calculateMaximalPriceLimitAboveBreakEven(breakEven);
+    if(maximalPriceLimitAboveBreakEven.compareTo(breakEven) >= 0)  {
+      LOG.info(() -> market.getName() + " SELL phase - the above trailing gain is reached. Computed new SELL price is '" + decimalFormat.format(maximalPriceLimitAboveBreakEven) +" " + market.getCounterCurrency() + "' above the break even");
+      return maximalPriceLimitAboveBreakEven;
     } else {
-      BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
-      if(minimumAboveBreakEvenPriceLimit.compareTo(breakEven) >= 0)  {
-        LOG.info(() -> market.getName() + " SELL phase - the minimum above trailing gain is reached. Computed sell price could be '" + decimalFormat.format(minimumAboveBreakEvenPriceLimit) +" " + market.getCounterCurrency() + "' above the break even");
-        return minimumAboveBreakEvenPriceLimit;
-      } else {
         BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
-        LOG.info(() -> market.getName() + " SELL phase - still below break even. Computed sell price could be '" + decimalFormat.format(belowBreakEvenPriceLimit) + " " + market.getCounterCurrency() + "' below the break even (above pricelimit would be: '" + decimalFormat.format(aboveBreakEvenPriceLimit) + " " + market.getCounterCurrency() + "')");
+        LOG.info(() -> market.getName() + " SELL phase - still below break even. Computed new SELL price is '" + decimalFormat.format(belowBreakEvenPriceLimit) + " " + market.getCounterCurrency() + "' below the break even.");
         return belowBreakEvenPriceLimit;
-      }
     }
+  }
+
+  private BigDecimal calculateMaximalPriceLimitAboveBreakEven(BigDecimal breakEven) {
+    BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
+    BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
+    return aboveBreakEvenPriceLimit.max(minimumAboveBreakEvenPriceLimit);
   }
 
   private BigDecimal calculateBelowBreakEvenPriceLimit() {
@@ -392,13 +392,13 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     if (myOrders.isEmpty()) {
       LOG.info(() -> market.getName() + " No open orders found. Check available balance for the base currency, to know if a new sell order should be created.");
       final BigDecimal currentBaseCurrencyBalance = getAvailableCurrencyBalance(market.getBaseCurrency());
-      if(currentBaseCurrencyBalance.compareTo(new BigDecimal(0.00000001))>0) {
+      if(currentBaseCurrencyBalance.compareTo(new BigDecimal(0.00000002))>0) {
         LOG.info(() -> market.getName() + " Open balance in base currency found. Resume needed. Set current phase to SELL and use as BUY price the current market price");
         currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, currentBaseCurrencyBalance, currentTicker.getLast());
         strategyState = IntelligentStrategyState.NEED_SELL;
         return;
       } else {
-        LOG.info(() -> market.getName() + " No open balance in base currency found. No resume needed. Set current phase to BUY ");
+        LOG.info(() -> market.getName() + " No significant open balance in base currency found (" + decimalFormat.format(currentBaseCurrencyBalance)+ " " + market.getBaseCurrency()+ "). No resume needed. Set current phase to BUY.");
         strategyState = IntelligentStrategyState.NEED_BUY;
         return;
       }

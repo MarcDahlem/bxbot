@@ -6,12 +6,10 @@ import org.apache.logging.log4j.Logger;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
 
 public class StrategyConfigParser {
     private static final Logger LOG = LogManager.getLogger();
     /** The decimal format for the logs. */
-    private static final DecimalFormat decimalFormat = new DecimalFormat("#.########");
     public static BigDecimal readPercentageConfigValue(StrategyConfig config, String configKeyToPercentageValue) {
         final String initialPercentageValueAsString =
                 config.getConfigItem(configKeyToPercentageValue);
@@ -23,8 +21,7 @@ public class StrategyConfigParser {
 
         BigDecimal initialPercentageValue = new BigDecimal(initialPercentageValueAsString);
 
-        BigDecimal initialPercentageValueInDecimal = initialPercentageValue.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
-        return initialPercentageValueInDecimal;
+        return initialPercentageValue.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
     }
 
     public static boolean readBoolean(StrategyConfig config, String key, boolean defaultValue) {
@@ -33,7 +30,7 @@ public class StrategyConfigParser {
             LOG.info(() -> "Configuration value of <" + key + "> is not available in the strategy.xml config. Use the default value '" + defaultValue + "' instead.");
             return defaultValue;
         } else {
-            Boolean result = Boolean.valueOf(valueAsString);
+            boolean result = Boolean.parseBoolean(valueAsString);
             LOG.info(() -> "Successfully read the configuration value of <" + key + "> from the strategy.xml as '" + result + "'");
             return result;
         }
@@ -47,7 +44,6 @@ public class StrategyConfigParser {
         }
         LOG.info(() -> "<" + key + "> from config is: " + numberValueAsString);
 
-        BigDecimal numberValue = new BigDecimal(numberValueAsString);
-        return numberValue;
+        return new BigDecimal(numberValueAsString);
     }
 }
