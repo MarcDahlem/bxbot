@@ -53,12 +53,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   private Market market;
 
   private IntelligentStrategyState strategyState;
-
-  /**
-   * The minimum % gain to reach according to the recorded minimum before placing a BUY oder. This was loaded from the strategy
-   * entry in the {project-root}/config/strategies.yaml config file.
-   */
-  private BigDecimal configuredInitialPercentageGainNeededToPlaceBuyOrder;
   /**
    * The % of the the available counter currency balance to be used for buy orders. This was loaded from the strategy
    * entry in the {project-root}/config/strategies.yaml config file.
@@ -71,9 +65,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
    */
   private BigDecimal configuredEmergencyStop;
 
-  private BigDecimal configuredSellStopLimitPercentageBelowBreakEven;
-  private BigDecimal configuredSellStopLimitPercentageAboveBreakEven;
-
   /* market data downloaded and stored during the engine lifetime */
   private Ticker currentTicker;
   private BigDecimal lowestPrice;
@@ -83,9 +74,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   private OrderState currentSellOrder;
 
   private IntelligentLimitAdapter intelligentLimitAdapter;
-  private BigDecimal configuredIntelligentLimitsPercentageScaleFactor;
   private boolean debugModeEnabled;
-  private BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven;
 
 
   /**
@@ -104,12 +93,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     this.tradingApi = tradingApi;
     this.market = market;
     getConfigForStrategy(config);
-    this.intelligentLimitAdapter = new IntelligentLimitAdapter(
-            configuredInitialPercentageGainNeededToPlaceBuyOrder,
-            configuredSellStopLimitPercentageBelowBreakEven,
-            configuredSellStopLimitPercentageAboveBreakEven,
-            configuredSellStopLimitPercentageMinimumAboveBreakEven,
-            configuredIntelligentLimitsPercentageScaleFactor);
+    this.intelligentLimitAdapter = new IntelligentLimitAdapter(config);
     LOG.info(() -> "Trading Strategy initialised successfully!");
   }
 
@@ -507,56 +491,10 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
   }
 
   private void getConfigForStrategy(StrategyConfig config) {
-    configuredInitialPercentageGainNeededToPlaceBuyOrder = readPercentageConfigValue(config, "initial-percentage-gain-needed-to-place-buy-order");
-    configuredPercentageOfCounterCurrencyBalanceToUse = readPercentageConfigValue(config,"percentage-of-counter-currency-balance-to-use");
-    configuredSellStopLimitPercentageBelowBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-below-break-even");
-    configuredSellStopLimitPercentageAboveBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-above-break-even");
-    configuredSellStopLimitPercentageMinimumAboveBreakEven = readPercentageConfigValue(config,"sell-stop-limit-percentage-minimum-above-break-even");
-    configuredIntelligentLimitsPercentageScaleFactor = readPercentageConfigValue(config, "intelligent-limits-percentage-scale-factor");
-    readEmergencyStopBalance(config);
-    debugModeEnabled = readBoolean(config, "debug-mode-enabled", false);
+    configuredPercentageOfCounterCurrencyBalanceToUse = StrategyConfigParser.readPercentageConfigValue(config,"percentage-of-counter-currency-balance-to-use");
+    configuredEmergencyStop = StrategyConfigParser.readAmount(config, "configured-emergency-stop-balance");
+    debugModeEnabled = StrategyConfigParser.readBoolean(config, "debug-mode-enabled", false);
   }
 
-  private boolean readBoolean(StrategyConfig config, String key, boolean defaultValue) {
-    final String valueAsString = config.getConfigItem(key);
-    if (valueAsString == null || valueAsString.isEmpty()) {
-      LOG.info(() -> "Configuration value of <" + key + "> is not available in the strategy.xml config. Use the default value '" + defaultValue + "' instead.");
-      return defaultValue;
-    } else {
-      Boolean result = Boolean.valueOf(valueAsString);
-      LOG.info(() -> "Successfully read the configuration value of <" + key + "> from the strategy.xml as '" + result + "'");
-      return result;
-    }
-  }
 
-  private void readEmergencyStopBalance(StrategyConfig config) {
-    final String configuredEmergencyStopAsString =
-            config.getConfigItem("configured-emergency-stop-balance");
-    if (configuredEmergencyStopAsString == null) {
-      throw new IllegalArgumentException(
-              "Mandatory configuration for the emergency stop to be substracted from the available balance is missing or missing a value in the strategy.xml config.");
-    }
-    LOG.info(
-            () ->
-                    "<configured-emergency-stop-balance> from config is: " + configuredEmergencyStopAsString);
-
-    // Will fail fast if value is not a number
-    configuredEmergencyStop = new BigDecimal(configuredEmergencyStopAsString);
-    LOG.info(() -> "configuredEmergencyStop is: " + configuredEmergencyStop);
-  }
-
-  private BigDecimal readPercentageConfigValue(StrategyConfig config, String configKeyToPercentageValue) {
-    final String initialPercentageValueAsString =
-            config.getConfigItem(configKeyToPercentageValue);
-    if (initialPercentageValueAsString == null) {
-      throw new IllegalArgumentException(
-              "Mandatory <" + configKeyToPercentageValue + "> misses a value in strategy.xml config.");
-    }
-    LOG.info(() -> "<" + configKeyToPercentageValue + "> from config is: " + initialPercentageValueAsString);
-
-    BigDecimal initialPercentageValue = new BigDecimal(initialPercentageValueAsString);
-
-    BigDecimal initialPercentageValueInDecimal = initialPercentageValue.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
-    return initialPercentageValueInDecimal;
-  }
 }
