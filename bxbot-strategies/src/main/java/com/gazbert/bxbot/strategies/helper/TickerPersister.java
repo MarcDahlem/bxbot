@@ -19,10 +19,10 @@ import java.util.List;
 
 public class TickerPersister {
     private static final Logger LOG = LogManager.getLogger();
-    public static void persistTicker(BarSeries series) throws IOException {
+    public static void persistTicker(BarSeries series, String marketID) throws IOException {
         GsonBarSeries exportableSeries = GsonBarSeries.from(series);
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        FileWriter writer = new FileWriter("barData_" + System.currentTimeMillis() + ".json");
+        FileWriter writer = new FileWriter(marketID + System.currentTimeMillis() + ".json");
         gson.toJson(exportableSeries, writer);
         writer.flush();
         writer.close();
@@ -31,8 +31,9 @@ public class TickerPersister {
     public static BarSeries loadTicker(String marketName) throws IOException {
         Gson gson = new Gson();
 
+
         try {
-            FileReader reader = new FileReader("barData_1618526676774.json");
+            FileReader reader = new FileReader("barData_1618580976288.json");
             GsonBarSeries loadedSeries = gson.fromJson(reader, GsonBarSeries.class);
             reader.close();
 
