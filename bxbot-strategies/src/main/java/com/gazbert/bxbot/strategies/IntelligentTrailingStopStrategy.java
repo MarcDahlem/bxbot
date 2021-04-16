@@ -539,8 +539,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         final BigDecimal currentBalance = balanceInfo.getBalancesAvailable().get(currency);
         if (currentBalance == null) {
             final String errorMsg = "Failed to get current currency balance as '" + currency + "' key is not available in the balances map. Balances returned: " + balanceInfo.getBalancesAvailable();
-            LOG.error(() -> errorMsg);
-            throw new StrategyException(errorMsg);
+            LOG.warn(() -> errorMsg);
+            return BigDecimal.ZERO;
         } else {
             LOG.info(() -> market.getName() + "Currency balance available on exchange is ["
                     + decimalFormat.format(currentBalance)
