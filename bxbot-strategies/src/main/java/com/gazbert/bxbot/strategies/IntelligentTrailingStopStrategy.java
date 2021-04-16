@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.ta4j.core.*;
+import org.ta4j.core.num.Num;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTrailingStopStrategy implements TradingStrategy {
@@ -80,7 +81,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     /* market data downloaded and stored during the engine lifetime */
     private Ticker currentTicker;
-    private BigDecimal lowestAskPrice;
     private BarSeries series;
 
     /* used to store the latest executed orders */
@@ -353,7 +353,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                 intelligentLimitAdapter.addNewExecutedSellOrder(currentSellOrder, totalGain, breakEven);
                 currentBuyOrder = null;
                 currentSellOrder = null;
-                lowestAskPrice = currentTicker.getAsk();
                 strategyState = IntelligentStrategyState.NEED_BUY;
                 executeBuyPhase();
                 break;
@@ -399,33 +398,43 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private boolean marketMovedUp() {
         BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
+        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(20);
+        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(3);
         BigDecimal amountToMoveUp = lowestAskPrice.multiply(currentPercentageGainNeededForBuy);
         BigDecimal goalToReach = lowestAskPrice.add(amountToMoveUp);
         BigDecimal percentageChangeMarketToMinimum = getPercentageChange(currentTicker.getAsk(), lowestAskPrice);
+        BigDecimal percentageChangeCleanedMarketToMinimum = getPercentageChange(cleanedMarketPrice, lowestAskPrice);
         LOG.info(() -> market.getName() + "\n" +
                 "######### BUY ORDER STATISTICS #########\n" +
                 " * Price needed: " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency() +
                 "\n * Current ask price: " + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() +
-                "\n * Minimum seen ask price: " + decimalFormat.format(lowestAskPrice) + " " + market.getCounterCurrency() +
+                "\n * Current cleaned ask price (in 3 ticks): " + decimalFormat.format(cleanedMarketPrice) + " " + market.getCounterCurrency() +
+                "\n * Minimum seen ask price (in 20 ticks): " + decimalFormat.format(lowestAskPrice) + " " + market.getCounterCurrency() +
                 "\n * Gain needed from this minimum price: " + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(oneHundred)) +
                 "% = " + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency() +
-                "\n * Market above minimum: " + decimalFormat.format(percentageChangeMarketToMinimum) + "%\n" +
+                "\n * Current market above minimum: " + decimalFormat.format(percentageChangeMarketToMinimum) + "%" +
+                "\n * Cleaned market above minimum (3 ticks): " + decimalFormat.format(percentageChangeCleanedMarketToMinimum) + "%\n" +
                 "########################################");
 
-        return currentTicker.getAsk().compareTo(goalToReach) > 0;
+        return cleanedMarketPrice.compareTo(goalToReach) > 0;
+    }
+
+    private BigDecimal calulateLowestAskPriceIn(int ticks) {
+        int currentEndIndex = series.getEndIndex();
+        Num result = series.getBar(currentEndIndex).getHighPrice();
+        int currentBeginIndex = series.getBeginIndex();
+
+        int spanStartIndex = currentEndIndex - ticks;
+        int availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
+        for(int i=availableStartIndex; i<currentEndIndex; i++) {
+            result = series.getBar(i).getHighPrice().min(result);
+        }
+        return (BigDecimal)result.getDelegate();
     }
 
     private void updateMarketPrices() throws ExchangeNetworkException, TradingApiException {
         currentTicker = tradingApi.getTicker(market.getId());
         LOG.info(() -> market.getName() + " Updated latest market info: " + currentTicker);
-        if (lowestAskPrice == null) {
-            LOG.info(() -> market.getName() + " Set first lowest ask price to " + decimalFormat.format(currentTicker.getAsk()));
-            lowestAskPrice = currentTicker.getAsk();
-        } else if (currentTicker.getAsk().compareTo(lowestAskPrice) < 0) {
-            LOG.info(() -> market.getName() + " Current market ask price is a new minimum price. Update lowest price from " + decimalFormat.format(lowestAskPrice) + " to " + decimalFormat.format(currentTicker.getAsk()));
-            lowestAskPrice = currentTicker.getAsk();
-        }
-
         series.addBar(ZonedDateTime.now(), currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
     }
 

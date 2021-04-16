@@ -33,7 +33,7 @@ public class TickerPersister {
 
 
         try {
-            FileReader reader = new FileReader("barData_1618580976288.json");
+            FileReader reader = new FileReader("not_available.json");
             GsonBarSeries loadedSeries = gson.fromJson(reader, GsonBarSeries.class);
             reader.close();
 
