@@ -19,7 +19,6 @@ import java.util.List;
 
 public class TickerPersister {
     private static final Logger LOG = LogManager.getLogger();
-
     public static void persistTicker(BarSeries series) throws IOException {
         GsonBarSeries exportableSeries = GsonBarSeries.from(series);
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -38,7 +37,7 @@ public class TickerPersister {
             reader.close();
 
             BarSeries result = loadedSeries.toBarSeries();
-            LOG.info("Bar series '" + result.getName() + "' successfully loaded. Entries: " + result.getBarCount());
+            LOG.info("Bar series '" + result.getName() +"' successfully loaded. Entries: " + result.getBarCount());
             return result;
         } catch (FileNotFoundException e) {
             LOG.warn("Ticker persistence file not found. Create a new ticker series");

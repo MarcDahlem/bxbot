@@ -63,3 +63,8 @@ exchange:
     # If set to false, the bot will shut down if the exchange is undergoing maintenance - the adapter will throw a
     # fatal TradingApiException.
     keep-alive-during-maintenance: false
+
+    # Sell order (stop-limit) limit distance to the given stop price.
+    # This should always be lower than the value <sell-stop-limit-percentage-minimum-above-break-even> in the strategies.yaml
+    # to ensure the intelligent strategy to work
+    sell-stop-limit-percentage-distance: 0.15

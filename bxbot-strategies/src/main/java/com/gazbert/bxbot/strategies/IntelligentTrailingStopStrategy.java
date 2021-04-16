@@ -185,7 +185,15 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                 } else {
                     LOG.warn(() -> market.getName() + " The current BUY order (price: '" + decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
                             + ") is below the current market ask price (" + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() +
-                            "). The market went up. Place a new higher BUY order to participate.");
+                            ").");
+                    currentBuyOrder.increaseOrderNotExecutedCounter();
+                    if(currentBuyOrder.getOrderNotExecutedCounter()<=3) {
+                        LOG.warn(() -> market.getName() + " The BUY order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
+                        return;
+                    } else {
+                        LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. As the market went up, place a new higher BUY order to participate in the up trend.");
+                    }
+
                 }
                 if (!debugModeEnabled) tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
                 LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Reset the strategy to the buy phase...");
