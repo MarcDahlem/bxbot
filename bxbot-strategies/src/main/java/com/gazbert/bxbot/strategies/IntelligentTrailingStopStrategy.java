@@ -181,7 +181,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                             + ") is below the current market ask price (" + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() +
                             ").");
                 } else {
-                    LOG.warn(() -> market.getName() + " The order is partially filled but the amrket moved down (buy price: '" + decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
+                    LOG.warn(() -> market.getName() + " The order is partially filled but the market moved down (buy price: '" + decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
                             + ", market ask price: " + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() +
                             ").");
                 }
@@ -190,13 +190,22 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                     LOG.warn(() -> market.getName() + " The BUY order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
                 } else {
                     LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Cancel the rest of the order and proceed with selling the partially filled BUY order.");
-                    if (!debugModeEnabled) tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
-                    LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Compute executed order amount for the partial order.");
-                    BigDecimal filledOrderAmount = getAvailableCurrencyBalance(market.getCounterCurrency());
-                    currentBuyOrder = new OrderState(currentBuyOrder.getId(), currentBuyOrder.getType(), filledOrderAmount, currentBuyOrder.getPrice());
-                    LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentBuyOrder.getId() + "' successfully with '" + decimalFormat.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with SELL phase");
-                    strategyState = IntelligentStrategyState.NEED_SELL;
-                    executeSellPhase();
+
+                    boolean orderCanceled = true;
+                    if (!debugModeEnabled){
+                        orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
+                    }
+
+                    if (orderCanceled) {
+                        LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Compute executed order amount for the partial order.");
+                        BigDecimal filledOrderAmount = getAvailableCurrencyBalance(market.getCounterCurrency());
+                        currentBuyOrder = new OrderState(currentBuyOrder.getId(), currentBuyOrder.getType(), filledOrderAmount, currentBuyOrder.getPrice());
+                        LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentBuyOrder.getId() + "' successfully with '" + decimalFormat.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with SELL phase");
+                        strategyState = IntelligentStrategyState.NEED_SELL;
+                        executeSellPhase();
+                    } else {
+                        LOG.warn(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
+                    }
                 }
                 break;
             case FULL_AVAILABLE:
@@ -216,11 +225,19 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                             LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Place a new BUY order to participate in the up trend.");
                         }
                     }
-                    if (!debugModeEnabled) tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
-                    LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Reset the strategy to the buy phase...");
-                    currentBuyOrder = null;
-                    strategyState = IntelligentStrategyState.NEED_BUY;
-                    executeBuyPhase();
+                    boolean orderCanceled = true;
+                    if (!debugModeEnabled){
+                        orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
+                    }
+
+                    if (orderCanceled) {
+                        LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Reset the strategy to the buy phase...");
+                        currentBuyOrder = null;
+                        strategyState = IntelligentStrategyState.NEED_BUY;
+                        executeBuyPhase();
+                    } else {
+                        LOG.warn(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
+                    }
                 }
                 break;
             case UNAVAILABLE:
@@ -309,11 +326,20 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                     if (sellPrice.compareTo(currentSellOrderPrice) > 0) {
                         LOG.info(() -> market.getName() + " The new SELL order's price '" + decimalFormat.format(sellPrice) + " " + market.getCounterCurrency()
                                 + "' is higher than the the current sell order's price ('" + decimalFormat.format(currentSellOrderPrice) + " " + market.getCounterCurrency() + "'). Cancel the current sell order '" + currentSellOrder.getId() + "' and trail the stop according to the higher stop limit.");
-                        if (!debugModeEnabled) tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
+
+                        boolean orderCanceled = true;
+                        if (!debugModeEnabled){
+                            orderCanceled = tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
+                        }
+
+                        if (orderCanceled) {
                         LOG.info(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' successfully canceled. Reset the strategy to the sell phase...");
                         currentSellOrder = null;
                         strategyState = IntelligentStrategyState.NEED_SELL;
                         executeSellPhase();
+                        } else {
+                            LOG.warn(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
+                        }
                     } else {
                         LOG.info(() -> market.getName() + " The new SELL order's price '" + decimalFormat.format(sellPrice) + " " + market.getCounterCurrency()
                                 + "' is lower than the the current sell order's price ('" + decimalFormat.format(currentSellOrderPrice) + " " + market.getCounterCurrency() + "'). Wait for the order to fulfill or to increase trail in the next strategy tick.");
