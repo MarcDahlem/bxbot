@@ -4,6 +4,7 @@ import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
 import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
 import com.gazbert.bxbot.exchanges.ta4objects.TA4JRecordingRule;
+import com.gazbert.bxbot.exchanges.ta4objects.TradePriceRespectingBacktestExecutor;
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
@@ -12,6 +13,7 @@ import com.gazbert.bxbot.trading.api.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.*;
+import org.ta4j.core.cost.LinearTransactionCostModel;
 import org.ta4j.core.tradereport.PerformanceReport;
 import org.ta4j.core.tradereport.TradeStatsReport;
 import org.ta4j.core.tradereport.TradingStatement;
@@ -215,7 +217,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         Strategy strategy = new BaseStrategy("Recorded ta4j trades", buyOrderRule, sellOrderRule);
         strategies.add(strategy);
 
-        BacktestExecutor backtestExecutor = new BacktestExecutor(tradingSeries);
+        TradePriceRespectingBacktestExecutor backtestExecutor = new TradePriceRespectingBacktestExecutor(tradingSeries, new LinearTransactionCostModel(getPercentageOfBuyOrderTakenForExchangeFee(marketID).doubleValue()));
         List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(50), Order.OrderType.BUY);
         logReports(statements);
         throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
