@@ -3,14 +3,19 @@ package com.gazbert.bxbot.exchanges;
 import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
 import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
+import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
+import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import com.gazbert.bxbot.trading.api.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 
 public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements ExchangeAdapter {
@@ -27,11 +32,20 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     private BarSeries tradingSeries;
 
+    private static final String counterCurrency = "ZEUR";
+    private static final String baseCurrency = "XXRP";
+
+    private BigDecimal baseCurrencyBalance = BigDecimal.ZERO;
+    private BigDecimal counterCurrencyBalance = new BigDecimal(100);
+    private OpenOrder currentOpenOrder;
+    private int currentTick;
+
     @Override
     public void init(ExchangeConfig config) {
         LOG.info(() -> "About to initialise ta4j recording ExchangeConfig: " + config);
         setOtherConfig(config);
         loadRecodingSeriesFromJson();
+        currentTick = tradingSeries.getBeginIndex() - 1;
     }
 
     private void loadRecodingSeriesFromJson() {
@@ -72,8 +86,11 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     @Override
     public List<OpenOrder> getYourOpenOrders(String marketId) throws ExchangeNetworkException, TradingApiException {
-        return null;
-        //todo
+        LinkedList<OpenOrder> result = new LinkedList<>();
+        if (currentOpenOrder != null) {
+            result.add(currentOpenOrder);
+        }
+        return result;
     }
 
     @Override
@@ -90,19 +107,42 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     @Override
     public BigDecimal getLatestMarketPrice(String marketId) throws ExchangeNetworkException, TradingApiException {
-        return null;
+        return (BigDecimal) tradingSeries.getBar(currentTick).getClosePrice().getDelegate();
     }
 
     @Override
     public BalanceInfo getBalanceInfo() throws ExchangeNetworkException, TradingApiException {
-        return null;
-        // todo
+        HashMap<String, BigDecimal> availableBalances = new HashMap<>();
+        availableBalances.put(baseCurrency, baseCurrencyBalance);
+        availableBalances.put(counterCurrency, counterCurrencyBalance);
+        return new BalanceInfoImpl(availableBalances, new HashMap<>());
     }
 
     @Override
     public Ticker getTicker(String marketId) throws TradingApiException, ExchangeNetworkException {
-        return null;
-        // todo
+        currentTick++;
+        LOG.info("Tick increased to '" + currentTick + "'");
+        if (currentTick > tradingSeries.getEndIndex()) {
+            finishRecording();
+            return null;
+        }
+
+        Bar currentBar = tradingSeries.getBar(currentTick);
+        BigDecimal last = (BigDecimal) currentBar.getClosePrice().getDelegate();
+        BigDecimal bid = (BigDecimal) currentBar.getLowPrice().getDelegate();
+        BigDecimal ask = (BigDecimal) currentBar.getHighPrice().getDelegate();
+        BigDecimal low = (BigDecimal) currentBar.getLowPrice().getDelegate();
+        BigDecimal high = (BigDecimal) currentBar.getHighPrice().getDelegate();
+        BigDecimal open = (BigDecimal) currentBar.getOpenPrice().getDelegate();
+        BigDecimal volume = (BigDecimal) currentBar.getVolume().getDelegate();
+        BigDecimal vwap = BigDecimal.ZERO;
+        Long timestamp = null;
+        return new TickerImpl(last, bid, ask, low, high, open, volume, vwap, timestamp);
+    }
+
+    private void finishRecording() throws TradingApiException, ExchangeNetworkException {
+        // TODO simulate and backtest the recorded ta4j strategy
+        throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
     }
 
     @Override
