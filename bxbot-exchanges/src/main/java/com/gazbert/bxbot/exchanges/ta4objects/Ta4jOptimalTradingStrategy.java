@@ -37,19 +37,24 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
                     lastSeenMinimum = askPrice;
                     lastSeenMinimumIndex = index;
                 } else {
-                    Num minimumPlusFees = lastSeenMinimum.plus(lastSeenMinimum.multipliedBy(buyFee));
-                    Num currentPriceMinusFees = bidPrice.minus(bidPrice.multipliedBy(sellFee));
+                    Num buyFees = lastSeenMinimum.multipliedBy(buyFee);
+                    Num minimumPlusFees = lastSeenMinimum.plus(buyFees);
+                    Num currentPriceSellFees = bidPrice.multipliedBy(sellFee);
+                    Num currentPriceMinusFees = bidPrice.minus(currentPriceSellFees);
                     if(lastSeenMaximum == null) {
                         if(currentPriceMinusFees.isGreaterThan(minimumPlusFees)) {
                             lastSeenMaximum = bidPrice;
                             lastSeenMaximumIndex = index;
                         }
                     } else {
-                        if(lastSeenMaximum.isLessThanOrEqual(bidPrice)) {
+                        if(bidPrice.isGreaterThanOrEqual(lastSeenMaximum)) {
                             lastSeenMaximum = bidPrice;
                             lastSeenMaximumIndex = index;
                         } else {
-                            if (currentPriceMinusFees.isLessThan(minimumPlusFees)) {
+                            Num lastMaxPriceSellFees = lastSeenMaximum.multipliedBy(sellFee);
+                            Num lastMaxPriceMinusFees = lastSeenMaximum.minus(lastMaxPriceSellFees);
+                            Num currentPricePlusBuyFees = bidPrice.plus(bidPrice.multipliedBy(buyFee));
+                            if (currentPricePlusBuyFees.isLessThan(lastMaxPriceMinusFees)) {
                                 createTrade(lastSeenMinimumIndex, lastSeenMinimum, lastSeenMaximumIndex, lastSeenMaximum);
                                 lastSeenMaximum = null;
                                 lastSeenMaximumIndex = -1;
