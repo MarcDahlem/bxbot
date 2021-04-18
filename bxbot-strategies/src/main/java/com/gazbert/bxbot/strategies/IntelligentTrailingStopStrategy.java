@@ -273,6 +273,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         BigDecimal currentSellOrderPrice = currentSellOrder.getPrice();
         OpenOrderState marketState = retrievOrderStateFromMarket(currentSellOrder);
         BigDecimal breakEven = calculateBreakEven();
+
         switch (marketState) {
             case PARTIAL_AVAILABLE:
             case FULL_AVAILABLE:
@@ -346,7 +347,9 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                 break;
             case UNAVAILABLE:
                 LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Restart gaining money in the buy phase...");
-                BigDecimal totalGain = currentSellOrderPrice.subtract(breakEven).multiply(currentSellOrder.getAmount());
+                BigDecimal totalBuyPrice = currentBuyOrder.getPrice().add(currentBuyOrder.getPrice().multiply(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId())));
+                BigDecimal totalSellPrice = currentSellOrderPrice.subtract(currentSellOrderPrice.multiply(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId())));
+                BigDecimal totalGain = totalSellPrice.subtract(totalBuyPrice).multiply(currentSellOrder.getAmount());
                 LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + decimalFormat.format(totalGain) + "'. (Break even: '" + decimalFormat.format(breakEven) + "', sell order price: '" + decimalFormat.format(currentSellOrderPrice) + "', sell order amount: '" + decimalFormat.format(currentSellOrder.getAmount()) + "')");
                 intelligentLimitAdapter.addNewExecutedSellOrder(currentSellOrder, totalGain, breakEven);
                 currentBuyOrder = null;
@@ -545,7 +548,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     }
 
     private BigDecimal getAmountOfPiecesToBuy() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        final BigDecimal balanceToUseForBuyOrder = getBalanceToUseForBuyOrder();
+        // TODO final BigDecimal balanceToUseForBuyOrder = getBalanceToUseForBuyOrder();
+        final BigDecimal balanceToUseForBuyOrder = new BigDecimal(25);
         LOG.info(
                 () ->
                         market.getName()
