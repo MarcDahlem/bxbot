@@ -23,11 +23,11 @@
 
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.TickerPersister;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
 import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
@@ -108,11 +108,12 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         this.market = market;
         getConfigForStrategy(config);
         this.intelligentLimitAdapter = new IntelligentLimitAdapter(config);
-        try {
-            series = TickerPersister.loadTicker(market.getName());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        BarSeries loadedSeries = JsonBarsSerializer.loadSeries("not_available.json");
+        if (loadedSeries == null) {
+            LOG.info(() -> "No series to be loaded found. Create a new series.");
+            loadedSeries = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
         }
+        series = loadedSeries;
         LOG.info(() -> "Trading Strategy initialised successfully!");
     }
 
@@ -156,11 +157,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         } catch (TradingApiException | ExchangeNetworkException | StrategyException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
             // shutdown the bot.
-            try {
-                TickerPersister.persistTicker(series, market.getId());
-            } catch (IOException ioException) {
-                LOG.error("Error while saving ticker series to json: ", ioException);
-            }
+            JsonBarsSerializer.persistSeries(series, market.getId() + System.currentTimeMillis() + ".json");
+
             LOG.error(
                     market.getName()
                             + " Failed to perform the strategy because Exchange threw TradingApiException, ExchangeNetworkexception or StrategyException. "
