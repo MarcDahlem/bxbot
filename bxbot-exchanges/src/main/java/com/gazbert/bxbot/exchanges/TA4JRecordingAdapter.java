@@ -4,6 +4,7 @@ import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
 import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
 import com.gazbert.bxbot.exchanges.ta4objects.TA4JRecordingRule;
+import com.gazbert.bxbot.exchanges.ta4objects.Ta4jOptimalTradingStrategy;
 import com.gazbert.bxbot.exchanges.ta4objects.TradePriceRespectingBacktestExecutor;
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
@@ -216,9 +217,10 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         final List<Strategy> strategies = new ArrayList<>();
         Strategy strategy = new BaseStrategy("Recorded ta4j trades", buyOrderRule, sellOrderRule);
         strategies.add(strategy);
+        strategies.add(new Ta4jOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketID), getPercentageOfSellOrderTakenForExchangeFee(marketID)));
 
         TradePriceRespectingBacktestExecutor backtestExecutor = new TradePriceRespectingBacktestExecutor(tradingSeries, new LinearTransactionCostModel(getPercentageOfBuyOrderTakenForExchangeFee(marketID).doubleValue()));
-        List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(50), Order.OrderType.BUY);
+        List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(25), Order.OrderType.BUY);
         logReports(statements);
         throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
     }
@@ -226,7 +228,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private void logReports(List<TradingStatement> statements) {
         for(TradingStatement statement:statements) {
             LOG.info( () ->
-            "######### "+statement.getStrategy().getName()+" #########\n" +
+            "\n######### "+statement.getStrategy().getName()+" #########\n" +
             createPerformanceReport(statement) + "\n" +
             createTradesReport(statement)+ "\n"+
                     "###########################"
