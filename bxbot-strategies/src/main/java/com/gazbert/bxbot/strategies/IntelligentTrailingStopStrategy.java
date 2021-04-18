@@ -157,7 +157,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         } catch (TradingApiException | ExchangeNetworkException | StrategyException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
             // shutdown the bot.
-            JsonBarsSerializer.persistSeries(series, market.getId() + System.currentTimeMillis() + ".json");
+            // TODO reanable JsonBarsSerializer.persistSeries(series, market.getId() + System.currentTimeMillis() + ".json");
 
             LOG.error(
                     market.getName()

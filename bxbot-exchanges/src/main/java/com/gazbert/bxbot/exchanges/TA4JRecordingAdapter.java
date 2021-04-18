@@ -3,6 +3,7 @@ package com.gazbert.bxbot.exchanges;
 import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
 import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
+import com.gazbert.bxbot.exchanges.ta4objects.TA4JRecordingRule;
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
@@ -10,15 +11,14 @@ import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import com.gazbert.bxbot.trading.api.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ta4j.core.Bar;
-import org.ta4j.core.BarSeries;
+import org.ta4j.core.*;
+import org.ta4j.core.tradereport.PerformanceReport;
+import org.ta4j.core.tradereport.TradeStatsReport;
+import org.ta4j.core.tradereport.TradingStatement;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements ExchangeAdapter {
     private static final Logger LOG = LogManager.getLogger();
@@ -42,6 +42,8 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private BigDecimal counterCurrencyBalance = new BigDecimal(100);
     private OpenOrder currentOpenOrder;
     private int currentTick;
+    private TA4JRecordingRule sellOrderRule = new TA4JRecordingRule();
+    private TA4JRecordingRule buyOrderRule = new TA4JRecordingRule();
 
     @Override
     public void init(ExchangeConfig config) {
@@ -181,9 +183,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     private void checkOpenSellOrderExecution() throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentBidPrice = (BigDecimal)tradingSeries.getBar(currentTick).getLowPrice().getDelegate();
-        if (currentOpenOrder.getPrice().compareTo(currentBidPrice) >= 0) {
-            LOG.info("SELL limit price is above or equal to the bid price --> record sell order execution");
-            //ToDo sellOrderRule.addTrigger(currentTick);
+        if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
+            LOG.info("SELL: the bid price is below or equal to the stop price --> record sell order execution with the bid price");
+            sellOrderRule.addTrigger(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
             BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketID).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
@@ -195,9 +197,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     private void checkOpenBuyOrderExecution() throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentAskPrice = (BigDecimal)tradingSeries.getBar(currentTick).getHighPrice().getDelegate();
-        if (currentOpenOrder.getPrice().compareTo(currentAskPrice) >= 0) {
-            LOG.info("BUY limit price is above or equal to the ask price --> record buy order execution");
-            //ToDo buyOrderRule.addTrigger(currentTick);
+        if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <=0) {
+            LOG.info("BUY: the current ask price is below or queal to the limit price --> record buy order execution with the current ask price");
+            buyOrderRule.addTrigger(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
             BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketID).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.add(buyFees);
@@ -209,8 +211,44 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
 
     private void finishRecording() throws TradingApiException, ExchangeNetworkException {
-        // TODO simulate and backtest the recorded ta4j strategy
+        final List<Strategy> strategies = new ArrayList<>();
+        Strategy strategy = new BaseStrategy("Recorded ta4j trades", buyOrderRule, sellOrderRule);
+        strategies.add(strategy);
+
+        BacktestExecutor backtestExecutor = new BacktestExecutor(tradingSeries);
+        List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(50), Order.OrderType.BUY);
+        logReports(statements);
         throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
+    }
+
+    private void logReports(List<TradingStatement> statements) {
+        for(TradingStatement statement:statements) {
+            LOG.info( () ->
+            "######### "+statement.getStrategy().getName()+" #########\n" +
+            createPerformanceReport(statement) + "\n" +
+            createTradesReport(statement)+ "\n"+
+                    "###########################"
+            );
+        }
+    }
+
+    private String createTradesReport(TradingStatement statement) {
+        TradeStatsReport tradeStatsReport = statement.getTradeStatsReport();
+        return "--------- trade statistics report ---------\n" +
+                "loss trade count: " + tradeStatsReport.getLossTradeCount() + "\n" +
+                "profit trade count: " + tradeStatsReport.getProfitTradeCount() + "\n" +
+                "break even trade count: " + tradeStatsReport.getBreakEvenTradeCount() + "\n" +
+                "---------------------------";
+    }
+
+    private String createPerformanceReport(TradingStatement statement) {
+        PerformanceReport performanceReport = statement.getPerformanceReport();
+        return "--------- performance report ---------\n" +
+                "total loss: " + performanceReport.getTotalLoss() + "\n" +
+                "total profit: " + performanceReport.getTotalProfit() + "\n" +
+                "total profit loss: " + performanceReport.getTotalProfitLoss() + "\n" +
+                "total profit loss percentage: " + performanceReport.getTotalProfitLossPercentage() + "\n" +
+                "---------------------------";
     }
 
     @Override
