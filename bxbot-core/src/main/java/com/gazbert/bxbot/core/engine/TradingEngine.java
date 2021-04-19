@@ -35,16 +35,27 @@ import com.gazbert.bxbot.domain.exchange.ExchangeConfig;
 import com.gazbert.bxbot.domain.market.MarketConfig;
 import com.gazbert.bxbot.domain.strategy.StrategyConfig;
 import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
+import com.gazbert.bxbot.exchanges.TA4JRecordingAdapter;
 import com.gazbert.bxbot.services.config.EngineConfigService;
 import com.gazbert.bxbot.services.config.ExchangeConfigService;
 import com.gazbert.bxbot.services.config.MarketConfigService;
 import com.gazbert.bxbot.services.config.StrategyConfigService;
+import com.gazbert.bxbot.strategies.IntelligentLimitAdapter;
+import com.gazbert.bxbot.strategies.IntelligentTrailingStopStrategy;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
+
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,9 +142,92 @@ public class TradingEngine {
     // store this so we can shutdown the engine later
     engineThread = Thread.currentThread();
 
-    init();
-    runMainControlLoop();
+    //init();
+    //runMainControlLoop();
+    try {
+      benchmarkStrategy();
+    } catch (StrategyException e) {
+      handleStrategyException(e);
+
+    } catch (Exception e) {
+      handleUnexpectedException(e);
+    }
+    // We've broken out of the control loop due to error or admin shutdown request
+    LOG.fatal(() -> "BX-bot " + engineConfig.getBotId() + " is shutting down NOW!");
+    synchronized (IS_RUNNING_MONITOR) {
+      isRunning = false;
+    }
   }
+
+  private void benchmarkStrategy() throws StrategyException {
+    BigDecimal end = BigDecimal.valueOf(0.5);
+    int maxLookback = 20;
+    int maxScaleFactor = 10;
+    List<IntelligentLimitAdapter> results=new LinkedList<>();
+    IntelligentLimitAdapter bestResult = null;
+    try {
+      for (int scaleFactor = 0; scaleFactor <=maxScaleFactor; scaleFactor++) {
+        for (BigDecimal gainNeeded = BigDecimal.ZERO; gainNeeded.compareTo(end) <= 0; gainNeeded = gainNeeded.add(BigDecimal.valueOf(0.1))) {
+          for (BigDecimal belowBE = BigDecimal.ZERO; belowBE.compareTo(end) <= 0; belowBE = belowBE.add(BigDecimal.valueOf(0.1))) {
+            for (BigDecimal aboveBE = BigDecimal.ZERO; aboveBE.compareTo(end) <= 0; aboveBE = aboveBE.add(BigDecimal.valueOf(0.1))) {
+              for (BigDecimal minAboveBE = BigDecimal.ZERO; minAboveBE.compareTo(end) <= 0; minAboveBE = minAboveBE.add(BigDecimal.valueOf(0.1))) {
+                for(int lookback = 1; lookback<=maxLookback;lookback++) {
+                  for(int lookingForUpMovement = 1; lookingForUpMovement<=lookback;lookingForUpMovement++) {
+                    init();
+                    IntelligentTrailingStopStrategy strategy = (IntelligentTrailingStopStrategy) tradingStrategies.get(0);
+                    strategy.updateConfig(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
+                    int maxIndex = ((TA4JRecordingAdapter) exchangeAdapter).getMaxIndex();
+                    for (int i = 0; i <= maxIndex; i++) {
+                      strategy.execute();
+                    }
+                    IntelligentLimitAdapter currentState = strategy.getCurrentState();
+                    results.add(currentState);
+                    if (bestResult == null) {
+                      bestResult = currentState;
+                    } else {
+                      if (currentState.getOverallStrategyGain().compareTo(bestResult.getOverallStrategyGain())>0) {
+                        bestResult = currentState
+                      } else {
+                        if (currentState.getOverallStrategyGain().compareTo(bestResult.getOverallStrategyGain()) == 0) {
+                          LOG.error("Conflicting best result: \na)\n");
+                          currentState.printCurrentStatistics();
+                          LOG.error("b)\n");
+                          bestResult.printCurrentStatistics();
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      storeResults(results);
+    }
+  }
+
+  private void storeResults(List<IntelligentLimitAdapter> results) {
+    Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    FileWriter writer = null;
+    try {
+      writer = new FileWriter("IntelligentStrategyBenchmarks_"+System.currentTimeMillis() + ".json");
+      gson.toJson(results, writer);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      if (writer != null) {
+        try {
+          writer.flush();
+          writer.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+    }
+  }
+
 
   private void init() {
     LOG.info(() -> "Initialising Trading Engine...");

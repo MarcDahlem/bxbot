@@ -268,4 +268,8 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     public BigDecimal getPercentageOfSellOrderTakenForExchangeFee(String marketId) throws TradingApiException, ExchangeNetworkException {
         return sellFeePercentage;
     }
+
+    public int getMaxIndex() {
+        return tradingSeries.getEndIndex();
+    }
 }

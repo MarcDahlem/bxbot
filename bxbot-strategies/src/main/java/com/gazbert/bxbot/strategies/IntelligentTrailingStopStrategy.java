@@ -399,8 +399,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private boolean marketMovedUp() {
         BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
-        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(20);
-        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(3);
+        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(intelligentLimitAdapter.getCurrentLowestPriceLookbackCount());
+        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(intelligentLimitAdapter.getCurrentTimesAboveLowestPriceNeeded());
         BigDecimal amountToMoveUp = lowestAskPrice.multiply(currentPercentageGainNeededForBuy);
         BigDecimal goalToReach = lowestAskPrice.add(amountToMoveUp);
         BigDecimal percentageChangeMarketToMinimum = getPercentageChange(currentTicker.getAsk(), lowestAskPrice);
@@ -618,5 +618,13 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         configuredPercentageOfCounterCurrencyBalanceToUse = StrategyConfigParser.readPercentageConfigValue(config, "percentage-of-counter-currency-balance-to-use");
         configuredEmergencyStop = StrategyConfigParser.readAmount(config, "configured-emergency-stop-balance");
         debugModeEnabled = StrategyConfigParser.readBoolean(config, "debug-mode-enabled", false);
+    }
+
+    public void updateConfig(int scaleFactor, BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, int lookback, int lookingForUpMovement) {
+        this.intelligentLimitAdapter = new IntelligentLimitAdapter(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
+    }
+
+    public IntelligentLimitAdapter getCurrentState() {
+        return this.intelligentLimitAdapter;
     }
 }
