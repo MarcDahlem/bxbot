@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.exchanges.ta4objects;
 
+import com.gazbert.bxbot.trading.api.TradingApiException;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
@@ -11,12 +12,12 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
     private static final TA4JRecordingRule buyRule = new TA4JRecordingRule();
     private static final TA4JRecordingRule sellRule = new TA4JRecordingRule();
 
-    public Ta4jOptimalTradingStrategy(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) {
+    public Ta4jOptimalTradingStrategy(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) throws TradingApiException {
         super("Optimal trading rule", buyRule, sellRule);
         this.calculateOptimalTrades(series, series.numOf(buyFee), series.numOf(sellFee));
     }
 
-    private void calculateOptimalTrades(BarSeries series, Num buyFee, Num sellFee) {
+    private void calculateOptimalTrades(BarSeries series, Num buyFee, Num sellFee) throws TradingApiException {
         int lastSeenMinimumIndex = -1;
         Num lastSeenMinimum = null;
         int lastSeenMaximumIndex = -1;
@@ -68,7 +69,7 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
         }
     }
 
-    private void createTrade(int lastSeenMinimumIndex, Num lastSeenMinimum, int lastSeenMaximumIndex, Num lastSeenMaximum) {
+    private void createTrade(int lastSeenMinimumIndex, Num lastSeenMinimum, int lastSeenMaximumIndex, Num lastSeenMaximum) throws TradingApiException {
         if (lastSeenMinimum != null && lastSeenMaximum != null) {
             buyRule.addTrigger(lastSeenMinimumIndex);
             sellRule.addTrigger(lastSeenMaximumIndex);
