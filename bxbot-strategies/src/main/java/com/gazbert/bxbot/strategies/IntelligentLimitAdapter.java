@@ -144,8 +144,8 @@ public class IntelligentLimitAdapter {
         return result;
     }
 
-    public void printCurrentStatistics() {
-        LOG.info(() -> "The current statistics are:\n"
+    public String calculateCurrentStatistics() {
+        return "The current statistics are:\n"
                 + "######### LIMIT ADAPTION STATISTICS #########\n"
                 + "* Overall strategy gain: " +decimalFormat.format(overallStrategyGain) + "\n"
                 + "* Positive trades: " + amountOfPositiveTrades + "\n"
@@ -166,8 +166,10 @@ public class IntelligentLimitAdapter {
                 + "* initial sell stop limit percentage above break even: " +decimalFormat.format(configuredSellStopLimitPercentageAboveBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "* initial sell stop limit percentage minimum above break even: " +decimalFormat.format(configuredSellStopLimitPercentageMinimumAboveBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "* initial sell stop limit percentage below break even:: " +decimalFormat.format(configuredSellStopLimitPercentageBelowBreakEven.multiply(new BigDecimal(100))) + "%\n"
-                + "#############################################"
-        );
+                + "#############################################";
+    }
+    public void printCurrentStatistics() {
+      LOG.info(this::calculateCurrentStatistics);
     }
 
     public int getCurrentLowestPriceLookbackCount() {

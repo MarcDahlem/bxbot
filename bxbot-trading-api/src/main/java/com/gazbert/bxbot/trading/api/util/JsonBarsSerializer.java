@@ -49,8 +49,8 @@ public class JsonBarsSerializer {
             result = loadedSeries.toBarSeries();
             LOG.info("Bar series '" + result.getName() + "' successfully loaded. #Entries: " + result.getBarCount());
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            LOG.log(Level.SEVERE, "Unable to load bars from JSON", e);
+            //e.printStackTrace();
+            //LOG.log(Level.SEVERE, "Unable to load bars from JSON", e);
         } finally {
             try {
                 if (reader != null)

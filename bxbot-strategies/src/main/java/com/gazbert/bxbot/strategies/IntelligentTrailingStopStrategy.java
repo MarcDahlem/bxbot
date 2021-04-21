@@ -89,6 +89,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private IntelligentLimitAdapter intelligentLimitAdapter;
     private boolean debugModeEnabled;
+    private ZonedDateTime currentTickerTime;
 
 
     /**
@@ -128,7 +129,10 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
      */
     @Override
     public void execute() throws StrategyException {
-
+        if (currentTickerTime == null) {
+            currentTickerTime = ZonedDateTime.now();
+        }
+        currentTickerTime = currentTickerTime.plusSeconds(1);
         try {
 
             updateMarketPrices();
@@ -436,7 +440,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     private void updateMarketPrices() throws ExchangeNetworkException, TradingApiException {
         currentTicker = tradingApi.getTicker(market.getId());
         LOG.info(() -> market.getName() + " Updated latest market info: " + currentTicker);
-        series.addBar(ZonedDateTime.now(), currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
+        //series.addBar(ZonedDateTime.now(), currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
+        series.addBar(currentTickerTime, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
     }
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
