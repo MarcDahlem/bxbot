@@ -40,4 +40,4 @@ engine:
   # while their API documentation might say one thing, the reality is you might get socket timeouts and 5XX responses if you
   # hit it too hard - you cannot perform ultra low latency trading over the public internet ;-)
   # You'll need to experiment with the trade cycle interval for different exchanges.
-  tradeCycleInterval: 3
+  tradeCycleInterval: 0

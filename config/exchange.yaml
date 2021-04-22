@@ -1,7 +1,8 @@
 ############################################################################################
 # Exchange Adapter YAML config.
 #
-# - Sample config below currently set to run against Kraken.
+# - Sample config below currently set to run against a totally stubbed exchange which
+#   is based on TA4J for backtesting a given strategy
 # - All fields are mandatory unless stated otherwise.
 # - BX-bot only supports running 1 exchange per bot.
 # - The indentation levels are significant in YAML: https://en.wikipedia.org/wiki/YAML
@@ -12,59 +13,33 @@
 exchange:
 
   # A friendly name for the Exchange. Value must be an alphanumeric string. Spaces are allowed.
-  name: Kraken
+  name: ta4j
 
   # For the adapter value, you must specify the fully qualified name of your Exchange Adapter class so the Trading Engine
   # can load and execute it. The class must be on the runtime classpath.
-  adapter: com.gazbert.bxbot.exchanges.KrakenExchangeAdapter
-
-  authenticationConfig:
-    # See https://www.kraken.com/u/settings/api to get your Kraken Trading API credentials.
-    key: your-api-key
-    secret: your-secret-key
-
-  networkConfig:
-    # This value is in SECONDS. It is the timeout value that the exchange adapter will wait on socket connect/socket read
-    # when communicating with the exchange. Once this threshold has been breached, the exchange adapter will give up and
-    # throw a Trading API TimeoutException.
-    #
-    # The exchange adapter is single threaded: if one request gets blocked, it will block all subsequent requests from
-    # getting to the exchange. This timeout prevents an indefinite block.
-    #
-    # You'll need to experiment with values here.
-    connectionTimeout: 10
-
-    # Optional HTTP status codes that will trigger the adapter to throw a non-fatal ExchangeNetworkException
-    # if the exchange returns any of the below in an API call response:
-    nonFatalErrorCodes: [502, 503, 504, 520, 522, 525]
-
-    # Optional java.io exception messages that will trigger the adapter to throw a non-fatal ExchangeNetworkException
-    # if the exchange returns any of the below in an API call response:
-    nonFatalErrorMessages:
-      - Connection reset
-      - Connection refused
-      - Remote host closed connection during handshake
-      - Unexpected end of file from server
+  adapter: com.gazbert.bxbot.exchanges.TA4JRecordingAdapter
 
   otherConfig:
-    # Exchange Taker Buy fee in % for XBTGBP market
-    # IMPORTANT - keep an eye on the fees: https://www.kraken.com/help/fees
-    # Taker fee on 29 Jul 2016 = 0.26%
-    buy-fee: 0.26
+    # Exchange Order fee in % for the given market. It counts for sell as well as for buy orders in the simulation
+    order-fee: 0.26
 
-    # Exchange Taker Sell fee in % for XBTGBP market
-    # IMPORTANT - keep an eye on the fees: https://www.kraken.com/help/fees
-    # Taker fee on 29 Jul 2016 = 0.26%
-    sell-fee: 0.26
+    # the counter currency which is simulated. This must fit to your used markets counter currency
+    simulatedCounterCurrency: ZEUR
 
-    # If set to true, the bot will stay up when the exchange is undergoing maintenance - the adapter will throw a
-    # ExchangeNetworkException.
-    #
-    # If set to false, the bot will shut down if the exchange is undergoing maintenance - the adapter will throw a
-    # fatal TradingApiException.
-    keep-alive-during-maintenance: false
+    # the starting balance for the simulation. The simulation starts with this amount as counter currency and 0 as base currency
+    counterCurrencyStartingBalance: 100
 
-    # Sell order (stop-limit) limit distance to the given stop price.
-    # This should always be lower than the value <sell-stop-limit-percentage-minimum-above-break-even> in the strategies.yaml
-    # to ensure the intelligent strategy to work
-    sell-stop-limit-percentage-distance: 0.15
+    # the base currency which is simulated. This must fit to your used markets base currency
+    simulatedBaseCurrency: XXRP
+
+    # the path to a json containing a recording of a market with ta4j BarSeries
+    # See the example ta4j strategies to find out how to record market or to simulate a strategy
+    trading-series-json-path: barData_1618580976288.json
+
+    # if enabled, the simulation will open
+    # a) a graph for the executed strategy on the market, showing the buy and sell points
+    # b) a graph showing the optimal trading is opened besides your executed trades to compare your trades to the optimum
+    # No matter if you enable chart printing or not, the results of the simulation are printed to log on simulation end
+    generate-order-overview-charts: true
+
+

@@ -201,7 +201,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     }
 
     private void checkOpenBuyOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
-        BigDecimal currentAskPrice = (BigDecimal) tradingSeries.getBar(currentTick).getHighPrice().getDelegate(); // assumes that the stored series json contains the bid price in the high price property
+        BigDecimal currentAskPrice = (BigDecimal) tradingSeries.getBar(currentTick).getHighPrice().getDelegate(); // assumes that the stored series json contains the ask price in the high price property
         if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("BUY: the current ask price is below or equal to the limit price --> record buy order execution with the current ask price");
             buyOrderRule.addTrigger(currentTick);
