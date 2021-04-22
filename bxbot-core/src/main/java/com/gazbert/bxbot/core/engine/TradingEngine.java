@@ -165,19 +165,23 @@ public class TradingEngine {
     }
 
     private void benchmarkStrategy() throws StrategyException, TradingApiException, ExchangeNetworkException {
-        BigDecimal end = BigDecimal.valueOf(0.4);
-        int maxLookback = 100;
+        BigDecimal end = new BigDecimal("10");
+        BigDecimal step = new BigDecimal("1.25");
+        double lookbackStepPercentage = 1.25;
+        double lookbackMoveUpPercentage = 1.1;
+        int maxLookback = 500;
         int maxScaleFactor = 0;
         List<IntelligentLimitAdapter> results = new LinkedList<>();
         IntelligentLimitAdapter bestResult = null;
         try {
             for (int scaleFactor = 0; scaleFactor <= maxScaleFactor; scaleFactor++) {
-                for (BigDecimal gainNeeded = new BigDecimal(0.1); gainNeeded.compareTo(end) <= 0; gainNeeded = gainNeeded.multiply(BigDecimal.valueOf(2))) {
-                    for (BigDecimal belowBE = new BigDecimal(0.1); belowBE.compareTo(end) <= 0; belowBE = belowBE.multiply(BigDecimal.valueOf(2))) {
-                        for (BigDecimal aboveBE = new BigDecimal(0.1); aboveBE.compareTo(end) <= 0; aboveBE = aboveBE.multiply(BigDecimal.valueOf(2))) {
-                            for (BigDecimal minAboveBE = new BigDecimal(0.1); minAboveBE.compareTo(aboveBE) <= 0; minAboveBE = minAboveBE.multiply(BigDecimal.valueOf(2))) {
-                                for (int lookback = 1; lookback <= maxLookback; lookback = lookback * 2) {
-                                    for (int lookingForUpMovement = 1; lookingForUpMovement <= lookback; lookingForUpMovement = lookingForUpMovement * 2) {
+
+                for (BigDecimal aboveBE = new BigDecimal("0.1"); aboveBE.compareTo(end) <= 0; aboveBE = aboveBE.multiply(step)) {
+                    for (BigDecimal minAboveBE = new BigDecimal("0.1"); minAboveBE.compareTo(aboveBE) <= 0; minAboveBE = minAboveBE.multiply(step)) {
+                        for (BigDecimal belowBE = new BigDecimal("0.1"); belowBE.compareTo(end) <= 0; belowBE = belowBE.multiply(step)) {
+                            for (BigDecimal gainNeeded = new BigDecimal("0.1"); gainNeeded.compareTo(end) <= 0; gainNeeded = gainNeeded.multiply(step)) {
+                                for (long lookback = 2; lookback <= maxLookback; lookback = Math.round(Math.ceil(lookback * lookbackStepPercentage))) {
+                                    for (long lookingForUpMovement = 1; lookingForUpMovement < lookback; lookingForUpMovement = Math.round(Math.ceil(lookingForUpMovement * lookbackMoveUpPercentage))) {
                                         LOG.warn("New round started:\n" +
                                                 "scaleFactor: " + scaleFactor + ", " +
                                                 "gainNeeded: " + DECIMAL_FORMAT.format(gainNeeded) + ", " +
@@ -247,9 +251,9 @@ public class TradingEngine {
         comperators.put(amountOfTradesComparer, "_overallTrades");
         comperators.put(amountOfPositiveTradesComparer, "_postiveTrades");
         comperators.put(amountOfNegativeTradesComparer, "_negativeTrades");
-        for(Map.Entry<Comparator<IntelligentLimitAdapter>, String> entry: comperators.entrySet()) {
+        for (Map.Entry<Comparator<IntelligentLimitAdapter>, String> entry : comperators.entrySet()) {
             results.sort(entry.getKey());
-            store(results, suffix+entry.getValue());
+            store(results, suffix + entry.getValue());
         }
 
     }
@@ -260,7 +264,7 @@ public class TradingEngine {
         try {
 
 
-            writer = new FileWriter("IntelligentStrategyBenchmarks_" + suffix +".json");
+            writer = new FileWriter("IntelligentStrategyBenchmarks_" + suffix + ".json");
             gson.toJson(results, writer);
         } catch (IOException e) {
             e.printStackTrace();

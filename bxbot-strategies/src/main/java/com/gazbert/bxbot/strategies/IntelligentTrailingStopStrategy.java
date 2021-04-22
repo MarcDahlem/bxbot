@@ -426,15 +426,15 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         return cleanedMarketPrice.compareTo(goalToReach) > 0;
     }
 
-    private BigDecimal calulateLowestAskPriceIn(int ticks) {
+    private BigDecimal calulateLowestAskPriceIn(long ticks) {
         int currentEndIndex = series.getEndIndex();
         Num result = series.getBar(currentEndIndex).getHighPrice();
         int currentBeginIndex = series.getBeginIndex();
 
-        int spanStartIndex = currentEndIndex - ticks;
-        int availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
-        for(int i=availableStartIndex; i<currentEndIndex; i++) {
-            result = series.getBar(i).getHighPrice().min(result);
+        long spanStartIndex = currentEndIndex - ticks;
+        long availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
+        for(long i=availableStartIndex; i<currentEndIndex; i++) {
+            result = series.getBar(Math.toIntExact(i)).getHighPrice().min(result);
         }
         return (BigDecimal)result.getDelegate();
     }
@@ -627,7 +627,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         debugModeEnabled = StrategyConfigParser.readBoolean(config, "debug-mode-enabled", false);
     }
 
-    public void updateConfig(int scaleFactor, BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, int lookback, int lookingForUpMovement) {
+    public void updateConfig(int scaleFactor, BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, long lookback, long lookingForUpMovement) {
         this.intelligentLimitAdapter = new IntelligentLimitAdapter(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
     }
 

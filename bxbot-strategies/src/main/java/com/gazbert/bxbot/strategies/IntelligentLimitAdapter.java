@@ -26,8 +26,8 @@ public class IntelligentLimitAdapter {
     private final BigDecimal configuredSellStopLimitPercentageAboveBreakEven;
     private final BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven;
     private final BigDecimal configuredIntelligentLimitsPercentageScaleFactor;
-    private final int configuredLookback;
-    private final int configuredNeededUpMovement;
+    private final long configuredLookback;
+    private final long configuredNeededUpMovement;
 
     private BigDecimal overallStrategyGain;
     private int amountOfPositiveTrades;
@@ -55,7 +55,7 @@ public class IntelligentLimitAdapter {
         printCurrentStatistics();
     }
 
-    public IntelligentLimitAdapter(int scaleFactor, BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, int lookback, int lookingForUpMovement) {
+    public IntelligentLimitAdapter(int scaleFactor, BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, long lookback, long lookingForUpMovement) {
         configuredIntelligentLimitsPercentageScaleFactor = (new BigDecimal(scaleFactor)).divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
         configuredPercentageGainNeededToPlaceBuyOrder = gainNeeded.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
         configuredSellStopLimitPercentageBelowBreakEven = belowBE.divide(new BigDecimal(100), 8, RoundingMode.HALF_UP);
@@ -161,11 +161,11 @@ public class IntelligentLimitAdapter {
       LOG.info(this::calculateCurrentStatistics);
     }
 
-    public int getCurrentLowestPriceLookbackCount() {
+    public long getCurrentLowestPriceLookbackCount() {
         return configuredLookback;
     }
 
-    public int getCurrentTimesAboveLowestPriceNeeded() {
+    public long getCurrentTimesAboveLowestPriceNeeded() {
         return configuredNeededUpMovement;
     }
 
