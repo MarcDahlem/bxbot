@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
@@ -109,39 +110,27 @@ public class IntelligentLimitAdapter {
     }
 
     private BigDecimal scaleUp(BigDecimal initialPercentage) {
-        BigDecimal result = initialPercentage;
-        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades;
-        if (currentSellLossRatio == 0) return result;
-        if (currentSellLossRatio >0) {
-            while (currentSellLossRatio >0) {
-                result = result.add(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio--;
-            }
-        } else {
-            while (currentSellLossRatio <0) {
-                result = result.subtract(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio++;
-            }
+        BigDecimal result = initialPercentage; // 0.05 == 5%
+        BigDecimal scaleFactor = configuredIntelligentLimitsPercentageScaleFactor; // 0.1 == 10%
+        if(scaleFactor.compareTo(BigDecimal.ZERO) == 0){
+            return initialPercentage;
         }
-        return result;
+        BigDecimal postiveMultiplicant = BigDecimal.ONE.add(BigDecimal.ONE.multiply(scaleFactor)); // 1 + (1*0.1) = 1+0.1 = 1.1
+        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades; //  Neg: 2-6 = -4, Pos: 6-2=4
+        BigDecimal currentScalingFactor = postiveMultiplicant.pow(currentSellLossRatio, new MathContext(8, RoundingMode.HALF_UP)); // Neg: 1.1^(-4) = 0.6830, Pos: 1.1^4 = 1.4641
+        return result.multiply(currentScalingFactor); // Neg: 0.05*0.6830 = 0.03415, Pos: 0.05 * 1.4641 = 0.0732
     }
 
     private BigDecimal scaleDown(BigDecimal initialPercentage) {
-        BigDecimal result = initialPercentage;
-        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades;
-        if (currentSellLossRatio == 0) return result;
-        if (currentSellLossRatio >0) {
-            while (currentSellLossRatio >0) {
-                result = result.subtract(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio--;
-            }
-        } else {
-            while (currentSellLossRatio <0) {
-                result = result.add(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio++;
-            }
+        BigDecimal result = initialPercentage; // 0.05 == 5%
+        BigDecimal scaleFactor = configuredIntelligentLimitsPercentageScaleFactor; // 0.1 == 10%
+        if(scaleFactor.compareTo(BigDecimal.ZERO) == 0){
+            return initialPercentage;
         }
-        return result;
+        BigDecimal negativeMultiplicant = BigDecimal.ONE.subtract(BigDecimal.ONE.multiply(scaleFactor)); // 1 - (1*0.1) = 1-0.1 = 0.9
+        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades; //  Neg: 2-6 = -4, Pos: 6-2=4
+        BigDecimal currentScalingFactor = negativeMultiplicant.pow(currentSellLossRatio, new MathContext(8, RoundingMode.HALF_UP)); // Neg: 0.9^(-4) = 1.5241, Pos: 0.9^4 = 0.6561
+        return result.multiply(currentScalingFactor); // Neg: 0.05*1.5241 = 0.0762, Pos: 0.05 * 0.6561 = 0.0328
     }
 
     public String calculateCurrentStatistics() {
