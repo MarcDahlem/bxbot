@@ -51,15 +51,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.logging.Level;
+import java.util.*;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jfree.util.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.stereotype.Component;
@@ -168,9 +165,9 @@ public class TradingEngine {
     }
 
     private void benchmarkStrategy() throws StrategyException, TradingApiException, ExchangeNetworkException {
-        BigDecimal end = BigDecimal.valueOf(7);
-        int maxLookback = 1000;
-        int maxScaleFactor = 1;
+        BigDecimal end = BigDecimal.valueOf(0.4);
+        int maxLookback = 100;
+        int maxScaleFactor = 0;
         List<IntelligentLimitAdapter> results = new LinkedList<>();
         IntelligentLimitAdapter bestResult = null;
         try {
@@ -232,10 +229,38 @@ public class TradingEngine {
     }
 
     private void storeResults(List<IntelligentLimitAdapter> results, int maxLookback, int maxScaleFactor, BigDecimal end) {
+
+        long timestamp = System.currentTimeMillis();
+        String suffix = timestamp + "_maxlookback_" + maxLookback + "_maxscale_" + maxScaleFactor + "_maxEnd_" + end.doubleValue();
+        store(results, suffix);
+
+        Comparator<IntelligentLimitAdapter> gainComparer = Comparator.comparing(IntelligentLimitAdapter::getOverallStrategyGain);
+        Comparator<IntelligentLimitAdapter> postiveGainComparer = Comparator.comparing(IntelligentLimitAdapter::getOverallPositiveGain);
+        Comparator<IntelligentLimitAdapter> negativeLossesComparer = Comparator.comparing(IntelligentLimitAdapter::getOverallNegativeLosses);
+        Comparator<IntelligentLimitAdapter> amountOfTradesComparer = Comparator.comparing(IntelligentLimitAdapter::getAmountOfTrades);
+        Comparator<IntelligentLimitAdapter> amountOfPositiveTradesComparer = Comparator.comparing(IntelligentLimitAdapter::getAmountOfPositiveTrades);
+        Comparator<IntelligentLimitAdapter> amountOfNegativeTradesComparer = Comparator.comparing(IntelligentLimitAdapter::getAmountOfNegativeTrades);
+        Map<Comparator<IntelligentLimitAdapter>, String> comperators = new HashMap<>();
+        comperators.put(gainComparer, "_overallGain");
+        comperators.put(postiveGainComparer, "_postitiveGain");
+        comperators.put(negativeLossesComparer, "_negativeLosses");
+        comperators.put(amountOfTradesComparer, "_overallTrades");
+        comperators.put(amountOfPositiveTradesComparer, "_postiveTrades");
+        comperators.put(amountOfNegativeTradesComparer, "_negativeTrades");
+        for(Map.Entry<Comparator<IntelligentLimitAdapter>, String> entry: comperators.entrySet()) {
+            results.sort(entry.getKey());
+            store(results, suffix+entry.getValue());
+        }
+
+    }
+
+    private void store(List<IntelligentLimitAdapter> results, String suffix) {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         FileWriter writer = null;
         try {
-            writer = new FileWriter("IntelligentStrategyBenchmarks_" + System.currentTimeMillis() + "_maxlookback_" + maxLookback + "_maxscale_" + maxScaleFactor + "_maxEnd_" + end.doubleValue() + ".json");
+
+
+            writer = new FileWriter("IntelligentStrategyBenchmarks_" + suffix +".json");
             gson.toJson(results, writer);
         } catch (IOException e) {
             e.printStackTrace();

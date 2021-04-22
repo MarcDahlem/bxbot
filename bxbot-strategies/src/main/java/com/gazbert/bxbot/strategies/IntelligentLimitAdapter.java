@@ -172,4 +172,24 @@ public class IntelligentLimitAdapter {
     public BigDecimal getOverallStrategyGain() {
         return overallStrategyGain;
     }
+
+    public int getAmountOfPositiveTrades() {
+        return amountOfPositiveTrades;
+    }
+
+    public int getAmountOfNegativeTrades() {
+        return amountOfNegativeTrades;
+    }
+
+    public int getAmountOfTrades() {
+        return amountOfPositiveTrades + amountOfNegativeTrades;
+    }
+
+    public BigDecimal getOverallPositiveGain() {
+        return overallPositiveGains;
+    }
+
+    public BigDecimal getOverallNegativeLosses() {
+        return overallNegativeLosses;
+    }
 }
