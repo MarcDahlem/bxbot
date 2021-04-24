@@ -46,5 +46,7 @@ strategies:
       sell-stop-limit-percentage-above-break-even: 1
       sell-stop-limit-percentage-minimum-above-break-even: 0.2
       intelligent-limits-percentage-scale-factor: 10
-      debug-mode-enabled: true
+      lowest-price-lookback-count: 80
+      times-above-lowest-price-needed: 20
+      debug-mode-enabled: false
 
