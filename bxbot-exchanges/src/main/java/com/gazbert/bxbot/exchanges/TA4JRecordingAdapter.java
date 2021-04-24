@@ -3,15 +3,15 @@ package com.gazbert.bxbot.exchanges;
 import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
 import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
-import com.gazbert.bxbot.exchanges.ta4objects.BuyAndSellSignalsToChart;
-import com.gazbert.bxbot.exchanges.ta4objects.TA4JRecordingRule;
-import com.gazbert.bxbot.exchanges.ta4objects.Ta4jOptimalTradingStrategy;
-import com.gazbert.bxbot.exchanges.ta4objects.TradePriceRespectingBacktestExecutor;
+import com.gazbert.bxbot.exchanges.ta4jhelper.BuyAndSellSignalsToChart;
+import com.gazbert.bxbot.exchanges.ta4jhelper.TA4JRecordingRule;
+import com.gazbert.bxbot.exchanges.ta4jhelper.Ta4jOptimalTradingStrategy;
+import com.gazbert.bxbot.exchanges.ta4jhelper.TradePriceRespectingBacktestExecutor;
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
-import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.*;
@@ -39,7 +39,6 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private String simulatedCounterCurrency;
     private String simulatedBaseCurrency;
     private boolean shouldPrintCharts;
-
 
     private BarSeries tradingSeries;
 
@@ -188,9 +187,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     }
 
     private void checkOpenSellOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
-        BigDecimal currentBidPrice = (BigDecimal) tradingSeries.getBar(currentTick).getLowPrice().getDelegate();  // assumes that the stored series json contains the bid price in the low price property
+        BigDecimal currentBidPrice = (BigDecimal) tradingSeries.getBar(currentTick).getLowPrice().getDelegate(); // assumes that the stored series json contains the bid price in the low price property
         if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
-            LOG.info("SELL: the bid price is below or equal to the stop price --> record sell order execution with the bid price");
+            LOG.info("SELL: the market's bid price moved below the stop-limit price --> record sell order execution with the current bid price");
             sellOrderRule.addTrigger(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
             BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
@@ -204,7 +203,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private void checkOpenBuyOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentAskPrice = (BigDecimal) tradingSeries.getBar(currentTick).getHighPrice().getDelegate(); // assumes that the stored series json contains the ask price in the high price property
         if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
-            LOG.info("BUY: the current ask price is below or equal to the limit price --> record buy order execution with the current ask price");
+            LOG.info("BUY: the market's current ask price moved below the limit price --> record buy order execution with the current ask price");
             buyOrderRule.addTrigger(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
             BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
@@ -220,6 +219,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         final List<Strategy> strategies = new ArrayList<>();
         Strategy strategy = new BaseStrategy("Recorded ta4j trades", buyOrderRule, sellOrderRule);
         strategies.add(strategy);
+
         Ta4jOptimalTradingStrategy optimalTradingStrategy = new Ta4jOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
         strategies.add(optimalTradingStrategy);
 

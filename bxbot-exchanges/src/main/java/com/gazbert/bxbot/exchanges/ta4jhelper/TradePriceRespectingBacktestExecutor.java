@@ -1,4 +1,4 @@
-package com.gazbert.bxbot.exchanges.ta4objects;
+package com.gazbert.bxbot.exchanges.ta4jhelper;
 
 import org.ta4j.core.*;
 import org.ta4j.core.cost.CostModel;
