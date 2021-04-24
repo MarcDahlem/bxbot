@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -39,6 +40,7 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
     private BaseStrategy ta4jStrategy;
     private Ticker currentTicker;
     private boolean inTheMarket;
+    private IntelligentPriceTracker priceTracker;
 
     @Override
     public void init(TradingApi tradingApi, Market market, StrategyConfig config) {
@@ -46,6 +48,7 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
         this.tradingApi = tradingApi;
         this.market = market;
         series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
+        priceTracker = new IntelligentPriceTracker(tradingApi, market, series);
         initTa4jStrategy();
         LOG.info(() -> "Trading Strategy initialised successfully!");
     }
@@ -73,19 +76,8 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
     @Override
     public void execute() throws StrategyException {
         try {
-            // first get the current market info. This will update the ta4j backtest exchange to the next tick/timeslot
-            currentTicker = tradingApi.getTicker(market.getId());
-            LOG.info(() -> market.getName() + " Updated latest market info: " + currentTicker);
 
-            BigDecimal tickHighPrice = currentTicker.getAsk(); //save ask price as high price.
-            BigDecimal tickLowPrice = currentTicker.getBid(); //save bid price as low price.
-            // Store markets data as own bar per strategy execution. Hereby
-            // * Close == Open --> last market price
-            // * High  --> ask market price
-            // * Low --> bid market price
-            ZonedDateTime tickTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(currentTicker.getTimestamp()), ZoneId.systemDefault());
-            series.addBar(tickTime, currentTicker.getLast(), tickHighPrice, tickLowPrice, currentTicker.getLast());
-
+            priceTracker.updateMarketPrices();
             executeStrategy();
         } catch (TradingApiException | ExchangeNetworkException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
