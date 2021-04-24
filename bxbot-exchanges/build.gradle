@@ -10,9 +10,9 @@ dependencies {
     compile libraries.google_gson
     compile libraries.google_guava
     compile libraries.javax_xml_api
-    compile 'org.jfree:jfreechart:1.0.17'
     compile libraries.javax_xml_impl
-
+    compile libraries.ta4j
+    compile libraries.jfreechart
 
     testCompile libraries.junit
     testCompile libraries.powermock_junit

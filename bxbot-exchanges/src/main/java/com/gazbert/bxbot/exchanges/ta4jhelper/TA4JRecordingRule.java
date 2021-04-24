@@ -1,4 +1,4 @@
-package com.gazbert.bxbot.exchanges.ta4objects;
+package com.gazbert.bxbot.exchanges.ta4jhelper;
 
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import org.ta4j.core.TradingRecord;

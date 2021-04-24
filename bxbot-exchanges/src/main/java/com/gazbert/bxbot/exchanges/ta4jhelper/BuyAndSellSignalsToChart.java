@@ -1,10 +1,4 @@
-package com.gazbert.bxbot.exchanges.ta4objects;
-
-import java.awt.Color;
-import java.awt.Dimension;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
+package com.gazbert.bxbot.exchanges.ta4jhelper;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -24,7 +18,10 @@ import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.num.Num;
 
-import javax.swing.text.Position;
+import java.awt.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
 
 /**
  * This class builds a graphical chart showing the buy/sell signals of a
