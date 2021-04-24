@@ -178,7 +178,7 @@ public class TradingEngine {
 
                 for (BigDecimal aboveBE = new BigDecimal("0.25"); aboveBE.compareTo(new BigDecimal("0.25")) <= 0; aboveBE = aboveBE.multiply(step)) {
                     for (BigDecimal minAboveBE = new BigDecimal("0.24414062"); minAboveBE.compareTo(aboveBE) <= 0; minAboveBE = minAboveBE.multiply(step)) {
-                        for (BigDecimal belowBE = new BigDecimal("2,32830644"); belowBE.compareTo(end) <= 0; belowBE = belowBE.multiply(step)) {
+                        for (BigDecimal belowBE = new BigDecimal("2.32830644"); belowBE.compareTo(end) <= 0; belowBE = belowBE.multiply(step)) {
                             for (BigDecimal gainNeeded = new BigDecimal("0.2"); gainNeeded.compareTo(end) <= 0; gainNeeded = gainNeeded.multiply(step)) {
                                 for (long lookback = 2; lookback <= maxLookback; lookback = Math.round(Math.ceil(lookback * lookbackStepPercentage))) {
                                     for (long lookingForUpMovement = 1; lookingForUpMovement < lookback; lookingForUpMovement = Math.round(Math.ceil(lookingForUpMovement * lookbackMoveUpPercentage))) {
@@ -225,10 +225,14 @@ public class TradingEngine {
                 }
             }
         } finally {
-            LOG.warn("\n%%%%%%%%%%%%%%% Overall Best Result %%%%%%%%%%%%%%%\n" +
-                    bestResult.calculateCurrentStatistics() +
-                    "\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
-            storeResults(results, maxLookback, maxScaleFactor, end);
+            if(bestResult != null) {
+                LOG.warn("\n%%%%%%%%%%%%%%% Overall Best Result %%%%%%%%%%%%%%%\n" +
+                        bestResult.calculateCurrentStatistics() +
+                        "\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+                storeResults(results, maxLookback, maxScaleFactor, end);
+            } else {
+                LOG.error("No best result. Did the benchmark process even start?!");
+            }
         }
     }
 
