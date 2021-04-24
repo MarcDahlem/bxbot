@@ -51,7 +51,7 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
         this.market = market;
         series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
         priceTracker = new IntelligentPriceTracker(tradingApi, market, series);
-        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker, config);
         initTa4jStrategy();
         LOG.info(() -> "Trading Strategy initialised successfully!");
     }

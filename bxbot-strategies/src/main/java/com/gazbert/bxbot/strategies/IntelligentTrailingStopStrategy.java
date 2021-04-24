@@ -36,13 +36,9 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
-import java.util.List;
-import java.util.UUID;
 
 import org.ta4j.core.*;
 import org.ta4j.core.num.Num;
-
-import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.NEED_BUY;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTrailingStopStrategy implements TradingStrategy {
@@ -78,12 +74,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     /* market data downloaded and stored during the engine lifetime */
     private BarSeries series;
 
-    /* used to store the latest executed orders */
-    private PlacedOrder currentBuyOrder;
-    private PlacedOrder currentSellOrder;
-
     private IntelligentLimitAdapter intelligentLimitAdapter;
-    private boolean debugModeEnabled;
     private IntelligentPriceTracker priceTracker;
     private IntelligentStateTracker stateTracker;
 
@@ -112,7 +103,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         }
         series = loadedSeries;
         priceTracker = new IntelligentPriceTracker(tradingApi, market, series);
-        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker, config);
         LOG.info(() -> "Trading Strategy initialised successfully!");
     }
 
@@ -165,198 +156,75 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         }
     }
 
-    private void executeCheckOfTheBuyOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        LOG.info(() -> market.getName() + " State: Wait for BUY order to fulfill.");
-        OpenOrderState marketState = retrievOrderStateFromMarket(currentBuyOrder);
-
-        switch (marketState) {
-            case PARTIAL_AVAILABLE:
-                if (currentBuyOrder.getPrice().compareTo(priceTracker.getAsk()) > 0) {
-                    LOG.warn(() -> market.getName() + " The current BUY order (price: '" + priceTracker.formatWithCounterCurrency(currentBuyOrder.getPrice())
-                            + ") is below the current market ask price (" + priceTracker.getFormattedAsk() + ").");
-                } else {
-                    LOG.warn(() -> market.getName() + " The order is partially filled but the market moved down (buy price: '" + priceTracker.formatWithCounterCurrency(currentBuyOrder.getPrice())
-                            + ", market ask price: " + priceTracker.getFormattedAsk() + ").");
-                }
-                currentBuyOrder.increaseOrderNotExecutedCounter();
-                if (currentBuyOrder.getOrderNotExecutedCounter() <= 3) {
-                    LOG.warn(() -> market.getName() + " The BUY order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
-                } else {
-                    LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Cancel the rest of the order and proceed with selling the partially filled BUY order.");
-
-                    boolean orderCanceled = true;
-                    if (!debugModeEnabled){
-                        orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
-                    }
-
-                    if (orderCanceled) {
-                        LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Compute executed order amount for the partial order.");
-                        BigDecimal filledOrderAmount = priceTracker.getAvailableCounterCurrencyBalance();
-                        currentBuyOrder = new PlacedOrder(currentBuyOrder.getId(), currentBuyOrder.getType(), filledOrderAmount, currentBuyOrder.getPrice());
-                        LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentBuyOrder.getId() + "' successfully with '" + DECIMAL_FORMAT.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with SELL phase");
-                        stateTracker.updateStateTo(IntelligentStrategyState.NEED_SELL);
-                        executeSellPhase();
-                    } else {
-                        LOG.warn(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
-                    }
-                }
-                break;
-            case FULL_AVAILABLE:
-                if (currentBuyOrder.getPrice().compareTo(priceTracker.getAsk()) == 0) {
-                    LOG.info(() -> market.getName() + " The current buy order's price '" + priceTracker.formatWithCounterCurrency(currentBuyOrder.getPrice())
-                            + "' is exactly on the current market ask-price ('" + priceTracker.getFormattedAsk() + "'). Wait another tick.");
-                } else {
-                    if (currentBuyOrder.getPrice().compareTo(priceTracker.getAsk()) > 0) {
-                        LOG.info(() -> market.getName() + " The current BUY order's price '" + priceTracker.formatWithCounterCurrency(currentBuyOrder.getPrice())
-                                + "' is above the current market ask-price ('" + priceTracker.getFormattedAsk() + "'). Cancel the order '" + currentBuyOrder.getId() + "'.");
-                    } else {
-                        currentBuyOrder.increaseOrderNotExecutedCounter();
-                        if (currentBuyOrder.getOrderNotExecutedCounter() <= 3) {
-                            LOG.warn(() -> market.getName() + " The BUY order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
-                            return;
-                        } else {
-                            LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Place a new BUY order to participate in the up trend.");
-                        }
-                    }
-                    boolean orderCanceled = true;
-                    if (!debugModeEnabled){
-                        orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
-                    }
-
-                    if (orderCanceled) {
-                        LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Reset the strategy to the buy phase...");
-                        currentBuyOrder = null;
-                        stateTracker.updateStateTo(NEED_BUY);
-                        executeBuyPhase();
-                    } else {
-                        LOG.warn(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
-                    }
-                }
-                break;
-            case UNAVAILABLE:
-                LOG.info(() -> market.getName() + " BUY order '" + currentBuyOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Proceed to the sell phase...");
-                stateTracker.updateStateTo(IntelligentStrategyState.NEED_SELL);
-                executeSellPhase();
-                break;
-            default:
-                throw new StrategyException("Unknown order market state encounted: " + marketState);
-        }
-
-
-    }
-
-    private OpenOrderState retrievOrderStateFromMarket(PlacedOrder order) throws ExchangeNetworkException, TradingApiException {
-        final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
-        for (final OpenOrder myOrder : myOrders) {
-            if (myOrder.getId().equals(order.getId())) {
-                LOG.info(() -> market.getName() + "Order is still available on the market: '. " + myOrder + "'. Check if it is fully available or partly fulfilled");
-                if (myOrder.getQuantity().equals(myOrder.getOriginalQuantity())) {
-                    LOG.info(() -> market.getName() + "Order completely available.");
-                    return OpenOrderState.FULL_AVAILABLE;
-                }
-                LOG.info(() -> market.getName() + "Order partially executed.");
-                return OpenOrderState.PARTIAL_AVAILABLE;
-            }
-        }
-        return OpenOrderState.UNAVAILABLE;
-    }
-
     private void executeCheckOfTheSellOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " State: Wait for SELL order to fulfill.");
+        logCurrentSellStatistics();
+        stateTracker.trackRunningSellOrder(this::computeCurrentSellPrice, newState -> {
+            switch (newState) {
+                case NEED_SELL:
+                    executeSellPhase();
+                    break;
+                case NEED_BUY:
+                    executeBuyPhase();
+                    break;
+                default:
+                    throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
+            }
+        }, intelligentLimitAdapter);
+    }
 
+    private void logCurrentSellStatistics() throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentMarketBidPrice = priceTracker.getBid();
-        BigDecimal currentSellOrderPrice = currentSellOrder.getPrice();
-        OpenOrderState marketState = retrievOrderStateFromMarket(currentSellOrder);
+        BigDecimal currentSellOrderPrice = stateTracker.getCurrentSellOrderPrice();
         BigDecimal breakEven = calculateBreakEven();
 
-        switch (marketState) {
-            case PARTIAL_AVAILABLE:
-            case FULL_AVAILABLE:
-                BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
-                BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
-                BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
-                BigDecimal currentBuyOrderPrice = currentBuyOrder.getPrice();
-                BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketBidPrice, currentBuyOrderPrice);
-                BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketBidPrice, breakEven);
-                BigDecimal percentageChangeCurrentSellToMarket = getPercentageChange(currentSellOrderPrice, currentMarketBidPrice);
-                BigDecimal percentageChangeCurrentSellToBreakEven = getPercentageChange(currentSellOrderPrice, breakEven);
-                BigDecimal percentageChangeCurrentSellToBuy = getPercentageChange(currentSellOrderPrice, currentBuyOrderPrice);
+        BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
+        BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
+        BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
+        BigDecimal currentBuyOrderPrice = stateTracker.getCurrentBuyOrderPrice();
+        BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketBidPrice, currentBuyOrderPrice);
+        BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketBidPrice, breakEven);
+        BigDecimal percentageChangeCurrentSellToMarket = getPercentageChange(currentSellOrderPrice, currentMarketBidPrice);
+        BigDecimal percentageChangeCurrentSellToBreakEven = getPercentageChange(currentSellOrderPrice, breakEven);
+        BigDecimal percentageChangeCurrentSellToBuy = getPercentageChange(currentSellOrderPrice, currentBuyOrderPrice);
 
-                LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Current sell statistics: \n" +
-                        "######### SELL ORDER STATISTICS #########\n" +
-                        "current market price (last): " + priceTracker.getFormattedLast() + "\n" +
-                        "current market price (bid): " + priceTracker.getFormattedBid() + "\n" +
-                        "current market price (ask): " + priceTracker.getFormattedAsk() + "\n" +
-                        "current BUY order price: " + priceTracker.formatWithCounterCurrency(currentBuyOrderPrice) + "\n" +
-                        "current SELL order price: " + priceTracker.formatWithCounterCurrency(currentSellOrderPrice) + "\n" +
-                        "break even: " + priceTracker.formatWithCounterCurrency(breakEven) + "\n" +
-                        "-----------------------------------------\n" +
-                        "market change (bid) to buy price: " + DECIMAL_FORMAT.format(percentageChangeToBuyOrder) + "%\n" +
-                        "market change (bid) to break even: " + DECIMAL_FORMAT.format(percentageChangeToBreakEven) + "%\n" +
-                        "current sell price to buy price: " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToBuy) + "%\n" +
-                        "current sell price to market (bid): " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToMarket) + "%\n" +
-                        "current sell price to break even: " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToBreakEven) + "%\n" +
-                        "-----------------------------------------\n" +
-                        "limit above break even: " + priceTracker.formatWithCounterCurrency(aboveBreakEvenPriceLimit) + "\n" +
-                        "limit minimum above break even: " + priceTracker.formatWithCounterCurrency(minimumAboveBreakEvenPriceLimit) + "\n" +
-                        "limit below break even: " + priceTracker.formatWithCounterCurrency(belowBreakEvenPriceLimit) + "\n" +
-                        "#########################################"
+        LOG.info(() -> market.getName() + " Current sell statistics: \n" +
+                "######### SELL ORDER STATISTICS #########\n" +
+                "current market price (last): " + priceTracker.getFormattedLast() + "\n" +
+                "current market price (bid): " + priceTracker.getFormattedBid() + "\n" +
+                "current market price (ask): " + priceTracker.getFormattedAsk() + "\n" +
+                "current BUY order price: " + priceTracker.formatWithCounterCurrency(currentBuyOrderPrice) + "\n" +
+                "current SELL order price: " + priceTracker.formatWithCounterCurrency(currentSellOrderPrice) + "\n" +
+                "break even: " + priceTracker.formatWithCounterCurrency(breakEven) + "\n" +
+                "-----------------------------------------\n" +
+                "market change (bid) to buy price: " + DECIMAL_FORMAT.format(percentageChangeToBuyOrder) + "%\n" +
+                "market change (bid) to break even: " + DECIMAL_FORMAT.format(percentageChangeToBreakEven) + "%\n" +
+                "current sell price to buy price: " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToBuy) + "%\n" +
+                "current sell price to market (bid): " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToMarket) + "%\n" +
+                "current sell price to break even: " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToBreakEven) + "%\n" +
+                "-----------------------------------------\n" +
+                "limit above break even: " + priceTracker.formatWithCounterCurrency(aboveBreakEvenPriceLimit) + "\n" +
+                "limit minimum above break even: " + priceTracker.formatWithCounterCurrency(minimumAboveBreakEvenPriceLimit) + "\n" +
+                "limit below break even: " + priceTracker.formatWithCounterCurrency(belowBreakEvenPriceLimit) + "\n" +
+                "#########################################"
 
-                );
-                LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Check if the current bid price is below the order price.");
-                if (currentSellOrderPrice.compareTo(currentMarketBidPrice) > 0) {
-                    LOG.warn(() -> market.getName() + " The current SELL order is above the current market bid price. It should soon be fulfilled.");
-                    currentSellOrder.increaseOrderNotExecutedCounter();
-                    if (currentSellOrder.getOrderNotExecutedCounter() >= 10) { // TODO make 10 configurable or another approach
-                        String errorMsg = market.getName() + " The current SELL order was 10 times above the current market price. It should normally be fulfilled. Stop the bot.";
-                        LOG.error(() -> errorMsg);
-                        throw new StrategyException(errorMsg);
-                    }
-                } else {
-                    LOG.info(() -> market.getName() + " The current SELL order's price '" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice)
-                            + "' is below the current market bid price ('" + priceTracker.getFormattedBid() + "'). Check if the order must be updated and the stop limit must be increased");
+        );
+    }
 
-                    BigDecimal sellPrice = computeCurrentSellPrice();
-                    if (sellPrice.compareTo(currentSellOrderPrice) > 0) {
-                        LOG.info(() -> market.getName() + " The new SELL order's price '" + priceTracker.formatWithCounterCurrency(sellPrice)
-                                + "' is higher than the the current sell order's price ('" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice)+ "'). Cancel the current sell order '" + currentSellOrder.getId() + "' and trail the stop according to the higher stop limit.");
-
-                        boolean orderCanceled = true;
-                        if (!debugModeEnabled){
-                            orderCanceled = tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
-                        }
-
-                        if (orderCanceled) {
-                        LOG.info(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' successfully canceled. Reset the strategy to the sell phase...");
-                        currentSellOrder = null;
-                        stateTracker.updateStateTo(IntelligentStrategyState.NEED_SELL);
-                        executeSellPhase();
-                        } else {
-                            LOG.warn(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
-                        }
-                    } else {
-                        LOG.info(() -> market.getName() + " The new SELL order's price '" + priceTracker.formatWithCounterCurrency(sellPrice)
-                                + "' is lower than the the current sell order's price ('" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice) + "'). Wait for the order to fulfill or to increase trail in the next strategy tick.");
-                    }
-                }
-                break;
-            case UNAVAILABLE:
-                LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Restart gaining money in the buy phase...");
-                BigDecimal totalBuyPrice = currentBuyOrder.getPrice().add(currentBuyOrder.getPrice().multiply(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId())));
-                BigDecimal totalSellPrice = currentSellOrderPrice.subtract(currentSellOrderPrice.multiply(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId())));
-                BigDecimal totalGain = totalSellPrice.subtract(totalBuyPrice).multiply(currentSellOrder.getAmount());
-                LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + priceTracker.formatWithCounterCurrency(totalGain) + "'. (Break even: '" + priceTracker.formatWithCounterCurrency(breakEven) + "', sell order price: '" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice) + "', sell order amount: '" + DECIMAL_FORMAT.format(currentSellOrder.getAmount()) + "')");
-                intelligentLimitAdapter.addNewExecutedSellOrder(currentSellOrder, totalGain, breakEven);
-                currentBuyOrder = null;
-                currentSellOrder = null;
-                stateTracker.updateStateTo(NEED_BUY);
-                executeBuyPhase();
-                break;
-            default:
-                throw new StrategyException("Unknown order market state encounted: " + marketState);
-        }
-
-
+    private void executeCheckOfTheBuyOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
+        LOG.info(() -> market.getName() + " State: Wait for BUY order to fulfill.");
+        stateTracker.trackRunningBuyOrder(newState -> {
+            switch (newState) {
+                case NEED_SELL:
+                    executeSellPhase();
+                    break;
+                case NEED_BUY:
+                    executeBuyPhase();
+                    break;
+                default:
+                    throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
+            }
+        });
     }
 
     private BigDecimal getPercentageChange(BigDecimal newPrice, BigDecimal priceToCompareAgainst) {
@@ -365,28 +233,10 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
-        if (currentBuyOrder != null) {
-            String errorMsg = "The BUY phase is to be executed, but there is still an open order '" + currentBuyOrder + "'. This should never happen. Stop the bot!";
-            LOG.error(() -> errorMsg);
-            throw new StrategyException(errorMsg);
-        }
 
         if (marketMovedUp()) {
             LOG.info(() -> market.getName() + " BUY phase - The market moved up. Place a BUY order on the exchange -->");
-            final BigDecimal piecesToBuy = getAmountOfPiecesToBuy();
-
-            LOG.info(() -> market.getName() + " BUY phase - Place a BUY order of '" + DECIMAL_FORMAT.format(piecesToBuy) + " * " + priceTracker.getFormattedAsk() + "'");
-            String orderID;
-            if (debugModeEnabled) {
-                orderID = "DUMMY_BUY_ORDER_ID_" + UUID.randomUUID().toString();
-            } else {
-                orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, priceTracker.getAsk());
-            }
-
-            LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
-
-            currentBuyOrder = new PlacedOrder(orderID, OrderType.BUY, piecesToBuy, priceTracker.getAsk());
-            stateTracker.updateStateTo(IntelligentStrategyState.WAIT_FOR_BUY);
+            stateTracker.placeBuyOrder(this::getAmountOfPiecesToBuy);
         } else {
             LOG.info(() -> market.getName() + " BUY phase - The market gain needed to place a BUY order was not reached. Wait for the next trading strategy tick.");
         }
@@ -434,26 +284,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " SELL phase - create a SELL order for the last sucessfull BUY.");
-        if (currentSellOrder != null) {
-            String errorMsg = "The SELL phase is to be executed, but there is still an open SELL order '" + currentSellOrder + "'. This should never happen. Stop the bot!";
-            LOG.error(() -> errorMsg);
-            throw new StrategyException(errorMsg);
-        }
-        BigDecimal sellPrice = computeCurrentSellPrice();
-        LOG.info(() -> market.getName() + " SELL phase - Place a SELL order of '" + DECIMAL_FORMAT.format(currentBuyOrder.getAmount()) + " * " + priceTracker.formatWithCounterCurrency(sellPrice) + "'");
-
-        String orderId;
-
-        if (debugModeEnabled) {
-            orderId = "DUMMY_SELL_ORDER_ID_" + UUID.randomUUID().toString();
-        } else {
-            orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
-        }
-
-        LOG.info(() -> market.getName() + " SELL Order sent successfully to exchange. ID: " + orderId);
-
-        currentSellOrder = new PlacedOrder(orderId, OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
-        stateTracker.updateStateTo(IntelligentStrategyState.WAIT_FOR_SELL);
+       stateTracker.placeSellOrder(this::computeCurrentSellPrice);
     }
 
     private BigDecimal computeCurrentSellPrice() throws TradingApiException, ExchangeNetworkException {
@@ -498,14 +329,13 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         BigDecimal buyFees = BigDecimal.ONE.add(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId()));
         BigDecimal sellFees = BigDecimal.ONE.subtract(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId()));
 
-        BigDecimal totalBuy = currentBuyOrder.getPrice().multiply(buyFees);
+        BigDecimal totalBuy = stateTracker.getCurrentBuyOrderPrice().multiply(buyFees);
         BigDecimal estimatedBreakEven = totalBuy.divide(sellFees, 8, RoundingMode.HALF_UP);
         return estimatedBreakEven;
     }
 
     private BigDecimal getAmountOfPiecesToBuy() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        // TODO final BigDecimal balanceToUseForBuyOrder = getBalanceToUseForBuyOrder();
-        final BigDecimal balanceToUseForBuyOrder = twentyFive;
+        final BigDecimal balanceToUseForBuyOrder = getBalanceToUseForBuyOrder();
         LOG.info(
                 () ->
                         market.getName()
@@ -534,6 +364,9 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     }
 
     private BigDecimal getBalanceToUseForBuyOrder() throws ExchangeNetworkException, TradingApiException, StrategyException {
+        if(true)
+        return twentyFive;
+
         final BigDecimal currentBalance = priceTracker.getAvailableCounterCurrencyBalance();
 
         BigDecimal balanceAvailableForTrading = currentBalance.subtract(configuredEmergencyStop);
@@ -552,6 +385,5 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     private void readStrategyConfig(StrategyConfig config) {
         configuredPercentageOfCounterCurrencyBalanceToUse = StrategyConfigParser.readPercentageConfigValue(config, "percentage-of-counter-currency-balance-to-use");
         configuredEmergencyStop = StrategyConfigParser.readAmount(config, "configured-emergency-stop-balance");
-        debugModeEnabled = StrategyConfigParser.readBoolean(config, "debug-mode-enabled", false);
     }
 }
