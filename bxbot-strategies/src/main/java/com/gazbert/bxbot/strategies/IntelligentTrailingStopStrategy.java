@@ -23,6 +23,10 @@
 
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
+import com.gazbert.bxbot.strategies.helper.IntelligentStrategyState;
+import com.gazbert.bxbot.strategies.helper.OpenOrderState;
+import com.gazbert.bxbot.strategies.helper.PlacedOrder;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -32,7 +36,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
@@ -55,9 +58,9 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
      */
     private static final String DECIMAL_FORMAT = "#.########";
     private static final DecimalFormat decimalFormat = new DecimalFormat(DECIMAL_FORMAT);
-    private static final BigDecimal oneHundred = new BigDecimal(100);
-    private static final BigDecimal MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL = new BigDecimal(0.00000002);
-    private static final BigDecimal twentyFive = new BigDecimal(25);
+    private static final BigDecimal oneHundred = new BigDecimal("100");
+    private static final BigDecimal MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL = new BigDecimal("0.00000002");
+    private static final BigDecimal twentyFive = new BigDecimal("25");
 
     /**
      * Reference to the main Trading API.
@@ -84,15 +87,15 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     private BigDecimal configuredEmergencyStop;
 
     /* market data downloaded and stored during the engine lifetime */
-    private Ticker currentTicker;
     private BarSeries series;
 
     /* used to store the latest executed orders */
-    private OrderState currentBuyOrder;
-    private OrderState currentSellOrder;
+    private PlacedOrder currentBuyOrder;
+    private PlacedOrder currentSellOrder;
 
     private IntelligentLimitAdapter intelligentLimitAdapter;
     private boolean debugModeEnabled;
+    private IntelligentPriceTracker priceTracker;
 
 
     /**
@@ -110,7 +113,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         LOG.info(() -> "Initialising Trading Strategy...");
         this.tradingApi = tradingApi;
         this.market = market;
-        getConfigForStrategy(config);
+        readStrategyConfig(config);
         this.intelligentLimitAdapter = new IntelligentLimitAdapter(config);
         BarSeries loadedSeries = JsonBarsSerializer.loadSeries("not_available.json");
         if (loadedSeries == null) {
@@ -118,6 +121,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
             loadedSeries = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
         }
         series = loadedSeries;
+        priceTracker = new IntelligentPriceTracker(tradingApi, market, series);
         LOG.info(() -> "Trading Strategy initialised successfully!");
     }
 
@@ -135,7 +139,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
         try {
 
-            updateMarketPrices();
+            priceTracker.updateMarketPrices();
             if (strategyState == null) {
                 LOG.info(() -> market.getName() + " First time that the strategy has been called - get the initial strategy state.");
                 computeInitialStrategyState();
@@ -178,13 +182,13 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
         switch (marketState) {
             case PARTIAL_AVAILABLE:
-                if (currentBuyOrder.getPrice().compareTo(currentTicker.getAsk()) > 0) {
+                if (currentBuyOrder.getPrice().compareTo(priceTracker.getAsk()) > 0) {
                     LOG.warn(() -> market.getName() + " The current BUY order (price: '" + decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
-                            + ") is below the current market ask price (" + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() +
+                            + ") is below the current market ask price (" + decimalFormat.format(priceTracker.getAsk()) + " " + market.getCounterCurrency() +
                             ").");
                 } else {
                     LOG.warn(() -> market.getName() + " The order is partially filled but the market moved down (buy price: '" + decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
-                            + ", market ask price: " + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() +
+                            + ", market ask price: " + decimalFormat.format(priceTracker.getAsk()) + " " + market.getCounterCurrency() +
                             ").");
                 }
                 currentBuyOrder.increaseOrderNotExecutedCounter();
@@ -201,7 +205,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                     if (orderCanceled) {
                         LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Compute executed order amount for the partial order.");
                         BigDecimal filledOrderAmount = getAvailableCurrencyBalance(market.getCounterCurrency());
-                        currentBuyOrder = new OrderState(currentBuyOrder.getId(), currentBuyOrder.getType(), filledOrderAmount, currentBuyOrder.getPrice());
+                        currentBuyOrder = new PlacedOrder(currentBuyOrder.getId(), currentBuyOrder.getType(), filledOrderAmount, currentBuyOrder.getPrice());
                         LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentBuyOrder.getId() + "' successfully with '" + decimalFormat.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with SELL phase");
                         strategyState = IntelligentStrategyState.NEED_SELL;
                         executeSellPhase();
@@ -211,13 +215,13 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
                 }
                 break;
             case FULL_AVAILABLE:
-                if (currentBuyOrder.getPrice().compareTo(currentTicker.getAsk()) == 0) {
+                if (currentBuyOrder.getPrice().compareTo(priceTracker.getAsk()) == 0) {
                     LOG.info(() -> market.getName() + " The current buy order's price '" + decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
-                            + "' is exactly on the current market ask-price ('" + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() + "'). Wait another tick.");
+                            + "' is exactly on the current market ask-price ('" + decimalFormat.format(priceTracker.getAsk()) + " " + market.getCounterCurrency() + "'). Wait another tick.");
                 } else {
-                    if (currentBuyOrder.getPrice().compareTo(currentTicker.getAsk()) > 0) {
+                    if (currentBuyOrder.getPrice().compareTo(priceTracker.getAsk()) > 0) {
                         LOG.info(() -> market.getName() + " The current BUY order's price '" + decimalFormat.format(currentBuyOrder.getPrice()) + " " + market.getCounterCurrency()
-                                + "' is above the current market ask-price ('" + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() + "'). Cancel the order '" + currentBuyOrder.getId() + "'.");
+                                + "' is above the current market ask-price ('" + decimalFormat.format(priceTracker.getAsk()) + " " + market.getCounterCurrency() + "'). Cancel the order '" + currentBuyOrder.getId() + "'.");
                     } else {
                         currentBuyOrder.increaseOrderNotExecutedCounter();
                         if (currentBuyOrder.getOrderNotExecutedCounter() <= 3) {
@@ -254,7 +258,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     }
 
-    private OpenOrderState retrievOrderStateFromMarket(OrderState order) throws ExchangeNetworkException, TradingApiException {
+    private OpenOrderState retrievOrderStateFromMarket(PlacedOrder order) throws ExchangeNetworkException, TradingApiException {
         final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
         for (final OpenOrder myOrder : myOrders) {
             if (myOrder.getId().equals(order.getId())) {
@@ -273,7 +277,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     private void executeCheckOfTheSellOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " State: Wait for SELL order to fulfill.");
 
-        BigDecimal currentMarketBidPrice = currentTicker.getBid();
+        BigDecimal currentMarketBidPrice = priceTracker.getBid();
         BigDecimal currentSellOrderPrice = currentSellOrder.getPrice();
         OpenOrderState marketState = retrievOrderStateFromMarket(currentSellOrder);
         BigDecimal breakEven = calculateBreakEven();
@@ -293,9 +297,9 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
                 LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is still available. Current sell statistics: \n" +
                         "######### SELL ORDER STATISTICS #########\n" +
-                        "current market price (last): " + decimalFormat.format(currentTicker.getLast()) + " " + market.getCounterCurrency() + "\n" +
-                        "current market price (bid): " + decimalFormat.format(currentTicker.getBid()) + " " + market.getCounterCurrency() + "\n" +
-                        "current market price (ask): " + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() + "\n" +
+                        "current market price (last): " + decimalFormat.format(priceTracker.getLast()) + " " + market.getCounterCurrency() + "\n" +
+                        "current market price (bid): " + decimalFormat.format(priceTracker.getBid()) + " " + market.getCounterCurrency() + "\n" +
+                        "current market price (ask): " + decimalFormat.format(priceTracker.getAsk()) + " " + market.getCounterCurrency() + "\n" +
                         "current BUY order price: " + decimalFormat.format(currentBuyOrderPrice) + " " + market.getCounterCurrency() + "\n" +
                         "current SELL order price: " + decimalFormat.format(currentSellOrderPrice) + " " + market.getCounterCurrency() + "\n" +
                         "break even: " + decimalFormat.format(breakEven) + " " + market.getCounterCurrency() + "\n" +
@@ -384,17 +388,17 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
             LOG.info(() -> market.getName() + " BUY phase - The market moved up. Place a BUY order on the exchange -->");
             final BigDecimal piecesToBuy = getAmountOfPiecesToBuy();
 
-            LOG.info(() -> market.getName() + " BUY phase - Place a BUY order of '" + decimalFormat.format(piecesToBuy) + " * " + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() + "'");
+            LOG.info(() -> market.getName() + " BUY phase - Place a BUY order of '" + decimalFormat.format(piecesToBuy) + " * " + decimalFormat.format(priceTracker.getAsk()) + " " + market.getCounterCurrency() + "'");
             String orderID;
             if (debugModeEnabled) {
                 orderID = "DUMMY_BUY_ORDER_ID_" + UUID.randomUUID().toString();
             } else {
-                orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, currentTicker.getAsk());
+                orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, priceTracker.getAsk());
             }
 
             LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
 
-            currentBuyOrder = new OrderState(orderID, OrderType.BUY, piecesToBuy, currentTicker.getAsk());
+            currentBuyOrder = new PlacedOrder(orderID, OrderType.BUY, piecesToBuy, priceTracker.getAsk());
             strategyState = IntelligentStrategyState.WAIT_FOR_BUY;
         } else {
             LOG.info(() -> market.getName() + " BUY phase - The market gain needed to place a BUY order was not reached. Wait for the next trading strategy tick.");
@@ -403,22 +407,24 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private boolean marketMovedUp() {
         BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
-        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(intelligentLimitAdapter.getCurrentLowestPriceLookbackCount());
-        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(intelligentLimitAdapter.getCurrentTimesAboveLowestPriceNeeded());
+        int currentLowestPriceLookbackCount = intelligentLimitAdapter.getCurrentLowestPriceLookbackCount();
+        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(currentLowestPriceLookbackCount);
+        int currentTimesAboveLowestPriceNeeded = intelligentLimitAdapter.getCurrentTimesAboveLowestPriceNeeded();
+        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(currentTimesAboveLowestPriceNeeded);
         BigDecimal amountToMoveUp = lowestAskPrice.multiply(currentPercentageGainNeededForBuy);
         BigDecimal goalToReach = lowestAskPrice.add(amountToMoveUp);
-        BigDecimal percentageChangeMarketToMinimum = getPercentageChange(currentTicker.getAsk(), lowestAskPrice);
+        BigDecimal percentageChangeMarketToMinimum = getPercentageChange(priceTracker.getAsk(), lowestAskPrice);
         BigDecimal percentageChangeCleanedMarketToMinimum = getPercentageChange(cleanedMarketPrice, lowestAskPrice);
         LOG.info(() -> market.getName() + "\n" +
                 "######### BUY ORDER STATISTICS #########\n" +
                 " * Price needed: " + decimalFormat.format(goalToReach) + " " + market.getCounterCurrency() +
-                "\n * Current ask price: " + decimalFormat.format(currentTicker.getAsk()) + " " + market.getCounterCurrency() +
-                "\n * Current cleaned ask price (in 3 ticks): " + decimalFormat.format(cleanedMarketPrice) + " " + market.getCounterCurrency() +
-                "\n * Minimum seen ask price (in 20 ticks): " + decimalFormat.format(lowestAskPrice) + " " + market.getCounterCurrency() +
+                "\n * Current ask price: " + decimalFormat.format(priceTracker.getAsk()) + " " + market.getCounterCurrency() +
+                "\n * Current cleaned ask price (in " +currentTimesAboveLowestPriceNeeded+" ticks): " + decimalFormat.format(cleanedMarketPrice) + " " + market.getCounterCurrency() +
+                "\n * Minimum seen ask price (in " +currentLowestPriceLookbackCount + " ticks): " + decimalFormat.format(lowestAskPrice) + " " + market.getCounterCurrency() +
                 "\n * Gain needed from this minimum price: " + decimalFormat.format(currentPercentageGainNeededForBuy.multiply(oneHundred)) +
                 "% = " + decimalFormat.format(amountToMoveUp) + " " + market.getCounterCurrency() +
                 "\n * Current market above minimum: " + decimalFormat.format(percentageChangeMarketToMinimum) + "%" +
-                "\n * Cleaned market above minimum (3 ticks): " + decimalFormat.format(percentageChangeCleanedMarketToMinimum) + "%\n" +
+                "\n * Cleaned market above minimum ("+currentTimesAboveLowestPriceNeeded +" ticks): " + decimalFormat.format(percentageChangeCleanedMarketToMinimum) + "%\n" +
                 "########################################");
 
         return cleanedMarketPrice.compareTo(goalToReach) > 0;
@@ -437,18 +443,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         return (BigDecimal)result.getDelegate();
     }
 
-    private void updateMarketPrices() throws ExchangeNetworkException, TradingApiException {
-        currentTicker = tradingApi.getTicker(market.getId());
-        LOG.info(() -> market.getName() + " Updated latest market info: " + currentTicker);
-        Long timestampInTicker = currentTicker.getTimestamp();
-        ZonedDateTime tickerTimestamp;
-        if(timestampInTicker == null) {
-            tickerTimestamp = ZonedDateTime.now();
-        } else {
-            tickerTimestamp = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestampInTicker), ZoneId.systemDefault());
-        }
-        series.addBar(tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
-    }
+
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " SELL phase - create a SELL order for the last sucessfull BUY.");
@@ -470,7 +465,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
         LOG.info(() -> market.getName() + " SELL Order sent successfully to exchange. ID: " + orderId);
 
-        currentSellOrder = new OrderState(orderId, OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
+        currentSellOrder = new PlacedOrder(orderId, OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
         strategyState = IntelligentStrategyState.WAIT_FOR_SELL;
     }
 
@@ -495,17 +490,17 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     }
 
     private BigDecimal calculateBelowBreakEvenPriceLimit() {
-        BigDecimal distanceToCurrentMarketPrice = currentTicker.getBid().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven());
-        return currentTicker.getBid().subtract(distanceToCurrentMarketPrice);
+        BigDecimal distanceToCurrentMarketPrice = priceTracker.getBid().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven());
+        return priceTracker.getBid().subtract(distanceToCurrentMarketPrice);
     }
 
     private BigDecimal calculateAboveBreakEvenPriceLimit() {
-        return currentTicker.getBid().subtract(currentTicker.getBid().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven()));
+        return priceTracker.getBid().subtract(priceTracker.getBid().multiply(intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven()));
     }
 
     private BigDecimal calculateMinimumAboveBreakEvenPriceLimit(BigDecimal breakEven) {
         BigDecimal currentSellStopLimitPercentageMinimumAboveBreakEven = intelligentLimitAdapter.getCurrentSellStopLimitPercentageMinimumAboveBreakEven();
-        BigDecimal minimalDistanceToCurrentMarketPrice = currentTicker.getBid().subtract(currentTicker.getBid().multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
+        BigDecimal minimalDistanceToCurrentMarketPrice = priceTracker.getBid().subtract(priceTracker.getBid().multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
         BigDecimal minimalDistanceNeededToBreakEven = breakEven.add(breakEven.multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
         return minimalDistanceNeededToBreakEven.min(minimalDistanceToCurrentMarketPrice);
 
@@ -528,7 +523,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
             final BigDecimal currentBaseCurrencyBalance = getAvailableCurrencyBalance(market.getBaseCurrency());
             if (currentBaseCurrencyBalance.compareTo(MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL) > 0) {
                 LOG.info(() -> market.getName() + " Open balance in base currency found. Resume needed. Set current phase to SELL and use as BUY price the current market ask price");
-                currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, currentBaseCurrencyBalance, currentTicker.getAsk());
+                currentBuyOrder = new PlacedOrder("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, currentBaseCurrencyBalance, priceTracker.getAsk());
                 strategyState = IntelligentStrategyState.NEED_SELL;
                 return;
             } else {
@@ -547,13 +542,13 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         LOG.info(() -> market.getName() + " Found an open order on the market: '" + currentOpenOrder + "'. Try to calculate the resuming state...");
         if (currentOpenOrder.getType() == OrderType.BUY) {
             LOG.info(() -> market.getName() + " The current order is a BUY order. Resume with waiting for BUY to be fulfilled");
-            currentBuyOrder = new OrderState(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getOriginalQuantity(), currentOpenOrder.getPrice());
+            currentBuyOrder = new PlacedOrder(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getOriginalQuantity(), currentOpenOrder.getPrice());
             strategyState = IntelligentStrategyState.WAIT_FOR_BUY;
         } else {
             LOG.info(() -> market.getName() + " The current order is a SELL order. Resume with waiting for SELL to be fulfilled or changing SELL prices.");
-            BigDecimal estimatedBuyPrice = currentTicker.getAsk().max(currentOpenOrder.getPrice());
-            currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_SELL_ORDER", OrderType.BUY, currentOpenOrder.getQuantity(), estimatedBuyPrice);
-            currentSellOrder = new OrderState(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getQuantity(), currentOpenOrder.getPrice());
+            BigDecimal estimatedBuyPrice = priceTracker.getAsk().max(currentOpenOrder.getPrice());
+            currentBuyOrder = new PlacedOrder("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_SELL_ORDER", OrderType.BUY, currentOpenOrder.getQuantity(), estimatedBuyPrice);
+            currentSellOrder = new PlacedOrder(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getQuantity(), currentOpenOrder.getPrice());
             strategyState = IntelligentStrategyState.WAIT_FOR_SELL;
         }
     }
@@ -575,7 +570,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
          * Most exchanges (if not all) use 8 decimal places and typically round in favour of the
          * exchange. It's usually safest to round down the order quantity in your calculations.
          */
-        final BigDecimal amountOfPiecesInBaseCurrencyToBuy = balanceToUseForBuyOrder.divide(currentTicker.getAsk(), 8, RoundingMode.HALF_DOWN);
+        final BigDecimal amountOfPiecesInBaseCurrencyToBuy = balanceToUseForBuyOrder.divide(priceTracker.getAsk(), 8, RoundingMode.HALF_DOWN);
 
         LOG.info(
                 () ->
@@ -625,7 +620,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         return currentBalance;
     }
 
-    private void getConfigForStrategy(StrategyConfig config) {
+    private void readStrategyConfig(StrategyConfig config) {
         configuredPercentageOfCounterCurrencyBalanceToUse = StrategyConfigParser.readPercentageConfigValue(config, "percentage-of-counter-currency-balance-to-use");
         configuredEmergencyStop = StrategyConfigParser.readAmount(config, "configured-emergency-stop-balance");
         debugModeEnabled = StrategyConfigParser.readBoolean(config, "debug-mode-enabled", false);

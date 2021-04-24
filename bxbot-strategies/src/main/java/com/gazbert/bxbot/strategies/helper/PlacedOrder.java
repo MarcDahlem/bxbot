@@ -1,4 +1,4 @@
-package com.gazbert.bxbot.strategies;
+package com.gazbert.bxbot.strategies.helper;
 
 import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.OrderType;
@@ -8,7 +8,7 @@ import com.google.common.base.MoreObjects;
 import java.math.BigDecimal;
 import java.time.chrono.ThaiBuddhistChronology;
 
-public class OrderState {
+public class PlacedOrder {
 
     private final String id;
     private final OrderType type;
@@ -16,7 +16,7 @@ public class OrderState {
     private final BigDecimal amount;
     private int orderNotExecutedCount;
 
-    OrderState(String id, OrderType type, BigDecimal amount, BigDecimal price) {
+    public PlacedOrder(String id, OrderType type, BigDecimal amount, BigDecimal price) {
         this.id = id;
         this.type = type;
         this.price = price;

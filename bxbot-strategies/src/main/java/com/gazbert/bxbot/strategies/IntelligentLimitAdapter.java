@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.strategies.helper.PlacedOrder;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,7 +55,7 @@ public class IntelligentLimitAdapter {
         printCurrentStatistics();
     }
 
-    public void addNewExecutedSellOrder(OrderState currentSellOrder, BigDecimal totalGain, BigDecimal breakEven) {
+    public void addNewExecutedSellOrder(PlacedOrder currentSellOrder, BigDecimal totalGain, BigDecimal breakEven) {
         BigDecimal oldOverallStrategyGain = overallStrategyGain;
         overallStrategyGain = overallStrategyGain.add(totalGain);
 
