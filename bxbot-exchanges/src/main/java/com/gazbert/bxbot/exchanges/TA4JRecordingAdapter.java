@@ -26,28 +26,29 @@ import java.util.*;
 
 public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements ExchangeAdapter {
     private static final Logger LOG = LogManager.getLogger();
-    private static final String BUY_FEE_PROPERTY_NAME = "buy-fee";
-    private static final String SELL_FEE_PROPERTY_NAME = "sell-fee";
+    private static final String ORDER_FEE_PROPERTY_NAME = "order-fee";
+    private static final String SIMULATED_COUNTER_CURRENCY_PROPERTY_NAME = "simulatedCounterCurrency";
+    private static final String COUNTER_CURRENCY_START_BALANCE_PROPERTY_NAME = "counterCurrencyStartingBalance";
+    private static final String SIMULATED_BASE_CURRENCY_PROPERTY_NAME = "simulatedBaseCurrency";
+    private static final String PATH_TO_SERIES_JSON_PROPERTY_NAME = "trading-series-json-path";
+    private static final String SHOULD_GENERATE_CHARTS_PROPERTY_NAME = "generate-order-overview-charts";
 
 
-    private BigDecimal buyFeePercentage;
-    private BigDecimal sellFeePercentage;
-    private BigDecimal sellLimitDistancePercentage;
+    private BigDecimal orderFeePercentage;
     private String tradingSeriesTradingPath;
+    private String simulatedCounterCurrency;
+    private String simulatedBaseCurrency;
+    private boolean shouldPrintCharts;
 
 
     private BarSeries tradingSeries;
 
-    private static final String counterCurrency = "ZEUR";
-    private static final String baseCurrency = "XXRP";
-    private static final String marketID = "XRPEUR";
-
     private BigDecimal baseCurrencyBalance = BigDecimal.ZERO;
-    private BigDecimal counterCurrencyBalance = new BigDecimal(100);
+    private BigDecimal counterCurrencyBalance;
     private OpenOrder currentOpenOrder;
     private int currentTick;
-    private TA4JRecordingRule sellOrderRule = new TA4JRecordingRule();
-    private TA4JRecordingRule buyOrderRule = new TA4JRecordingRule();
+    private final TA4JRecordingRule sellOrderRule = new TA4JRecordingRule();
+    private final TA4JRecordingRule buyOrderRule = new TA4JRecordingRule();
 
     @Override
     public void init(ExchangeConfig config) {
@@ -59,28 +60,35 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     private void loadRecodingSeriesFromJson() {
         tradingSeries = JsonBarsSerializer.loadSeries(tradingSeriesTradingPath);
+        if (tradingSeries == null || tradingSeries.isEmpty()) {
+            throw new IllegalArgumentException("Could not load ta4j series from json '" + tradingSeriesTradingPath + "'");
+        }
     }
 
     private void setOtherConfig(ExchangeConfig exchangeConfig) {
         final OtherConfig otherConfig = getOtherConfig(exchangeConfig);
 
-        final String buyFeeInConfig = getOtherConfigItem(otherConfig, BUY_FEE_PROPERTY_NAME);
-        buyFeePercentage =
-                new BigDecimal(buyFeeInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-        LOG.info(() -> "Buy fee % in BigDecimal format: " + buyFeePercentage);
+        final String orderFeeInConfig = getOtherConfigItem(otherConfig, ORDER_FEE_PROPERTY_NAME);
+        orderFeePercentage =
+                new BigDecimal(orderFeeInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+        LOG.info(() -> "Order fee % in BigDecimal format: " + orderFeePercentage);
 
-        final String sellFeeInConfig = getOtherConfigItem(otherConfig, SELL_FEE_PROPERTY_NAME);
-        sellFeePercentage =
-                new BigDecimal(sellFeeInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-        LOG.info(() -> "Sell fee % in BigDecimal format: " + sellFeePercentage);
-
-        final String sellLimitDistanceInConfig = getOtherConfigItem(otherConfig, "sell-stop-limit-percentage-distance");
-        sellLimitDistancePercentage =
-                new BigDecimal(sellLimitDistanceInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-        LOG.info(() -> "Sell (stop-limit order) limit distance % in BigDecimal format: " + sellLimitDistancePercentage);
-
-        tradingSeriesTradingPath = getOtherConfigItem(otherConfig, "trading-series-json-path");
+        tradingSeriesTradingPath = getOtherConfigItem(otherConfig, PATH_TO_SERIES_JSON_PROPERTY_NAME);
         LOG.info(() -> "path to load series json from for recording:" + tradingSeriesTradingPath);
+
+        simulatedBaseCurrency = getOtherConfigItem(otherConfig, SIMULATED_BASE_CURRENCY_PROPERTY_NAME);
+        LOG.info(() -> "Base currency to be simulated:" + simulatedBaseCurrency);
+
+        simulatedCounterCurrency = getOtherConfigItem(otherConfig, SIMULATED_COUNTER_CURRENCY_PROPERTY_NAME);
+        LOG.info(() -> "Counter currency to be simulated:" + simulatedCounterCurrency);
+
+        final String startingBalanceInConfig = getOtherConfigItem(otherConfig, COUNTER_CURRENCY_START_BALANCE_PROPERTY_NAME);
+        counterCurrencyBalance = new BigDecimal(startingBalanceInConfig);
+        LOG.info(() -> "Counter currency balance at simulation start in BigDecimal format: " + counterCurrencyBalance);
+
+        final String shouldGenerateChartsInConfig = getOtherConfigItem(otherConfig, SHOULD_GENERATE_CHARTS_PROPERTY_NAME);
+        shouldPrintCharts = Boolean.parseBoolean(shouldGenerateChartsInConfig);
+        LOG.info(() -> "Should print charts at simulation end: " + shouldPrintCharts);
     }
 
     @Override
@@ -104,9 +112,6 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     @Override
     public String createOrder(String marketId, OrderType orderType, BigDecimal quantity, BigDecimal price) throws ExchangeNetworkException, TradingApiException {
-        if (!marketID.equals(marketId)) {
-            throw new TradingApiException("Market did not match. Expected: "+ marketID+ ", actual: " + marketId);
-        }
         if (currentOpenOrder != null) {
             throw new TradingApiException("Can only record/execute one order at a time. Wait for the open order to fulfill");
         }
@@ -114,15 +119,12 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         Date creationDate = Date.from(tradingSeries.getBar(currentTick).getEndTime().toInstant());
         BigDecimal total = price.multiply(quantity);
         currentOpenOrder = new OpenOrderImpl(newOrderID, creationDate, marketId, orderType, price, quantity, quantity, total);
-        checkOpenOrderExecution();
+        checkOpenOrderExecution(marketId);
         return newOrderID;
     }
 
     @Override
     public boolean cancelOrder(String orderId, String marketId) throws ExchangeNetworkException, TradingApiException {
-        if (!marketID.equals(marketId)) {
-            throw new TradingApiException("Market did not match. Expected: "+ marketID+ ", actual: " + marketId);
-        }
         if (currentOpenOrder == null) {
             throw new TradingApiException("Tried to cancel a order, but no open order found");
         }
@@ -141,8 +143,8 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     @Override
     public BalanceInfo getBalanceInfo() throws ExchangeNetworkException, TradingApiException {
         HashMap<String, BigDecimal> availableBalances = new HashMap<>();
-        availableBalances.put(baseCurrency, baseCurrencyBalance);
-        availableBalances.put(counterCurrency, counterCurrencyBalance);
+        availableBalances.put(simulatedBaseCurrency, baseCurrencyBalance);
+        availableBalances.put(simulatedCounterCurrency, counterCurrencyBalance);
         return new BalanceInfoImpl(availableBalances, new HashMap<>());
     }
 
@@ -151,47 +153,47 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         currentTick++;
         LOG.info("Tick increased to '" + currentTick + "'");
         if (currentTick > tradingSeries.getEndIndex()) {
-            finishRecording();
+            finishRecording(marketId);
             return null;
         }
 
-        checkOpenOrderExecution();
+        checkOpenOrderExecution(marketId);
 
         Bar currentBar = tradingSeries.getBar(currentTick);
         BigDecimal last = (BigDecimal) currentBar.getClosePrice().getDelegate();
-        BigDecimal bid = (BigDecimal) currentBar.getLowPrice().getDelegate();
-        BigDecimal ask = (BigDecimal) currentBar.getHighPrice().getDelegate();
+        BigDecimal bid = (BigDecimal) currentBar.getLowPrice().getDelegate(); // assumes that the stored series json contains the bid price in the low price property
+        BigDecimal ask = (BigDecimal) currentBar.getHighPrice().getDelegate(); // assumes that the stored series json contains the ask price in the high price property
         BigDecimal low = (BigDecimal) currentBar.getLowPrice().getDelegate();
         BigDecimal high = (BigDecimal) currentBar.getHighPrice().getDelegate();
         BigDecimal open = (BigDecimal) currentBar.getOpenPrice().getDelegate();
         BigDecimal volume = (BigDecimal) currentBar.getVolume().getDelegate();
         BigDecimal vwap = BigDecimal.ZERO;
-        Long timestamp = null;
+        Long timestamp = currentBar.getEndTime().toInstant().toEpochMilli();
         return new TickerImpl(last, bid, ask, low, high, open, volume, vwap, timestamp);
     }
 
-    private void checkOpenOrderExecution() throws TradingApiException, ExchangeNetworkException {
+    private void checkOpenOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
         if (currentOpenOrder != null) {
             switch (currentOpenOrder.getType()) {
                 case BUY:
-                    checkOpenBuyOrderExecution();
+                    checkOpenBuyOrderExecution(marketId);
                     break;
                 case SELL:
-                    checkOpenSellOrderExecution();
+                    checkOpenSellOrderExecution(marketId);
                     break;
                 default:
-                    throw new TradingApiException("Order type not recognized: " +currentOpenOrder.getType());
+                    throw new TradingApiException("Order type not recognized: " + currentOpenOrder.getType());
             }
         }
     }
 
-    private void checkOpenSellOrderExecution() throws TradingApiException, ExchangeNetworkException {
-        BigDecimal currentBidPrice = (BigDecimal)tradingSeries.getBar(currentTick).getLowPrice().getDelegate();
+    private void checkOpenSellOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
+        BigDecimal currentBidPrice = (BigDecimal) tradingSeries.getBar(currentTick).getLowPrice().getDelegate();  // assumes that the stored series json contains the bid price in the low price property
         if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("SELL: the bid price is below or equal to the stop price --> record sell order execution with the bid price");
             sellOrderRule.addTrigger(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
-            BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketID).multiply(orderPrice);
+            BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
             counterCurrencyBalance = counterCurrencyBalance.add(netOrderPrice);
             baseCurrencyBalance = baseCurrencyBalance.subtract(currentOpenOrder.getOriginalQuantity());
@@ -199,13 +201,13 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         }
     }
 
-    private void checkOpenBuyOrderExecution() throws TradingApiException, ExchangeNetworkException {
-        BigDecimal currentAskPrice = (BigDecimal)tradingSeries.getBar(currentTick).getHighPrice().getDelegate();
-        if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <=0) {
-            LOG.info("BUY: the current ask price is below or queal to the limit price --> record buy order execution with the current ask price");
+    private void checkOpenBuyOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
+        BigDecimal currentAskPrice = (BigDecimal) tradingSeries.getBar(currentTick).getHighPrice().getDelegate(); // assumes that the stored series json contains the ask price in the high price property
+        if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
+            LOG.info("BUY: the current ask price is below or equal to the limit price --> record buy order execution with the current ask price");
             buyOrderRule.addTrigger(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
-            BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketID).multiply(orderPrice);
+            BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.add(buyFees);
             counterCurrencyBalance = counterCurrencyBalance.subtract(netOrderPrice);
             baseCurrencyBalance = baseCurrencyBalance.add(currentOpenOrder.getOriginalQuantity());
@@ -214,28 +216,30 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     }
 
 
-    private void finishRecording() throws TradingApiException, ExchangeNetworkException {
+    private void finishRecording(String marketId) throws TradingApiException, ExchangeNetworkException {
         final List<Strategy> strategies = new ArrayList<>();
         Strategy strategy = new BaseStrategy("Recorded ta4j trades", buyOrderRule, sellOrderRule);
         strategies.add(strategy);
-        Ta4jOptimalTradingStrategy optimalTradingStrategy = new Ta4jOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketID), getPercentageOfSellOrderTakenForExchangeFee(marketID));
+        Ta4jOptimalTradingStrategy optimalTradingStrategy = new Ta4jOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
         strategies.add(optimalTradingStrategy);
 
-        TradePriceRespectingBacktestExecutor backtestExecutor = new TradePriceRespectingBacktestExecutor(tradingSeries, new LinearTransactionCostModel(getPercentageOfBuyOrderTakenForExchangeFee(marketID).doubleValue()));
+        TradePriceRespectingBacktestExecutor backtestExecutor = new TradePriceRespectingBacktestExecutor(tradingSeries, new LinearTransactionCostModel(getPercentageOfBuyOrderTakenForExchangeFee(marketId).doubleValue()));
         List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(25), Order.OrderType.BUY);
         logReports(statements);
-        BuyAndSellSignalsToChart.printSeries(tradingSeries, strategy);
-        BuyAndSellSignalsToChart.printSeries(tradingSeries, optimalTradingStrategy);
+        if (shouldPrintCharts) {
+            BuyAndSellSignalsToChart.printSeries(tradingSeries, strategy);
+            BuyAndSellSignalsToChart.printSeries(tradingSeries, optimalTradingStrategy);
+        }
         throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
     }
 
     private void logReports(List<TradingStatement> statements) {
-        for(TradingStatement statement:statements) {
-            LOG.info( () ->
-            "\n######### "+statement.getStrategy().getName()+" #########\n" +
-            createPerformanceReport(statement) + "\n" +
-            createTradesReport(statement)+ "\n"+
-                    "###########################"
+        for (TradingStatement statement : statements) {
+            LOG.info(() ->
+                    "\n######### " + statement.getStrategy().getName() + " #########\n" +
+                            createPerformanceReport(statement) + "\n" +
+                            createTradesReport(statement) + "\n" +
+                            "###########################"
             );
         }
     }
@@ -261,11 +265,11 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     @Override
     public BigDecimal getPercentageOfBuyOrderTakenForExchangeFee(String marketId) throws TradingApiException, ExchangeNetworkException {
-        return buyFeePercentage;
+        return orderFeePercentage;
     }
 
     @Override
     public BigDecimal getPercentageOfSellOrderTakenForExchangeFee(String marketId) throws TradingApiException, ExchangeNetworkException {
-        return sellFeePercentage;
+        return orderFeePercentage;
     }
 }
