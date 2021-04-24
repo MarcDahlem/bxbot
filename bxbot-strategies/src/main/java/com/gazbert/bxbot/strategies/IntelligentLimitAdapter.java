@@ -5,6 +5,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 public class IntelligentLimitAdapter {
@@ -23,6 +25,8 @@ public class IntelligentLimitAdapter {
     private final BigDecimal configuredSellStopLimitPercentageAboveBreakEven;
     private final BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven;
     private final BigDecimal configuredIntelligentLimitsPercentageScaleFactor;
+    private final int configuredLookback;
+    private final int configuredNeededUpMovement;
 
     private BigDecimal overallStrategyGain;
     private int amountOfPositiveTrades;
@@ -36,6 +40,11 @@ public class IntelligentLimitAdapter {
         configuredSellStopLimitPercentageAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config,"sell-stop-limit-percentage-above-break-even");
         configuredSellStopLimitPercentageMinimumAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config,"sell-stop-limit-percentage-minimum-above-break-even");
         configuredIntelligentLimitsPercentageScaleFactor = StrategyConfigParser.readPercentageConfigValue(config, "intelligent-limits-percentage-scale-factor");
+        configuredLookback = StrategyConfigParser.readInteger(config, "lowest-price-lookback-count");
+        configuredNeededUpMovement = StrategyConfigParser.readInteger(config, "times-above-lowest-price-needed");
+        if (configuredNeededUpMovement > configuredLookback) {
+            throw new IllegalArgumentException("The amount for checking if the prices moved up must be lower or equal to the configured overall lookback");
+        }
 
         overallStrategyGain = BigDecimal.ZERO;
         overallPositiveGains = BigDecimal.ZERO;
@@ -79,43 +88,31 @@ public class IntelligentLimitAdapter {
     }
 
     private BigDecimal scaleUp(BigDecimal initialPercentage) {
-        BigDecimal result = initialPercentage;
-        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades;
-        if (currentSellLossRatio == 0) return result;
-        if (currentSellLossRatio >0) {
-            while (currentSellLossRatio >0) {
-                result = result.add(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio--;
-            }
-        } else {
-            while (currentSellLossRatio <0) {
-                result = result.subtract(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio++;
-            }
+        BigDecimal result = initialPercentage; // 0.05 == 5%
+        BigDecimal scaleFactor = configuredIntelligentLimitsPercentageScaleFactor; // 0.1 == 10%
+        if(scaleFactor.compareTo(BigDecimal.ZERO) == 0){
+            return initialPercentage;
         }
-        return result;
+        BigDecimal postiveMultiplicant = BigDecimal.ONE.add(BigDecimal.ONE.multiply(scaleFactor)); // 1 + (1*0.1) = 1+0.1 = 1.1
+        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades; //  Neg: 2-6 = -4, Pos: 6-2=4
+        BigDecimal currentScalingFactor = postiveMultiplicant.pow(currentSellLossRatio, new MathContext(8, RoundingMode.HALF_UP)); // Neg: 1.1^(-4) = 0.6830, Pos: 1.1^4 = 1.4641
+        return result.multiply(currentScalingFactor); // Neg: 0.05*0.6830 = 0.03415, Pos: 0.05 * 1.4641 = 0.0732
     }
 
     private BigDecimal scaleDown(BigDecimal initialPercentage) {
-        BigDecimal result = initialPercentage;
-        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades;
-        if (currentSellLossRatio == 0) return result;
-        if (currentSellLossRatio >0) {
-            while (currentSellLossRatio >0) {
-                result = result.subtract(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio--;
-            }
-        } else {
-            while (currentSellLossRatio <0) {
-                result = result.add(result.multiply(configuredIntelligentLimitsPercentageScaleFactor));
-                currentSellLossRatio++;
-            }
+        BigDecimal result = initialPercentage; // 0.05 == 5%
+        BigDecimal scaleFactor = configuredIntelligentLimitsPercentageScaleFactor; // 0.1 == 10%
+        if(scaleFactor.compareTo(BigDecimal.ZERO) == 0){
+            return initialPercentage;
         }
-        return result;
+        BigDecimal negativeMultiplicant = BigDecimal.ONE.subtract(BigDecimal.ONE.multiply(scaleFactor)); // 1 - (1*0.1) = 1-0.1 = 0.9
+        int currentSellLossRatio = amountOfPositiveTrades - amountOfNegativeTrades; //  Neg: 2-6 = -4, Pos: 6-2=4
+        BigDecimal currentScalingFactor = negativeMultiplicant.pow(currentSellLossRatio, new MathContext(8, RoundingMode.HALF_UP)); // Neg: 0.9^(-4) = 1.5241, Pos: 0.9^4 = 0.6561
+        return result.multiply(currentScalingFactor); // Neg: 0.05*1.5241 = 0.0762, Pos: 0.05 * 0.6561 = 0.0328
     }
 
-    public void printCurrentStatistics() {
-        LOG.info(() -> "The current statistics are:\n"
+    public String calculateCurrentStatistics() {
+        return "The current statistics are:\n"
                 + "######### LIMIT ADAPTION STATISTICS #########\n"
                 + "* Overall strategy gain: " +decimalFormat.format(overallStrategyGain) + "\n"
                 + "* Positive trades: " + amountOfPositiveTrades + "\n"
@@ -124,6 +121,8 @@ public class IntelligentLimitAdapter {
                 + "* Sum of negative losses: " +decimalFormat.format(overallNegativeLosses) + "\n"
                 + "---------------------------------------------\n"
                 + "* configured scale factor: " + decimalFormat.format(configuredIntelligentLimitsPercentageScaleFactor.multiply(new BigDecimal(100))) + "%\n"
+                + "* configured lowest price lookback count: " + configuredLookback + "\n"
+                + "* configured times needed above lowest price: " +configuredNeededUpMovement+ "\n"
                 + "---------------------------------------------\n"
                 + "* current percentage gain needed for buy: " +decimalFormat.format(getCurrentPercentageGainNeededForBuy().multiply(new BigDecimal(100))) + "%\n"
                 + "* current sell stop limit percentage above break even: " +decimalFormat.format(getCurrentSellStopLimitPercentageAboveBreakEven().multiply(new BigDecimal(100))) + "%\n"
@@ -134,7 +133,41 @@ public class IntelligentLimitAdapter {
                 + "* initial sell stop limit percentage above break even: " +decimalFormat.format(configuredSellStopLimitPercentageAboveBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "* initial sell stop limit percentage minimum above break even: " +decimalFormat.format(configuredSellStopLimitPercentageMinimumAboveBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "* initial sell stop limit percentage below break even:: " +decimalFormat.format(configuredSellStopLimitPercentageBelowBreakEven.multiply(new BigDecimal(100))) + "%\n"
-                + "#############################################"
-        );
+                + "#############################################";
+    }
+    public void printCurrentStatistics() {
+        LOG.info(this::calculateCurrentStatistics);
+    }
+
+    public int getCurrentLowestPriceLookbackCount() {
+        return configuredLookback;
+    }
+
+    public int getCurrentTimesAboveLowestPriceNeeded() {
+        return configuredNeededUpMovement;
+    }
+
+    public BigDecimal getOverallStrategyGain() {
+        return overallStrategyGain;
+    }
+
+    public int getAmountOfPositiveTrades() {
+        return amountOfPositiveTrades;
+    }
+
+    public int getAmountOfNegativeTrades() {
+        return amountOfNegativeTrades;
+    }
+
+    public int getAmountOfTrades() {
+        return amountOfPositiveTrades + amountOfNegativeTrades;
+    }
+
+    public BigDecimal getOverallPositiveGain() {
+        return overallPositiveGains;
+    }
+
+    public BigDecimal getOverallNegativeLosses() {
+        return overallNegativeLosses;
     }
 }

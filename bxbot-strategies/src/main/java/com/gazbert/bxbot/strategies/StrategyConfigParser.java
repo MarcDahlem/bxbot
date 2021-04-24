@@ -46,4 +46,15 @@ public class StrategyConfigParser {
 
         return new BigDecimal(numberValueAsString);
     }
+
+    public static int readInteger(StrategyConfig config, String key) {
+        final String numberValueAsString = config.getConfigItem(key);
+        if (numberValueAsString == null) {
+            throw new IllegalArgumentException(
+                    "Mandatory <" + key + "> misses a value in strategy.xml config.");
+        }
+        LOG.info(() -> "<" + key + "> from config is: " + numberValueAsString);
+
+        return Integer.parseInt(numberValueAsString);
+    }
 }

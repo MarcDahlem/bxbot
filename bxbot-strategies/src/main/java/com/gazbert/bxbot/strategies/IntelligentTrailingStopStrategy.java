@@ -36,6 +36,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -54,6 +56,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     private static final String DECIMAL_FORMAT = "#.########";
     private static final DecimalFormat decimalFormat = new DecimalFormat(DECIMAL_FORMAT);
     private static final BigDecimal oneHundred = new BigDecimal(100);
+    private static final BigDecimal MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL = new BigDecimal(0.00000002);
+    private static final BigDecimal twentyFive = new BigDecimal(25);
 
     /**
      * Reference to the main Trading API.
@@ -399,8 +403,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private boolean marketMovedUp() {
         BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
-        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(20);
-        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(3);
+        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(intelligentLimitAdapter.getCurrentLowestPriceLookbackCount());
+        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(intelligentLimitAdapter.getCurrentTimesAboveLowestPriceNeeded());
         BigDecimal amountToMoveUp = lowestAskPrice.multiply(currentPercentageGainNeededForBuy);
         BigDecimal goalToReach = lowestAskPrice.add(amountToMoveUp);
         BigDecimal percentageChangeMarketToMinimum = getPercentageChange(currentTicker.getAsk(), lowestAskPrice);
@@ -436,7 +440,14 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     private void updateMarketPrices() throws ExchangeNetworkException, TradingApiException {
         currentTicker = tradingApi.getTicker(market.getId());
         LOG.info(() -> market.getName() + " Updated latest market info: " + currentTicker);
-        series.addBar(ZonedDateTime.now(), currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
+        Long timestampInTicker = currentTicker.getTimestamp();
+        ZonedDateTime tickerTimestamp;
+        if(timestampInTicker == null) {
+            tickerTimestamp = ZonedDateTime.now();
+        } else {
+            tickerTimestamp = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestampInTicker), ZoneId.systemDefault());
+        }
+        series.addBar(tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
     }
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
@@ -502,8 +513,8 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private BigDecimal calculateBreakEven() throws TradingApiException, ExchangeNetworkException {
         /* (p1 * (1+f)) / (1-f) <= p2 */
-        BigDecimal buyFees = (new BigDecimal(1)).add(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId()));
-        BigDecimal sellFees = (new BigDecimal(1)).subtract(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId()));
+        BigDecimal buyFees = BigDecimal.ONE.add(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId()));
+        BigDecimal sellFees = BigDecimal.ONE.subtract(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId()));
 
         BigDecimal totalBuy = currentBuyOrder.getPrice().multiply(buyFees);
         BigDecimal estimatedBreakEven = totalBuy.divide(sellFees, 8, RoundingMode.HALF_UP);
@@ -515,7 +526,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
         if (myOrders.isEmpty()) {
             LOG.info(() -> market.getName() + " No open orders found. Check available balance for the base currency, to know if a new sell order should be created.");
             final BigDecimal currentBaseCurrencyBalance = getAvailableCurrencyBalance(market.getBaseCurrency());
-            if (currentBaseCurrencyBalance.compareTo(new BigDecimal(0.00000002)) > 0) {
+            if (currentBaseCurrencyBalance.compareTo(MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL) > 0) {
                 LOG.info(() -> market.getName() + " Open balance in base currency found. Resume needed. Set current phase to SELL and use as BUY price the current market ask price");
                 currentBuyOrder = new OrderState("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, currentBaseCurrencyBalance, currentTicker.getAsk());
                 strategyState = IntelligentStrategyState.NEED_SELL;
@@ -549,7 +560,7 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private BigDecimal getAmountOfPiecesToBuy() throws TradingApiException, ExchangeNetworkException, StrategyException {
         // TODO final BigDecimal balanceToUseForBuyOrder = getBalanceToUseForBuyOrder();
-        final BigDecimal balanceToUseForBuyOrder = new BigDecimal(25);
+        final BigDecimal balanceToUseForBuyOrder = twentyFive;
         LOG.info(
                 () ->
                         market.getName()
