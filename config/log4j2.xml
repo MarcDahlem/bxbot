@@ -34,7 +34,7 @@ See log4j2 guide for more options: http://logging.apache.org/log4j/2.x/manual/ap
         I recommend running BX-bot at 'info'. 'debug' logging will produce a *lot* of output for the Exchange Adapters;
         very handy for debugging, but not so good for your disk space!
         -->
-        <Root level="info">
+        <Root level="warn">
             <AppenderRef ref="BXBot_RollingFile"/>
             <AppenderRef ref="STDOUT"/>
         </Root>

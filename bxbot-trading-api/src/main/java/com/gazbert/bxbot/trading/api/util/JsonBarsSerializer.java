@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.trading.api.util;
 
+import com.google.common.base.Predicates;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.ta4j.core.BarSeries;
@@ -8,12 +9,15 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class JsonBarsSerializer {
 
     private static final Logger LOG = Logger.getLogger(JsonBarsSerializer.class.getName());
+    private static Map<String, GsonBarSeries> cachedSeries = new HashMap<>();
 
     public static void persistSeries(BarSeries series, String filename) {
         GsonBarSeries exportableSeries = GsonBarSeries.from(series);
@@ -39,18 +43,21 @@ public class JsonBarsSerializer {
     }
 
     public static BarSeries loadSeries(String filename) {
+        if (cachedSeries.containsKey(filename)) {
+            return cachedSeries.get(filename).toBarSeries();
+        }
         Gson gson = new Gson();
         FileReader reader = null;
         BarSeries result = null;
         try {
             reader = new FileReader(filename);
             GsonBarSeries loadedSeries = gson.fromJson(reader, GsonBarSeries.class);
-
+            cachedSeries.put(filename, loadedSeries);
             result = loadedSeries.toBarSeries();
             LOG.info("Bar series '" + result.getName() + "' successfully loaded. #Entries: " + result.getBarCount());
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            LOG.log(Level.SEVERE, "Unable to load bars from JSON", e);
+            //e.printStackTrace();
+            //LOG.log(Level.SEVERE, "Unable to load bars from JSON", e);
         } finally {
             try {
                 if (reader != null)
