@@ -35,6 +35,8 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -91,7 +93,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
 
     private IntelligentLimitAdapter intelligentLimitAdapter;
     private boolean debugModeEnabled;
-    private ZonedDateTime currentTickerTime;
 
 
     /**
@@ -131,10 +132,6 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
      */
     @Override
     public void execute() throws StrategyException {
-        if (currentTickerTime == null) {
-            currentTickerTime = ZonedDateTime.now();
-        }
-        currentTickerTime = currentTickerTime.plusSeconds(1);
         try {
 
             updateMarketPrices();
@@ -442,8 +439,14 @@ public class IntelligentTrailingStopStrategy implements TradingStrategy {
     private void updateMarketPrices() throws ExchangeNetworkException, TradingApiException {
         currentTicker = tradingApi.getTicker(market.getId());
         LOG.info(() -> market.getName() + " Updated latest market info: " + currentTicker);
-        //series.addBar(ZonedDateTime.now(), currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
-        series.addBar(currentTickerTime, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
+        Long timestampInTicker = currentTicker.getTimestamp();
+        ZonedDateTime tickerTimestamp;
+        if(timestampInTicker == null) {
+            tickerTimestamp = ZonedDateTime.now();
+        } else {
+            tickerTimestamp = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestampInTicker), ZoneId.systemDefault());
+        }
+        series.addBar(tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
     }
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
