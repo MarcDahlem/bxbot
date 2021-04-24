@@ -1,6 +1,7 @@
 package com.gazbert.bxbot.strategies;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
+import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -41,6 +42,7 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
     private Ticker currentTicker;
     private boolean inTheMarket;
     private IntelligentPriceTracker priceTracker;
+    private IntelligentStateTracker stateTracker;
 
     @Override
     public void init(TradingApi tradingApi, Market market, StrategyConfig config) {
@@ -49,6 +51,7 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
         this.market = market;
         series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
         priceTracker = new IntelligentPriceTracker(tradingApi, market, series);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
         initTa4jStrategy();
         LOG.info(() -> "Trading Strategy initialised successfully!");
     }
@@ -78,6 +81,9 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
         try {
 
             priceTracker.updateMarketPrices();
+            switch (stateTracker.getCurrentState()) {
+
+            };
             executeStrategy();
         } catch (TradingApiException | ExchangeNetworkException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
@@ -111,34 +117,17 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
 
     private void shouldExit() throws ExchangeNetworkException, TradingApiException {
         //place a sell order with the available base currency units with the current bid price to get the order filled directly
-        BigDecimal availableBaseCurrency = getAvailableCurrencyBalance(market.getBaseCurrency());
+        BigDecimal availableBaseCurrency = priceTracker.getAvailableBaseCurrencyBalance();
         String orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, availableBaseCurrency, currentTicker.getBid());
         LOG.info(() -> market.getName() + " SELL Order sent successfully to exchange. ID: " + orderId);
     }
 
     private void shouldEnter() throws ExchangeNetworkException, TradingApiException {
         //place a buy order of 25% of the available counterCurrency units with the current ask price to get the order filled directly
-        BigDecimal availableCounterCurrency = getAvailableCurrencyBalance(market.getCounterCurrency());
+        BigDecimal availableCounterCurrency = priceTracker.getAvailableCounterCurrencyBalance();
         BigDecimal balanceToUse = availableCounterCurrency.multiply(new BigDecimal("0.25"));
         final BigDecimal piecesToBuy = balanceToUse.divide(currentTicker.getAsk(), 8, RoundingMode.HALF_DOWN);
         String orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, currentTicker.getAsk());
         LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
-    }
-
-    private BigDecimal getAvailableCurrencyBalance(String currency) throws ExchangeNetworkException, TradingApiException {
-        LOG.info(() -> market.getName() + " Fetching the available balance for the currency '" + currency + "'.");
-        BalanceInfo balanceInfo = tradingApi.getBalanceInfo();
-        final BigDecimal currentBalance = balanceInfo.getBalancesAvailable().get(currency);
-        if (currentBalance == null) {
-            final String errorMsg = "Failed to get current currency balance as '" + currency + "' key is not available in the balances map. Balances returned: " + balanceInfo.getBalancesAvailable();
-            LOG.warn(() -> errorMsg);
-            return BigDecimal.ZERO;
-        } else {
-            LOG.info(() -> market.getName() + "Currency balance available on exchange is ["
-                    + decimalFormat.format(currentBalance)
-                    + "] "
-                    + currency);
-        }
-        return currentBalance;
     }
 }
