@@ -192,7 +192,7 @@ public class TradingEngine {
                                                 "upLookback: " + lookingForUpMovement);
                                         init();
                                         IntelligentTrailingStopStrategy strategy = (IntelligentTrailingStopStrategy) tradingStrategies.get(0);
-                                        strategy.updateConfig(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
+                                        strategy.updateConfig(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, Math.toIntExact(lookback), Math.toIntExact(lookingForUpMovement));
                                         int maxIndex = ((TA4JRecordingAdapter) exchangeAdapter).getMaxIndex();
                                         for (int i = 0; i <= maxIndex; i++) {
                                             strategy.execute();
