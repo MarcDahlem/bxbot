@@ -47,6 +47,7 @@ public class EmergencyStopChecker {
 
   private static final String CRITICAL_EMAIL_ALERT_SUBJECT = "CRITICAL Alert message from BX-bot";
   private static final String DECIMAL_FORMAT_PATTERN = "#.########";
+  private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat(DECIMAL_FORMAT_PATTERN);
 
   private EmergencyStopChecker() {
   }
@@ -111,14 +112,14 @@ public class EmergencyStopChecker {
       LOG.info(
           () ->
               "Emergency Stop Currency balance available on exchange is ["
-                  + new DecimalFormat(DECIMAL_FORMAT_PATTERN).format(currentBalance)
+                  + DECIMAL_FORMAT.format(currentBalance)
                   + "] "
                   + engineConfig.getEmergencyStopCurrency());
 
       LOG.info(
           () ->
               "Balance that will stop ALL trading across ALL markets is ["
-                  + new DecimalFormat(DECIMAL_FORMAT_PATTERN)
+                  + DECIMAL_FORMAT
                       .format(engineConfig.getEmergencyStopBalance())
                   + "] "
                   + engineConfig.getEmergencyStopCurrency());
@@ -129,10 +130,10 @@ public class EmergencyStopChecker {
                 + engineConfig.getEmergencyStopCurrency()
                 + "] wallet "
                 + "balance ["
-                + new DecimalFormat(DECIMAL_FORMAT_PATTERN).format(currentBalance)
+                + DECIMAL_FORMAT.format(currentBalance)
                 + "] on exchange "
                 + "is lower than configured Emergency Stop balance ["
-                + new DecimalFormat(DECIMAL_FORMAT_PATTERN)
+                + DECIMAL_FORMAT
                     .format(engineConfig.getEmergencyStopBalance())
                 + "] "
                 + engineConfig.getEmergencyStopCurrency();
