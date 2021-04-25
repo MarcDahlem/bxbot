@@ -182,7 +182,7 @@ public class IntelligentStateTracker {
         }
     }
 
-    public void trackRunningSellOrder(OrderPriceCalculator sellOrderPriceCalcuclator, OnStrategyStateChangeListener stateChangedListener, OnTradedSucesfullyClosedListener tradeClosedListener) throws TradingApiException, ExchangeNetworkException, StrategyException {
+    public void trackRunningSellOrder(OrderPriceCalculator sellOrderPriceCalcuclator, OnStrategyStateChangeListener stateChangedListener, OnTradeSuccessfullyClosedListener tradeClosedListener) throws TradingApiException, ExchangeNetworkException, StrategyException {
         if(strategyState != WAIT_FOR_SELL) {
             String errorMsg = "Invalid state encountered: " + strategyState + " while ask to track a running sell order. State needed: " + WAIT_FOR_SELL;
             LOG.error(() -> market.getName() + " " + errorMsg);
@@ -329,7 +329,7 @@ public class IntelligentStateTracker {
         void onStrategyChanged(IntelligentStrategyState newState) throws TradingApiException, ExchangeNetworkException, StrategyException;
     }
 
-    public interface OnTradedSucesfullyClosedListener {
+    public interface OnTradeSuccessfullyClosedListener {
         void onTradeCloseSuccess(BigDecimal profit);
     }
 

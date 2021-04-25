@@ -1,7 +1,6 @@
 package com.gazbert.bxbot.strategies;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
-import com.gazbert.bxbot.strategies.helper.PlacedOrder;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,7 +10,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
-public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradedSucesfullyClosedListener {
+public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradeSuccessfullyClosedListener {
 
     private static final Logger LOG = LogManager.getLogger();
     /** The decimal format for the logs. */
