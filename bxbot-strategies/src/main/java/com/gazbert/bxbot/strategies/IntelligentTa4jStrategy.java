@@ -1,6 +1,8 @@
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
+import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
@@ -9,10 +11,7 @@ import com.gazbert.bxbot.trading.api.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
-import org.ta4j.core.BaseBarSeries;
-import org.ta4j.core.BaseBarSeriesBuilder;
-import org.ta4j.core.BaseStrategy;
-import org.ta4j.core.Rule;
+import org.ta4j.core.*;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.SMAIndicator;
@@ -31,32 +30,13 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 @Component("intelligentTa4jStrategy") // used to load the strategy using Spring bean injection
-public class IntelligentTa4jStrategy  implements TradingStrategy {
+public class IntelligentTa4jStrategy  extends AbstractIntelligentStrategy {
 
-    private static final Logger LOG = LogManager.getLogger();
-    private static final DecimalFormat decimalFormat = new DecimalFormat("#.########");
-    private TradingApi tradingApi;
-    private Market market;
-    private BaseBarSeries series;
+
     private BaseStrategy ta4jStrategy;
-    private Ticker currentTicker;
-    private boolean inTheMarket;
-    private IntelligentPriceTracker priceTracker;
-    private IntelligentStateTracker stateTracker;
-
-    @Override
-    public void init(TradingApi tradingApi, Market market, StrategyConfig config) {
-        LOG.info(() -> "Initialising TA4J Backtest Strategy...");
-        this.tradingApi = tradingApi;
-        this.market = market;
-        series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
-        priceTracker = new IntelligentPriceTracker(tradingApi, market, series);
-        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker, config);
-        initTa4jStrategy();
-        LOG.info(() -> "Trading Strategy initialised successfully!");
-    }
 
     private void initTa4jStrategy() {
+        BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
 
         StochasticOscillatorKIndicator stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
@@ -77,57 +57,82 @@ public class IntelligentTa4jStrategy  implements TradingStrategy {
     }
 
     @Override
-    public void execute() throws StrategyException {
-        try {
+    protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) {
+        return new IntelligentSellPriceCalculator(priceTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
 
-            priceTracker.updateMarketPrices();
-            switch (stateTracker.getCurrentState()) {
+            private final BigDecimal half = new BigDecimal("0.005");
+            private final BigDecimal oneAndHalf = new BigDecimal("0.01");
 
-            };
-            executeStrategy();
-        } catch (TradingApiException | ExchangeNetworkException e) {
-            // We are just going to re-throw as StrategyException for engine to deal with - it will
-            // shutdown the bot.
-            LOG.error(
-                    market.getName()
-                            + " Failed to perform the strategy because Exchange threw TradingApiException, ExchangeNetworkexception or StrategyException. "
-                            + "Telling Trading Engine to shutdown bot!",
-                    e);
-            throw new StrategyException(e);
-        }
-    }
-
-    private void executeStrategy() throws ExchangeNetworkException, TradingApiException, StrategyException {
-        // Ask the ta4j strategy how we want to proceed
-        int endIndex = series.getEndIndex();
-        if (inTheMarket) {
-            if (ta4jStrategy.shouldExit(endIndex)) {
-                // we should leave the market
-                shouldExit();
-                inTheMarket = false;
+            @Override
+            public BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException {
+                return tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
             }
-        } else {
-            if (ta4jStrategy.shouldEnter(endIndex)) {
-                // we should enter the market
-                shouldEnter();
-                inTheMarket = true;
+
+            @Override
+            public BigDecimal getSellFee() throws TradingApiException, ExchangeNetworkException {
+                return tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
             }
+
+            @Override
+            public BigDecimal getCurrentBuyOrderPrice() {
+                return stateTracker.getCurrentBuyOrderPrice();
+            }
+
+            @Override
+            public BigDecimal getCurrentSellOrderPrice() {
+                return stateTracker.getCurrentSellOrderPrice();
+            }
+
+            @Override
+            public BigDecimal getCurrentSellStopLimitPercentageBelowBreakEven() {
+                return half;
+            }
+
+            @Override
+            public BigDecimal getCurrentSellStopLimitPercentageAboveBreakEven() {
+                return oneAndHalf;
+            }
+
+            @Override
+            public BigDecimal getCurrentSellStopLimitPercentageMinimumAboveBreakEven() {
+                return half;
+            }
+        });
+    }
+
+    @Override
+    protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
+        return new IntelligentBuyPriceCalculator(market, priceTracker, config);
+    }
+
+    @Override
+    protected IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config) {
+        return new IntelligentStateTracker.OnTradeSuccessfullyClosedListener() {
+            private BigDecimal overallProfit = BigDecimal.ZERO;
+            private int amountOfTrades = 0;
+
+            @Override
+            public void onTradeCloseSuccess(BigDecimal profit) {
+                LOG.info("New profit received: " + priceTracker.formatWithCounterCurrency(profit));
+                overallProfit = overallProfit.add(profit);
+                LOG.info("New overall profit: " + priceTracker.formatWithCounterCurrency(overallProfit));
+                amountOfTrades++;
+                LOG.info("New amount of trades: " + amountOfTrades);
+            }
+
+            @Override
+            public void logStatistics() {
+                LOG.info("Overall profit: " + priceTracker.formatWithCounterCurrency(overallProfit));
+                LOG.info("Amount of trades: " + amountOfTrades);
+            }
+        };
+    }
+
+    @Override
+    protected boolean marketMovedUp() {
+        if (ta4jStrategy == null) {
+            initTa4jStrategy();
         }
-    }
-
-    private void shouldExit() throws ExchangeNetworkException, TradingApiException {
-        //place a sell order with the available base currency units with the current bid price to get the order filled directly
-        BigDecimal availableBaseCurrency = priceTracker.getAvailableBaseCurrencyBalance();
-        String orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, availableBaseCurrency, currentTicker.getBid());
-        LOG.info(() -> market.getName() + " SELL Order sent successfully to exchange. ID: " + orderId);
-    }
-
-    private void shouldEnter() throws ExchangeNetworkException, TradingApiException {
-        //place a buy order of 25% of the available counterCurrency units with the current ask price to get the order filled directly
-        BigDecimal availableCounterCurrency = priceTracker.getAvailableCounterCurrencyBalance();
-        BigDecimal balanceToUse = availableCounterCurrency.multiply(new BigDecimal("0.25"));
-        final BigDecimal piecesToBuy = balanceToUse.divide(currentTicker.getAsk(), 8, RoundingMode.HALF_DOWN);
-        String orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, currentTicker.getAsk());
-        LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
+        return ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex());
     }
 }
