@@ -77,6 +77,11 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
+    protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
+        return true; //always calculate new sell prices
+    }
+
+    @Override
     protected void onClose() {
     }
 

@@ -108,8 +108,8 @@ public class BuyAndSellSignalsToChart {
          */
         TimeSeriesCollection dataset = new TimeSeriesCollection();
         dataset.addSeries(buildChartTimeSeries(series, new ClosePriceIndicator(series), "Close"));
-        dataset.addSeries(buildChartTimeSeries(series, new HighPriceIndicator(series), "Ask"));
-        dataset.addSeries(buildChartTimeSeries(series, new LowPriceIndicator(series), "Bid"));
+        //dataset.addSeries(buildChartTimeSeries(series, new HighPriceIndicator(series), "Ask"));
+        //dataset.addSeries(buildChartTimeSeries(series, new LowPriceIndicator(series), "Bid"));
         for (Map.Entry<? extends Indicator<Num>, String> indicator : indicators.entrySet()) {
             dataset.addSeries(buildChartTimeSeries(series, indicator.getKey(), indicator.getValue()));
         }

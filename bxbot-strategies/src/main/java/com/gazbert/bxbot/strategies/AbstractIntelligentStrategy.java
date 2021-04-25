@@ -110,8 +110,14 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     }
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        LOG.info(() -> market.getName() + " SELL phase - create a SELL order for the last sucessfull BUY.");
-        stateTracker.placeSellOrder(sellPriceCalculator);
+        LOG.info(() -> market.getName() + " SELL phase - check if the market moved down.");
+        if (marketMovedDown()) {
+            LOG.info(() -> market.getName() + " SELL phase - The market moved down. Place a soll order on the exchange -->");
+            stateTracker.placeSellOrder(sellPriceCalculator);
+        } else {
+            LOG.info(() -> market.getName() + " SELL phase - The market loss needed to place a SELL order was not reached. Wait for the next trading strategy tick.");
+        }
+
     }
 
     private void executeCheckOfTheBuyOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
@@ -153,5 +159,6 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     protected abstract IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config);
 
-    protected abstract boolean marketMovedUp();
+    protected abstract boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException;
+    protected abstract boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException;
 }
