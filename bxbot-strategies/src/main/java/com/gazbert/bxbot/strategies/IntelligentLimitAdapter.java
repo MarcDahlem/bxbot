@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -9,7 +10,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
-public class IntelligentLimitAdapter {
+public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradeSuccessfullyClosedListener {
 
     private static final Logger LOG = LogManager.getLogger();
     /** The decimal format for the logs. */
@@ -34,6 +35,8 @@ public class IntelligentLimitAdapter {
     private int amountOfNegativeTrades;
     private BigDecimal overallNegativeLosses;
 
+    private int amountOfNeutralTrades;
+
     public IntelligentLimitAdapter(StrategyConfig config) {
         configuredPercentageGainNeededToPlaceBuyOrder = StrategyConfigParser.readPercentageConfigValue(config, "initial-percentage-gain-needed-to-place-buy-order");
         configuredSellStopLimitPercentageBelowBreakEven = StrategyConfigParser.readPercentageConfigValue(config,"sell-stop-limit-percentage-below-break-even");
@@ -51,24 +54,8 @@ public class IntelligentLimitAdapter {
         overallNegativeLosses = BigDecimal.ZERO;
         amountOfPositiveTrades = 0;
         amountOfNegativeTrades = 0;
-        printCurrentStatistics();
-    }
-
-    public void addNewExecutedSellOrder(OrderState currentSellOrder, BigDecimal totalGain, BigDecimal breakEven) {
-        BigDecimal oldOverallStrategyGain = overallStrategyGain;
-        overallStrategyGain = overallStrategyGain.add(totalGain);
-
-        if (totalGain.compareTo(BigDecimal.ZERO)>0) {
-            LOG.info(() -> "New postive sell order  acquired. Increased the overall strategy gain from '"+decimalFormat.format(oldOverallStrategyGain) + "' to '" + decimalFormat.format(overallStrategyGain)+ "'." );
-            amountOfPositiveTrades++;
-            overallPositiveGains = overallPositiveGains.add(totalGain);
-        } else {
-            LOG.info(() -> "New negative sell order  acquired. Reduced the overall strategy gain from '"+decimalFormat.format(oldOverallStrategyGain) + "' to '" + decimalFormat.format(overallStrategyGain)+ "'." );
-            amountOfNegativeTrades++;
-            overallNegativeLosses = overallNegativeLosses.add(totalGain);
-        }
-
-        printCurrentStatistics();
+        amountOfNeutralTrades = 0;
+        logStatistics();
     }
 
     public BigDecimal getCurrentPercentageGainNeededForBuy() {
@@ -119,6 +106,7 @@ public class IntelligentLimitAdapter {
                 + "* Sum of positive wins: " +decimalFormat.format(overallPositiveGains) + "\n"
                 + "* Negative trades: " + amountOfNegativeTrades + "\n"
                 + "* Sum of negative losses: " +decimalFormat.format(overallNegativeLosses) + "\n"
+                + "* Neutral trades: " + amountOfNeutralTrades + "\n"
                 + "---------------------------------------------\n"
                 + "* configured scale factor: " + decimalFormat.format(configuredIntelligentLimitsPercentageScaleFactor.multiply(new BigDecimal(100))) + "%\n"
                 + "* configured lowest price lookback count: " + configuredLookback + "\n"
@@ -135,7 +123,9 @@ public class IntelligentLimitAdapter {
                 + "* initial sell stop limit percentage below break even:: " +decimalFormat.format(configuredSellStopLimitPercentageBelowBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "#############################################";
     }
-    public void printCurrentStatistics() {
+
+    @Override
+    public void logStatistics() {
         LOG.info(this::calculateCurrentStatistics);
     }
 
@@ -169,5 +159,28 @@ public class IntelligentLimitAdapter {
 
     public BigDecimal getOverallNegativeLosses() {
         return overallNegativeLosses;
+    }
+
+    @Override
+    public void onTradeCloseSuccess(BigDecimal profit) {
+        BigDecimal oldOverallStrategyGain = overallStrategyGain;
+        overallStrategyGain = overallStrategyGain.add(profit);
+
+        if (profit.compareTo(BigDecimal.ZERO)>0) {
+            LOG.info(() -> "New postive sell order  acquired. Increased the overall strategy gain from '"+decimalFormat.format(oldOverallStrategyGain) + "' to '" + decimalFormat.format(overallStrategyGain)+ "'." );
+            amountOfPositiveTrades++;
+            overallPositiveGains = overallPositiveGains.add(profit);
+        } else {
+            if(profit.compareTo(BigDecimal.ZERO) == 0) {
+                LOG.info(() -> "New neutral sell order acquired. No changes in the overall strategy gain: '" + decimalFormat.format(oldOverallStrategyGain) + "'.");
+                amountOfNeutralTrades++;
+            } else {
+                LOG.info(() -> "New negative sell order  acquired. Reduced the overall strategy gain from '" + decimalFormat.format(oldOverallStrategyGain) + "' to '" + decimalFormat.format(overallStrategyGain) + "'.");
+                amountOfNegativeTrades++;
+                overallNegativeLosses = overallNegativeLosses.add(profit);
+            }
+        }
+
+        logStatistics();
     }
 }
