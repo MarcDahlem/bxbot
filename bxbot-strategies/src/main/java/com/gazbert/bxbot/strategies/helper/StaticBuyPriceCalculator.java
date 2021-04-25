@@ -21,7 +21,7 @@ public class StaticBuyPriceCalculator extends AbstractBuyPriceCalculator {
     }
 
     @Override
-    protected BigDecimal getBalanceToUseForBuyOrder() throws ExchangeNetworkException, TradingApiException, StrategyException {
-        return fixedPrice;
+    protected BigDecimal getBalanceToUseForBuyOrder() {
+        return priceTracker.getAsk().multiply(fixedPrice);
     }
 }

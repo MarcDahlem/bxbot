@@ -1,9 +1,6 @@
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
-import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
-import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
-import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.*;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -102,7 +99,9 @@ public class IntelligentTa4jStrategy  extends AbstractIntelligentStrategy {
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
-        return new IntelligentBuyPriceCalculator(market, priceTracker, config);
+        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
+        result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
+        return result;
     }
 
     @Override
