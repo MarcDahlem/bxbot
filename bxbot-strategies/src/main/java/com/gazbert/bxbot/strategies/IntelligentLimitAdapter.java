@@ -35,6 +35,8 @@ public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradeS
     private int amountOfNegativeTrades;
     private BigDecimal overallNegativeLosses;
 
+    private int amountOfNeutralTrades;
+
     public IntelligentLimitAdapter(StrategyConfig config) {
         configuredPercentageGainNeededToPlaceBuyOrder = StrategyConfigParser.readPercentageConfigValue(config, "initial-percentage-gain-needed-to-place-buy-order");
         configuredSellStopLimitPercentageBelowBreakEven = StrategyConfigParser.readPercentageConfigValue(config,"sell-stop-limit-percentage-below-break-even");
@@ -52,7 +54,8 @@ public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradeS
         overallNegativeLosses = BigDecimal.ZERO;
         amountOfPositiveTrades = 0;
         amountOfNegativeTrades = 0;
-        printCurrentStatistics();
+        amountOfNeutralTrades = 0;
+        logStatistics();
     }
 
     public BigDecimal getCurrentPercentageGainNeededForBuy() {
@@ -103,6 +106,7 @@ public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradeS
                 + "* Sum of positive wins: " +decimalFormat.format(overallPositiveGains) + "\n"
                 + "* Negative trades: " + amountOfNegativeTrades + "\n"
                 + "* Sum of negative losses: " +decimalFormat.format(overallNegativeLosses) + "\n"
+                + "* Neutral trades: " + amountOfNeutralTrades + "\n"
                 + "---------------------------------------------\n"
                 + "* configured scale factor: " + decimalFormat.format(configuredIntelligentLimitsPercentageScaleFactor.multiply(new BigDecimal(100))) + "%\n"
                 + "* configured lowest price lookback count: " + configuredLookback + "\n"
@@ -119,7 +123,9 @@ public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradeS
                 + "* initial sell stop limit percentage below break even:: " +decimalFormat.format(configuredSellStopLimitPercentageBelowBreakEven.multiply(new BigDecimal(100))) + "%\n"
                 + "#############################################";
     }
-    public void printCurrentStatistics() {
+
+    @Override
+    public void logStatistics() {
         LOG.info(this::calculateCurrentStatistics);
     }
 
@@ -165,11 +171,16 @@ public class IntelligentLimitAdapter implements IntelligentStateTracker.OnTradeS
             amountOfPositiveTrades++;
             overallPositiveGains = overallPositiveGains.add(profit);
         } else {
-            LOG.info(() -> "New negative sell order  acquired. Reduced the overall strategy gain from '"+decimalFormat.format(oldOverallStrategyGain) + "' to '" + decimalFormat.format(overallStrategyGain)+ "'." );
-            amountOfNegativeTrades++;
-            overallNegativeLosses = overallNegativeLosses.add(profit);
+            if(profit.compareTo(BigDecimal.ZERO) == 0) {
+                LOG.info(() -> "New neutral sell order acquired. No changes in the overall strategy gain: '" + decimalFormat.format(oldOverallStrategyGain) + "'.");
+                amountOfNeutralTrades++;
+            } else {
+                LOG.info(() -> "New negative sell order  acquired. Reduced the overall strategy gain from '" + decimalFormat.format(oldOverallStrategyGain) + "' to '" + decimalFormat.format(overallStrategyGain) + "'.");
+                amountOfNegativeTrades++;
+                overallNegativeLosses = overallNegativeLosses.add(profit);
+            }
         }
 
-        printCurrentStatistics();
+        logStatistics();
     }
 }

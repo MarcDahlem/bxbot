@@ -75,7 +75,7 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
 
     }
 
-    public void logCurrentSellStatistics() throws TradingApiException, ExchangeNetworkException {
+    public void logStatistics() throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentMarketBidPrice = priceTracker.getBid();
         BigDecimal currentSellOrderPrice = params.getCurrentSellOrderPrice();
         BigDecimal breakEven = calculateBreakEven();

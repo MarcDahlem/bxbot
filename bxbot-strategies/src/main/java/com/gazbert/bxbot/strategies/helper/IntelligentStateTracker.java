@@ -331,9 +331,12 @@ public class IntelligentStateTracker {
 
     public interface OnTradeSuccessfullyClosedListener {
         void onTradeCloseSuccess(BigDecimal profit);
+
+        void logStatistics();
     }
 
     public interface OrderPriceCalculator {
         BigDecimal calculate() throws TradingApiException, ExchangeNetworkException, StrategyException;
+        void logStatistics() throws TradingApiException, ExchangeNetworkException, StrategyException;
     }
 }

@@ -25,7 +25,7 @@ public class IntelligentPriceTracker {
     private final TradingApi tradingApi;
     private final Market market;
     private final BarSeries series;
-    private Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
+    private final Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
 
     public IntelligentPriceTracker(TradingApi tradingApi, Market market, BarSeries series) {
         this.tradingApi = tradingApi;
@@ -127,5 +127,9 @@ public class IntelligentPriceTracker {
 
     private String formatWithCurrency(BigDecimal amount, String currency) {
         return DECIMAL_FORMAT.format(amount) + " " + currency;
+    }
+
+    public BarSeries getSeries() {
+        return series;
     }
 }
