@@ -18,6 +18,8 @@ import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -27,69 +29,46 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
 
     private BaseStrategy ta4jStrategy;
-    private StochasticOscillatorKIndicator stochasticOscillaltorK;
-    private MACDIndicator macd;
-    private EMAIndicator emaMacd;
-    private EMAIndicator shortTimeEma;
-    private EMAIndicator longTimeEma;
-    private EMAIndicator shortTimeEmaLong;
-    private EMAIndicator longTimeEmaLong;
-    private EMAIndicator shortTimeEmaBid;
-    private EMAIndicator longTimeEmaBid;
-    private EMAIndicator shortTimeEmaAsk;
-    private EMAIndicator longTimeEmaAsk;
-    private TransformIndicator longTimeEmaLongBuyfee;
-    private TransformIndicator shortTimeEmaLongBuyfee;
-    private TransformIndicator shortTimeEmaLongSellFee;
-    private TransformIndicator longTimeEmaLongSellFee;
     private HighPriceIndicator askPriceIndicator;
-    private Collection<Integer> recordedSellIndices = new HashSet<>();
-    private Collection<Integer> recordedBuyIndeces = new HashSet<>();
+    private final Collection<Integer> recordedSellIndices = new HashSet<>();
+    private final Collection<Integer> recordedBuyIndeces = new HashSet<>();
     private BigDecimal buyFee;
     private BigDecimal sellFee;
+    private Indicator<Num> buyIndicatorLong;
+    private Indicator<Num> buyIndicatorShort;
+    private Indicator<Num> sellIndicatorLong;
+    private Indicator<Num> sellIndicatorShort;
 
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
+        buyFee =tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
+        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
+
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
         askPriceIndicator = new HighPriceIndicator(series);
 
-        stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
-        macd = new MACDIndicator(closePriceIndicator, 9, 26);
-        emaMacd = new EMAIndicator(macd, 18);
-
-        shortTimeEma = new EMAIndicator(closePriceIndicator, 9);
-        longTimeEma = new EMAIndicator(closePriceIndicator, 26);
-
-        shortTimeEmaLong = new EMAIndicator(closePriceIndicator, 38);
-        longTimeEmaLong = new EMAIndicator(closePriceIndicator, 104);
-
-        shortTimeEmaBid = new EMAIndicator(bidPriceIndicator, 9);
-        longTimeEmaBid = new EMAIndicator(bidPriceIndicator, 26);
-
-        shortTimeEmaAsk = new EMAIndicator(askPriceIndicator, 9);
-        longTimeEmaAsk = new EMAIndicator(askPriceIndicator, 26);
-
-        buyFee =tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
-        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
+        StochasticOscillatorKIndicator stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
+        MACDIndicator macd = new MACDIndicator(closePriceIndicator, 9, 26);
+        EMAIndicator emaMacd = new EMAIndicator(macd, 18);
 
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
-        shortTimeEmaLongBuyfee = TransformIndicator.multiply(shortTimeEma, buyFeeFactor);
-        shortTimeEmaLongSellFee = TransformIndicator.multiply(shortTimeEma, sellFeeFactor);
+        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 52);
+        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 9), sellFeeFactor);
 
-        longTimeEmaLongBuyfee = TransformIndicator.multiply(longTimeEmaLong, buyFeeFactor);
-        longTimeEmaLongSellFee = TransformIndicator.multiply(longTimeEmaLong, sellFeeFactor);
+        sellIndicatorLong = new EMAIndicator(askPriceIndicator, 52);
+        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 9), buyFeeFactor);
 
-        Rule entryRule = new CrossedUpIndicatorRule(shortTimeEmaLongSellFee, longTimeEmaLong) // Trend
-                /*.and(new CrossedDownIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1
-                .and(new OverIndicatorRule(macd, emaMacd))*/; // Signal 2
+        Rule entryRule = new CrossedUpIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
+                /*.and(new UnderIndicatorRule(stochasticOscillaltorK, 20))*/ // Signal 1
+                /*.and(new OverIndicatorRule(macd, emaMacd))*/; // Signal 2
 
-        Rule exitRule = new CrossedDownIndicatorRule(shortTimeEmaLongBuyfee, longTimeEmaLong) // Trend
-                /*.and(new CrossedUpIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1
-                .and(new UnderIndicatorRule(macd, emaMacd))*/; // Signal 2
-        ta4jStrategy = new BaseStrategy(entryRule, exitRule);
+        Rule exitRule = new CrossedDownIndicatorRule(sellIndicatorShort, sellIndicatorLong) // Trend
+                /*.and(new OverIndicatorRule(stochasticOscillaltorK, 80))*( // Signal 1
+                /*.and(new UnderIndicatorRule(macd, emaMacd))*/; // Signal 2
+        ta4jStrategy = new BaseStrategy("Intelligent Ta4j", entryRule, exitRule);
     }
 
     @Override
@@ -100,12 +79,10 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         //indicators.add(emaMacd);
         //indicators.put(shortTimeEma, "s-ema");
         //indicators.put(longTimeEma, "l-ema");
-        indicators.put(shortTimeEmaLong, "s-ema (long)");
-        indicators.put(longTimeEmaLong, "l-ema (long)");
-        indicators.put(longTimeEmaLongBuyfee, "l-ema (buy)");
-        indicators.put(longTimeEmaLongSellFee, "l-ema (sell)");
-        indicators.put(shortTimeEmaLongSellFee, "s-ema (sell)");
-        indicators.put(shortTimeEmaLongBuyfee, "s-ema (Buy)");
+        indicators.put(buyIndicatorShort, "buy short");
+        indicators.put(buyIndicatorLong, "buy long");
+        indicators.put(sellIndicatorShort, "sell short");
+        indicators.put(sellIndicatorLong, "sell long");
         BreakEvenIndicator breakEvenIndicator = new BreakEvenIndicator(askPriceIndicator, buyFee, sellFee, recordedBuyIndeces, recordedSellIndices);
         indicators.put(breakEvenIndicator, "break even");
         //indicators.put(shortTimeEmaAsk, "s-ema (ask)");

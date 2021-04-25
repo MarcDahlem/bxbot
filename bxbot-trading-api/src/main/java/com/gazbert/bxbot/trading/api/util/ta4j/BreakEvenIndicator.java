@@ -37,7 +37,7 @@ public class BreakEvenIndicator extends CachedIndicator<Num> {
             return NaN;
         }
 
-        if (lastSellIndex == null || lastSellIndex < lastBuyIndex) {
+        if (lastSellIndex == null || lastSellIndex <= lastBuyIndex || lastSellIndex == index) {
             return breakEvenIndicator.getValue(lastBuyIndex);
         }
         return NaN;

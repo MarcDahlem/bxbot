@@ -92,7 +92,7 @@ public class BuyAndSellSignalsToChart {
         ChartPanel panel = new ChartPanel(chart);
         panel.setFillZoomRectangle(true);
         panel.setMouseWheelEnabled(true);
-        panel.setPreferredSize(new Dimension(1024, 400));
+        panel.setPreferredSize(new Dimension(1920, 1080));
         // Application frame
         ApplicationFrame frame = new ApplicationFrame("Ta4j - Buy and sell signals to chart");
         frame.setContentPane(panel);
