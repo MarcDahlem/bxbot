@@ -146,7 +146,10 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     }
 
     protected abstract IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config);
+
     protected abstract IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config);
+
     protected abstract IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config);
+
     protected abstract boolean marketMovedUp();
 }

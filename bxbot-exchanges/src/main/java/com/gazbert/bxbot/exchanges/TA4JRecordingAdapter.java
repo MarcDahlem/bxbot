@@ -4,7 +4,6 @@ import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
 import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
 import com.gazbert.bxbot.exchanges.ta4jhelper.BuyAndSellSignalsToChart;
-import com.gazbert.bxbot.exchanges.ta4jhelper.TA4JRecordingRule;
 import com.gazbert.bxbot.exchanges.ta4jhelper.Ta4jOptimalTradingStrategy;
 import com.gazbert.bxbot.exchanges.ta4jhelper.TradePriceRespectingBacktestExecutor;
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
@@ -12,13 +11,15 @@ import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
 import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
+import com.google.common.primitives.Ints;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.*;
 import org.ta4j.core.cost.LinearTransactionCostModel;
-import org.ta4j.core.tradereport.PerformanceReport;
-import org.ta4j.core.tradereport.TradeStatsReport;
-import org.ta4j.core.tradereport.TradingStatement;
+import org.ta4j.core.reports.PerformanceReport;
+import org.ta4j.core.reports.PositionStatsReport;
+import org.ta4j.core.reports.TradingStatement;
+import org.ta4j.core.rules.FixedRule;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -46,8 +47,8 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private BigDecimal counterCurrencyBalance;
     private OpenOrder currentOpenOrder;
     private int currentTick;
-    private final TA4JRecordingRule sellOrderRule = new TA4JRecordingRule();
-    private final TA4JRecordingRule buyOrderRule = new TA4JRecordingRule();
+    private final Set<Integer> sellIndices = new HashSet<>();
+    private final Set<Integer> buyIndices = new HashSet<>();
 
     @Override
     public void init(ExchangeConfig config) {
@@ -190,7 +191,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         BigDecimal currentBidPrice = (BigDecimal) tradingSeries.getBar(currentTick).getLowPrice().getDelegate(); // assumes that the stored series json contains the bid price in the low price property
         if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("SELL: the market's bid price moved below the stop-limit price --> record sell order execution with the current bid price");
-            sellOrderRule.addTrigger(currentTick);
+            sellIndices.add(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
             BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
@@ -204,7 +205,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         BigDecimal currentAskPrice = (BigDecimal) tradingSeries.getBar(currentTick).getHighPrice().getDelegate(); // assumes that the stored series json contains the ask price in the high price property
         if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("BUY: the market's current ask price moved below the limit price --> record buy order execution with the current ask price");
-            buyOrderRule.addTrigger(currentTick);
+            buyIndices.add(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
             BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.add(buyFees);
@@ -217,14 +218,14 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     private void finishRecording(String marketId) throws TradingApiException, ExchangeNetworkException {
         final List<Strategy> strategies = new ArrayList<>();
-        Strategy strategy = new BaseStrategy("Recorded ta4j trades", buyOrderRule, sellOrderRule);
+        Strategy strategy = new BaseStrategy("Recorded ta4j trades", new FixedRule(Ints.toArray(buyIndices)), new FixedRule(Ints.toArray(sellIndices)));
         strategies.add(strategy);
 
-        Ta4jOptimalTradingStrategy optimalTradingStrategy = new Ta4jOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
+        Ta4jOptimalTradingStrategy optimalTradingStrategy = Ta4jOptimalTradingStrategy.createOptimalTradingStrategy(tradingSeries, tradingSeries.numOf(getPercentageOfBuyOrderTakenForExchangeFee(marketId)), tradingSeries.numOf(getPercentageOfSellOrderTakenForExchangeFee(marketId)));
         strategies.add(optimalTradingStrategy);
 
         TradePriceRespectingBacktestExecutor backtestExecutor = new TradePriceRespectingBacktestExecutor(tradingSeries, new LinearTransactionCostModel(getPercentageOfBuyOrderTakenForExchangeFee(marketId).doubleValue()));
-        List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(25), Order.OrderType.BUY);
+        List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(25), Trade.TradeType.BUY);
         logReports(statements);
         if (shouldPrintCharts) {
             BuyAndSellSignalsToChart.printSeries(tradingSeries, strategy);
@@ -245,11 +246,11 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     }
 
     private String createTradesReport(TradingStatement statement) {
-        TradeStatsReport tradeStatsReport = statement.getTradeStatsReport();
+        PositionStatsReport statsReport = statement.getPositionStatsReport();
         return "--------- trade statistics report ---------\n" +
-                "loss trade count: " + tradeStatsReport.getLossTradeCount() + "\n" +
-                "profit trade count: " + tradeStatsReport.getProfitTradeCount() + "\n" +
-                "break even trade count: " + tradeStatsReport.getBreakEvenTradeCount() + "\n" +
+                "loss trade count: " + statsReport.getLossCount() + "\n" +
+                "profit trade count: " + statsReport.getProfitCount() + "\n" +
+                "break even trade count: " + statsReport.getBreakEvenCount() + "\n" +
                 "---------------------------";
     }
 

@@ -59,9 +59,9 @@ public class BuyAndSellSignalsToChart {
     private static void addBuySellSignals(BarSeries series, Strategy strategy, XYPlot plot) {
         // Running the strategy
         BarSeriesManager seriesManager = new BarSeriesManager(series);
-        List<Trade> positions = seriesManager.run(strategy).getTrades();
+        List<Position> positions = seriesManager.run(strategy).getPositions();
         // Adding markers to plot
-        for (Trade position : positions) {
+        for (Position position : positions) {
             // Buy signal
             double buySignalBarTime = new Second(
                     Date.from(series.getBar(position.getEntry().getIndex()).getEndTime().toInstant()))
@@ -93,7 +93,7 @@ public class BuyAndSellSignalsToChart {
         panel.setMouseWheelEnabled(true);
         panel.setPreferredSize(new Dimension(1024, 400));
         // Application frame
-        ApplicationFrame frame = new ApplicationFrame("Ta4j example - Buy and sell signals to chart");
+        ApplicationFrame frame = new ApplicationFrame("Ta4j - Buy and sell signals to chart");
         frame.setContentPane(panel);
         frame.pack();
         RefineryUtilities.centerFrameOnScreen(frame);

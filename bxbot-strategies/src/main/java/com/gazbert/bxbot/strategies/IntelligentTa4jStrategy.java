@@ -1,33 +1,29 @@
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.*;
+import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
-import com.gazbert.bxbot.strategy.api.StrategyException;
-import com.gazbert.bxbot.strategy.api.TradingStrategy;
-import com.gazbert.bxbot.trading.api.*;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
+import com.gazbert.bxbot.trading.api.TradingApiException;
 import org.springframework.stereotype.Component;
-import org.ta4j.core.*;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.BaseStrategy;
+import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
-import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.trading.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.trading.rules.CrossedUpIndicatorRule;
-import org.ta4j.core.trading.rules.OverIndicatorRule;
-import org.ta4j.core.trading.rules.UnderIndicatorRule;
+import org.ta4j.core.rules.CrossedDownIndicatorRule;
+import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 
 @Component("intelligentTa4jStrategy") // used to load the strategy using Spring bean injection
-public class IntelligentTa4jStrategy  extends AbstractIntelligentStrategy {
+public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
 
     private BaseStrategy ta4jStrategy;

@@ -23,19 +23,22 @@
 
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.*;
+import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
-import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
+import com.gazbert.bxbot.trading.api.TradingApiException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.num.Num;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
-
-import org.ta4j.core.*;
-import org.ta4j.core.num.Num;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy {

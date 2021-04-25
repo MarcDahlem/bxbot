@@ -1,27 +1,33 @@
 package com.gazbert.bxbot.exchanges.ta4jhelper;
 
 import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.google.common.primitives.Ints;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
+import org.ta4j.core.Rule;
 import org.ta4j.core.num.Num;
+import org.ta4j.core.rules.FixedRule;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
 public class Ta4jOptimalTradingStrategy extends BaseStrategy {
-    private static final TA4JRecordingRule buyRule = new TA4JRecordingRule();
-    private static final TA4JRecordingRule sellRule = new TA4JRecordingRule();
 
-    public Ta4jOptimalTradingStrategy(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) throws TradingApiException {
+    private Ta4jOptimalTradingStrategy(Rule buyRule, Rule sellRule) throws TradingApiException {
         super("Optimal trading rule", buyRule, sellRule);
-        this.calculateOptimalTrades(series, series.numOf(buyFee), series.numOf(sellFee));
     }
 
-    private void calculateOptimalTrades(BarSeries series, Num buyFee, Num sellFee) throws TradingApiException {
+    public static Ta4jOptimalTradingStrategy createOptimalTradingStrategy(BarSeries series, Num buyFee, Num sellFee) throws TradingApiException {
         int lastSeenMinimumIndex = -1;
         Num lastSeenMinimum = null;
         int lastSeenMaximumIndex = -1;
         Num lastSeenMaximum = null;
+
+        ArrayList<Integer> buyIndeces = new ArrayList<>();
+        ArrayList<Integer> sellIndeces = new ArrayList<>();
 
         for(int index = series.getBeginIndex(); index <= series.getEndIndex(); index++) {
             Bar bar = series.getBar(index);
@@ -32,7 +38,7 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
                 lastSeenMinimumIndex = index;
             } else {
                 if (lastSeenMinimum.isGreaterThan(askPrice)) {
-                    createTrade(lastSeenMinimumIndex, lastSeenMinimum, lastSeenMaximumIndex, lastSeenMaximum);
+                    createTrade(lastSeenMinimumIndex, lastSeenMinimum, lastSeenMaximumIndex, lastSeenMaximum, buyIndeces, sellIndeces);
                     lastSeenMaximum = null;
                     lastSeenMaximumIndex = -1;
                     lastSeenMinimum = askPrice;
@@ -56,7 +62,7 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
                             Num lastMaxPriceMinusFees = lastSeenMaximum.minus(lastMaxPriceSellFees);
                             Num currentPricePlusBuyFees = bidPrice.plus(bidPrice.multipliedBy(buyFee));
                             if (currentPricePlusBuyFees.isLessThan(lastMaxPriceMinusFees)) {
-                                createTrade(lastSeenMinimumIndex, lastSeenMinimum, lastSeenMaximumIndex, lastSeenMaximum);
+                                createTrade(lastSeenMinimumIndex, lastSeenMinimum, lastSeenMaximumIndex, lastSeenMaximum, buyIndeces, sellIndeces);
                                 lastSeenMaximum = null;
                                 lastSeenMaximumIndex = -1;
                                 lastSeenMinimum = askPrice;
@@ -67,12 +73,13 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
                 }
             }
         }
+        return new Ta4jOptimalTradingStrategy(new FixedRule(Ints.toArray(buyIndeces)), new FixedRule(Ints.toArray(sellIndeces)));
     }
 
-    private void createTrade(int lastSeenMinimumIndex, Num lastSeenMinimum, int lastSeenMaximumIndex, Num lastSeenMaximum) throws TradingApiException {
+    private static void createTrade(int lastSeenMinimumIndex, Num lastSeenMinimum, int lastSeenMaximumIndex, Num lastSeenMaximum, List<Integer> buyIndeces, List<Integer> sellIndeces) throws TradingApiException {
         if (lastSeenMinimum != null && lastSeenMaximum != null) {
-            buyRule.addTrigger(lastSeenMinimumIndex);
-            sellRule.addTrigger(lastSeenMaximumIndex);
+            buyIndeces.add(lastSeenMinimumIndex);
+            sellIndeces.add(lastSeenMaximumIndex);
         }
     }
 }
