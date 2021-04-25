@@ -7,37 +7,48 @@ import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
+import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
 @Component("intelligentTa4jStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
 
     private BaseStrategy ta4jStrategy;
+    private StochasticOscillatorKIndicator stochasticOscillaltorK;
+    private MACDIndicator macd;
+    private EMAIndicator emaMacd;
+    private EMAIndicator shortTimeEma;
+    private EMAIndicator longTimeEma;
 
     private void initTa4jStrategy() {
         BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
 
-        StochasticOscillatorKIndicator stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
-        MACDIndicator macd = new MACDIndicator(closePriceIndicator, 9, 26);
-        EMAIndicator emaMacd = new EMAIndicator(macd, 18);
+        stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
+        macd = new MACDIndicator(closePriceIndicator, 9, 26);
+        emaMacd = new EMAIndicator(macd, 18);
 
-        EMAIndicator shortTimeEma = new EMAIndicator(closePriceIndicator, 9);
-        EMAIndicator longTimeEma = new EMAIndicator(closePriceIndicator, 26);
+        shortTimeEma = new EMAIndicator(closePriceIndicator, 9);
+        longTimeEma = new EMAIndicator(closePriceIndicator, 26);
 
         Rule entryRule = new OverIndicatorRule(shortTimeEma, longTimeEma) // Trend
                 .and(new CrossedDownIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1
@@ -47,6 +58,18 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
                 .and(new CrossedUpIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1
                 .and(new UnderIndicatorRule(macd, emaMacd)); // Signal 2
         ta4jStrategy = new BaseStrategy(entryRule, exitRule);
+    }
+
+    @Override
+    protected void onClose() {
+        Map<Indicator<Num>, String> indicators = new HashMap<>();
+        //indicators.add(stochasticOscillaltorK);
+        //indicators.add(macd);
+        //indicators.add(emaMacd);
+        indicators.put(shortTimeEma, "short ema");
+        indicators.put(longTimeEma, "long ema");
+
+        BuyAndSellSignalsToChart.printSeries(priceTracker.getSeries(), ta4jStrategy, indicators);
     }
 
     @Override

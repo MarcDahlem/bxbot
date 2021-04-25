@@ -3,7 +3,6 @@ package com.gazbert.bxbot.exchanges;
 import com.gazbert.bxbot.exchange.api.ExchangeAdapter;
 import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
-import com.gazbert.bxbot.exchanges.ta4jhelper.BuyAndSellSignalsToChart;
 import com.gazbert.bxbot.exchanges.ta4jhelper.Ta4jOptimalTradingStrategy;
 import com.gazbert.bxbot.exchanges.ta4jhelper.TradePriceRespectingBacktestExecutor;
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
@@ -11,6 +10,7 @@ import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
 import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
+import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
 import com.google.common.primitives.Ints;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -228,8 +228,8 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(25), Trade.TradeType.BUY);
         logReports(statements);
         if (shouldPrintCharts) {
-            BuyAndSellSignalsToChart.printSeries(tradingSeries, strategy);
-            BuyAndSellSignalsToChart.printSeries(tradingSeries, optimalTradingStrategy);
+            BuyAndSellSignalsToChart.printSeries(tradingSeries, strategy, new HashMap<>());
+            BuyAndSellSignalsToChart.printSeries(tradingSeries, optimalTradingStrategy, new HashMap<>());
         }
         throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
     }

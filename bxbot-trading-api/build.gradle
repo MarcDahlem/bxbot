@@ -6,6 +6,7 @@ dependencies {
     compile libraries.google_guava
     compile libraries.google_gson
     compile libraries.ta4j
+    compile libraries.jfreechart
 
     testCompile libraries.spring_boot_starter_test
 }

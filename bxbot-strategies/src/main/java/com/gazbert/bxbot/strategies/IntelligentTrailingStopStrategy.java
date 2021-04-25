@@ -30,6 +30,7 @@ import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
@@ -39,6 +40,7 @@ import org.ta4j.core.num.Num;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.util.HashSet;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy {
@@ -72,6 +74,10 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
                 "########################################");
 
         return cleanedMarketPrice.compareTo(goalToReach) > 0;
+    }
+
+    @Override
+    protected void onClose() {
     }
 
     @Override

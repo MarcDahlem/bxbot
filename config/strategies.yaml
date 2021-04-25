@@ -34,7 +34,7 @@ strategies:
     # take a look at ExampleScalpingStrategy.java. This results in Spring injecting the bean.
     # (see https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/stereotype/Component.html)
     # If you set this value to load your strategy, you cannot set the className value.
-    beanName: intelligentTrailingStopStrategy
+    beanName: intelligentTa4jStrategy
 
     # The configItems section is optional and allows you to set custom key/value pair config items. This config
     # is passed to your Trading Strategy when the bot starts up.

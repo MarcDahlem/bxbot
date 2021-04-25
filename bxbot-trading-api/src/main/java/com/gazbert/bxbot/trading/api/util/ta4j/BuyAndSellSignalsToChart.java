@@ -1,4 +1,4 @@
-package com.gazbert.bxbot.exchanges.ta4jhelper;
+package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -22,6 +22,7 @@ import java.awt.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * This class builds a graphical chart showing the buy/sell signals of a
@@ -65,7 +66,7 @@ public class BuyAndSellSignalsToChart {
             // Buy signal
             double buySignalBarTime = new Second(
                     Date.from(series.getBar(position.getEntry().getIndex()).getEndTime().toInstant()))
-                            .getFirstMillisecond();
+                    .getFirstMillisecond();
             Marker buyMarker = new ValueMarker(buySignalBarTime);
             buyMarker.setPaint(Color.GREEN);
             buyMarker.setLabel("B");
@@ -73,7 +74,7 @@ public class BuyAndSellSignalsToChart {
             // Sell signal
             double sellSignalBarTime = new Second(
                     Date.from(series.getBar(position.getExit().getIndex()).getEndTime().toInstant()))
-                            .getFirstMillisecond();
+                    .getFirstMillisecond();
             Marker sellMarker = new ValueMarker(sellSignalBarTime);
             sellMarker.setPaint(Color.RED);
             sellMarker.setLabel("S");
@@ -100,7 +101,7 @@ public class BuyAndSellSignalsToChart {
         frame.setVisible(true);
     }
 
-    public static void printSeries(BarSeries series, Strategy strategy) {
+    public static void printSeries(BarSeries series, Strategy strategy, Map<? extends Indicator<Num>, String> indicators) {
         System.setProperty("java.awt.headless", "false");
         /*
          * Building chart datasets
@@ -109,6 +110,9 @@ public class BuyAndSellSignalsToChart {
         dataset.addSeries(buildChartTimeSeries(series, new ClosePriceIndicator(series), "Close"));
         dataset.addSeries(buildChartTimeSeries(series, new HighPriceIndicator(series), "Ask"));
         dataset.addSeries(buildChartTimeSeries(series, new LowPriceIndicator(series), "Bid"));
+        for (Map.Entry<? extends Indicator<Num>, String> indicator : indicators.entrySet()) {
+            dataset.addSeries(buildChartTimeSeries(series, indicator.getKey(), indicator.getValue()));
+        }
 
         /*
          * Creating the chart
