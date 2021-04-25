@@ -6,6 +6,8 @@ import com.google.common.base.Predicates;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.BarSeries;
+import org.ta4j.core.BaseBarSeries;
+import org.ta4j.core.BaseBarSeriesBuilder;
 
 import javax.xml.datatype.Duration;
 import java.math.BigDecimal;
@@ -27,10 +29,10 @@ public class IntelligentPriceTracker {
     private final BarSeries series;
     private final Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
 
-    public IntelligentPriceTracker(TradingApi tradingApi, Market market, BarSeries series) {
+    public IntelligentPriceTracker(TradingApi tradingApi, Market market) {
         this.tradingApi = tradingApi;
         this.market = market;
-        this.series = series;
+        this.series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
     }
 
 
@@ -112,7 +114,7 @@ public class IntelligentPriceTracker {
     }
 
     public String getFormattedCounterCurrencyBalance() throws ExchangeNetworkException, TradingApiException {
-        return formatWithBaseCurrency(getAvailableCounterCurrencyBalance());
+        return formatWithCounterCurrency(getAvailableCounterCurrencyBalance());
     }
 
     public String formatWithCounterCurrency(BigDecimal amount) {

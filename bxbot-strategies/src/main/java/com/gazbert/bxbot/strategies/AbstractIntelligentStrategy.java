@@ -1,6 +1,8 @@
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.*;
+import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
+import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.IntelligentStrategyState;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -8,14 +10,8 @@ import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.TradingApi;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBarSeries;
-import org.ta4j.core.BaseBarSeriesBuilder;
-
-import java.math.BigDecimal;
 
 public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     protected static final Logger LOG = LogManager.getLogger();
@@ -43,8 +39,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         LOG.info(() -> "Initialising Trading Strategy...");
         this.market = market;
         this.tradingApi = tradingApi;
-        BaseBarSeries series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
-        priceTracker = new IntelligentPriceTracker(tradingApi, market, series);
+        priceTracker = new IntelligentPriceTracker(tradingApi, market);
         stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker, config);
         buyPriceCalculator = createBuyPriceCalculator(config);
         sellPriceCalculator = createSellPriceCalculator(config);

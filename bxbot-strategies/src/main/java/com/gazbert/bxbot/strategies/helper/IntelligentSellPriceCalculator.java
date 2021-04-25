@@ -70,7 +70,8 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
     private BigDecimal calculateMinimumAboveBreakEvenPriceLimit(BigDecimal breakEven) {
         BigDecimal currentSellStopLimitPercentageMinimumAboveBreakEven = params.getCurrentSellStopLimitPercentageMinimumAboveBreakEven();
         BigDecimal minimalDistanceToCurrentMarketPrice = priceTracker.getBid().subtract(priceTracker.getBid().multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
-        BigDecimal minimalDistanceNeededToBreakEven = breakEven.add(breakEven.multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
+        BigDecimal minimumAboveBreakEvenAsFactor = BigDecimal.ONE.add(currentSellStopLimitPercentageMinimumAboveBreakEven);
+        BigDecimal minimalDistanceNeededToBreakEven = breakEven.divide(minimumAboveBreakEvenAsFactor,8, RoundingMode.HALF_UP);
         return minimalDistanceNeededToBreakEven.min(minimalDistanceToCurrentMarketPrice);
 
     }
