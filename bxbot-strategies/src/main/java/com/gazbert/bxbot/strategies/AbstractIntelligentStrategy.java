@@ -86,7 +86,11 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
             // shutdown the bot.
             // TODO reanable JsonBarsSerializer.persistSeries(series, market.getId() + System.currentTimeMillis() + ".json");
-            onClose();
+            try {
+                onClose();
+            } catch (TradingApiException | ExchangeNetworkException tradingApiException) {
+                tradingApiException.printStackTrace();
+            }
             LOG.error(
                     market.getName()
                             + " Failed to perform the strategy because Exchange threw TradingApiException, ExchangeNetworkexception or StrategyException. "
@@ -96,7 +100,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         }
     }
 
-    protected abstract void onClose();
+    protected abstract void onClose() throws TradingApiException, ExchangeNetworkException;
 
     private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");

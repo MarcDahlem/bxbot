@@ -4,11 +4,16 @@ import com.gazbert.bxbot.strategies.StrategyConfigParser;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ta4j.core.BaseStrategy;
+import org.ta4j.core.Strategy;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +34,8 @@ public class IntelligentStateTracker {
     private IntelligentStrategyState strategyState;
     private PlacedOrder currentBuyOrder;
     private PlacedOrder currentSellOrder;
+    private Collection<Integer> recordedSellIndices = new HashSet<>();
+    private Collection<Integer> recordedBuyIndices = new HashSet<>();
 
     public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker, StrategyConfig config) {
         this.tradingApi = tradingApi;
@@ -55,6 +62,7 @@ public class IntelligentStateTracker {
                 LOG.info(() -> market.getName() + " Open balance in base currency found. Resume needed. Set current phase to SELL and use as BUY price the current market ask price");
                 currentBuyOrder = new PlacedOrder("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, currentBaseCurrencyBalance, priceTracker.getAsk());
                 strategyState = IntelligentStrategyState.NEED_SELL;
+                recordedBuyIndices.add(priceTracker.getSeries().getEndIndex());
                 return;
             } else {
                 LOG.info(market.getName() + " No significant open balance in base currency found (" + priceTracker.getFormattedBaseCurrencyBalance() + "). No resume needed. Set current phase to BUY.");
@@ -133,6 +141,7 @@ public class IntelligentStateTracker {
                         BigDecimal filledOrderAmount = priceTracker.getAvailableCounterCurrencyBalance();
                         currentBuyOrder = new PlacedOrder(currentBuyOrder.getId(), currentBuyOrder.getType(), filledOrderAmount, getCurrentBuyOrderPrice());
                         LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentBuyOrder.getId() + "' successfully with '" + DECIMAL_FORMAT.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with SELL phase");
+                        recordedBuyIndices.add(priceTracker.getSeries().getEndIndex());
                         updateStateTo(IntelligentStrategyState.NEED_SELL);
                         listener.onStrategyChanged(IntelligentStrategyState.NEED_SELL);
                     } else {
@@ -174,6 +183,7 @@ public class IntelligentStateTracker {
                 break;
             case UNAVAILABLE:
                 LOG.info(() -> market.getName() + " BUY order '" + currentBuyOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Proceed to the sell phase...");
+                recordedBuyIndices.add(priceTracker.getSeries().getEndIndex());
                 updateStateTo(IntelligentStrategyState.NEED_SELL);
                 listener.onStrategyChanged(NEED_SELL);
                 break;
@@ -242,6 +252,7 @@ public class IntelligentStateTracker {
                 tradeClosedListener.onTradeCloseSuccess(totalGain);
                 currentBuyOrder = null;
                 currentSellOrder = null;
+                recordedSellIndices.add(priceTracker.getSeries().getEndIndex());
                 updateStateTo(NEED_BUY);
                 stateChangedListener.onStrategyChanged(NEED_BUY);
                 break;
@@ -323,6 +334,14 @@ public class IntelligentStateTracker {
 
         currentSellOrder = new PlacedOrder(orderId, OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
         updateStateTo(IntelligentStrategyState.WAIT_FOR_SELL);
+    }
+
+    public RecordedStrategy getRecordedStrategy() throws TradingApiException, ExchangeNetworkException {
+        BigDecimal buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
+        BigDecimal sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
+
+        String strategyName = "Recording for " + market.getName();
+        return RecordedStrategy.createStrategyFromRecording(strategyName, priceTracker.getSeries(), buyFee, sellFee, recordedBuyIndices, recordedSellIndices);
     }
 
     public interface OnStrategyStateChangeListener {

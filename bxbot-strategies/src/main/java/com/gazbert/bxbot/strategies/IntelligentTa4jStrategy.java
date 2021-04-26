@@ -6,11 +6,9 @@ import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
+import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import org.springframework.stereotype.Component;
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseStrategy;
-import org.ta4j.core.Indicator;
-import org.ta4j.core.Rule;
+import org.ta4j.core.*;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
@@ -29,9 +27,6 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
 
     private BaseStrategy ta4jStrategy;
-    private HighPriceIndicator askPriceIndicator;
-    private final Collection<Integer> recordedSellIndices = new HashSet<>();
-    private final Collection<Integer> recordedBuyIndeces = new HashSet<>();
     private BigDecimal buyFee;
     private BigDecimal sellFee;
     private Indicator<Num> buyIndicatorLong;
@@ -46,7 +41,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
-        askPriceIndicator = new HighPriceIndicator(series);
+        HighPriceIndicator askPriceIndicator = new HighPriceIndicator(series);
 
         StochasticOscillatorKIndicator stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
         MACDIndicator macd = new MACDIndicator(closePriceIndicator, 9, 26);
@@ -72,17 +67,16 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected void onClose() {
-        stateTracker.getRecordedStrategy();
+    protected void onClose() throws TradingApiException, ExchangeNetworkException {
+        RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
         Map<Indicator<Num>, String> indicators = new HashMap<>();
         indicators.put(buyIndicatorShort, "buy short");
         indicators.put(buyIndicatorLong, "buy long");
         indicators.put(sellIndicatorShort, "sell short");
         indicators.put(sellIndicatorLong, "sell long");
-        BreakEvenIndicator breakEvenIndicator = new BreakEvenIndicator(askPriceIndicator, buyFee, sellFee, recordedBuyIndeces, recordedSellIndices);
-        indicators.put(breakEvenIndicator, "break even");
+        indicators.putAll(recordedStrategy.getIndicators());
 
-        BuyAndSellSignalsToChart.printSeries(priceTracker.getSeries(), ta4jStrategy, indicators);
+        BuyAndSellSignalsToChart.printSeries(priceTracker.getSeries(), recordedStrategy, indicators);
     }
 
     @Override
@@ -166,9 +160,6 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
             initTa4jStrategy();
         }
         boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex());
-        if (result) {
-            recordedBuyIndeces.add(priceTracker.getSeries().getEndIndex());
-        }
         return result;
     }
 

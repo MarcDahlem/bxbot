@@ -11,6 +11,7 @@ import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
+import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4jOptimalTradingStrategy;
 import com.google.common.primitives.Ints;
 import org.apache.logging.log4j.LogManager;
@@ -227,7 +228,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         Map<Indicator<Num>, String> strategyIndicators = Map.of(strategyBreakEvenIndicator, "break even");
         strategies.add(strategy);
 
-        Ta4jOptimalTradingStrategy optimalTradingStrategy = Ta4jOptimalTradingStrategy.createOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
+        RecordedStrategy optimalTradingStrategy = Ta4jOptimalTradingStrategy.createOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
         strategies.add(optimalTradingStrategy);
 
         TradePriceRespectingBacktestExecutor backtestExecutor = new TradePriceRespectingBacktestExecutor(tradingSeries, new LinearTransactionCostModel(getPercentageOfBuyOrderTakenForExchangeFee(marketId).doubleValue()));

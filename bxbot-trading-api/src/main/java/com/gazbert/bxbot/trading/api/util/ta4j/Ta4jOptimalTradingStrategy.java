@@ -13,16 +13,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Ta4jOptimalTradingStrategy extends BaseStrategy {
+public class Ta4jOptimalTradingStrategy extends RecordedStrategy {
 
-    private final BreakEvenIndicator breakEvenIndicator;
-
-    private Ta4jOptimalTradingStrategy(Rule buyRule, Rule sellRule, BreakEvenIndicator indicator) throws TradingApiException {
-        super("Optimal trading rule", buyRule, sellRule);
-        this.breakEvenIndicator = indicator;
+    protected Ta4jOptimalTradingStrategy(String name, Rule entryRule, Rule exitRule, BreakEvenIndicator breakEvenIndicator) {
+        super(name, entryRule, exitRule, breakEvenIndicator);
     }
 
-    public static Ta4jOptimalTradingStrategy createOptimalTradingStrategy(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) throws TradingApiException {
+    public static RecordedStrategy createOptimalTradingStrategy(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) throws TradingApiException {
         int lastSeenMinimumIndex = -1;
         Num lastSeenMinimum = null;
         int lastSeenMaximumIndex = -1;
@@ -75,8 +72,7 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
                 }
             }
         }
-        BreakEvenIndicator beIndicator = new BreakEvenIndicator(new HighPriceIndicator(series), buyFee, sellFee, buyIndeces, sellIndeces);
-        return new Ta4jOptimalTradingStrategy(new FixedRule(Ints.toArray(buyIndeces)), new FixedRule(Ints.toArray(sellIndeces)), beIndicator);
+        return RecordedStrategy.createStrategyFromRecording("Optimal trading strategy", series, buyFee, sellFee, buyIndeces, sellIndeces);
     }
 
     private static void createTrade(int lastSeenMinimumIndex, Num lastSeenMinimum, int lastSeenMaximumIndex, Num lastSeenMaximum, List<Integer> buyIndeces, List<Integer> sellIndeces) throws TradingApiException {
@@ -84,9 +80,5 @@ public class Ta4jOptimalTradingStrategy extends BaseStrategy {
             buyIndeces.add(lastSeenMinimumIndex);
             sellIndeces.add(lastSeenMaximumIndex);
         }
-    }
-
-    public Map<? extends Indicator<Num>, String> getIndicators() {
-        return Map.of(breakEvenIndicator, "break even");
     }
 }
