@@ -6,7 +6,9 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.FixedRule;
 
@@ -30,6 +32,10 @@ public class RecordedStrategy extends BaseStrategy {
 
 
     public Map<? extends Indicator<Num>, String> getIndicators() {
-        return Map.of(breakEvenIndicator, "break even");
+        Indicator<Num> ask = new HighPriceIndicator(breakEvenIndicator.getBarSeries());
+        Indicator<Num> bid = new LowPriceIndicator(breakEvenIndicator.getBarSeries());
+        Indicator<Num> close = new ClosePriceIndicator(breakEvenIndicator.getBarSeries());
+
+        return Map.of(breakEvenIndicator, "break even", ask, "ask", close, "close", bid, "bid");
     }
 }

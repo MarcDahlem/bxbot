@@ -1,141 +1,85 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.DateAxis;
-import org.jfree.chart.plot.Marker;
-import org.jfree.chart.plot.ValueMarker;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.data.time.Second;
-import org.jfree.data.time.TimeSeries;
-import org.jfree.data.time.TimeSeriesCollection;
-import org.jfree.ui.ApplicationFrame;
-import org.jfree.ui.RefineryUtilities;
+import org.knowm.xchart.*;
+import org.knowm.xchart.internal.Utils;
+import org.knowm.xchart.style.Styler;
+import org.knowm.xchart.style.markers.SeriesMarkers;
 import org.ta4j.core.*;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.indicators.helpers.LowPriceIndicator;
+import org.ta4j.core.indicators.MACDIndicator;
+import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
 import org.ta4j.core.num.Num;
 
 import java.awt.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * This class builds a graphical chart showing the buy/sell signals of a
- * strategy.
- */
 public class BuyAndSellSignalsToChart {
-
-    /**
-     * Builds a JFreeChart time series from a Ta4j bar series and an indicator.
-     *
-     * @param barSeries the ta4j bar series
-     * @param indicator the indicator
-     * @param name      the name of the chart time series
-     * @return the JFreeChart time series
-     */
-    private static TimeSeries buildChartTimeSeries(BarSeries barSeries, Indicator<Num> indicator,
-                                                   String name) {
-        TimeSeries chartTimeSeries = new TimeSeries(name);
-        for (int i = 0; i < barSeries.getBarCount(); i++) {
-            Bar bar = barSeries.getBar(i);
-            chartTimeSeries.add(new Second(Date.from(bar.getEndTime().toInstant())),
-                    indicator.getValue(i).doubleValue());
-        }
-        return chartTimeSeries;
-    }
-
-    /**
-     * Runs a strategy over a bar series and adds the value markers corresponding to
-     * buy/sell signals to the plot.
-     *
-     * @param series   the bar series
-     * @param strategy the trading strategy
-     * @param plot     the plot
-     */
-    private static void addBuySellSignals(BarSeries series, Strategy strategy, XYPlot plot) {
-        // Running the strategy
-        BarSeriesManager seriesManager = new BarSeriesManager(series);
-        List<Position> positions = seriesManager.run(strategy).getPositions();
-        // Adding markers to plot
-        for (Position position : positions) {
-            // Buy signal
-            double buySignalBarTime = new Second(
-                    Date.from(series.getBar(position.getEntry().getIndex()).getEndTime().toInstant()))
-                    .getFirstMillisecond();
-            Marker buyMarker = new ValueMarker(buySignalBarTime);
-            buyMarker.setPaint(Color.GREEN);
-            buyMarker.setLabel("B");
-            plot.addDomainMarker(buyMarker);
-            // Sell signal
-            double sellSignalBarTime = new Second(
-                    Date.from(series.getBar(position.getExit().getIndex()).getEndTime().toInstant()))
-                    .getFirstMillisecond();
-            Marker sellMarker = new ValueMarker(sellSignalBarTime);
-            sellMarker.setPaint(Color.RED);
-            sellMarker.setLabel("S");
-            plot.addDomainMarker(sellMarker);
-        }
-    }
-
-    /**
-     * Displays a chart in a frame.
-     *
-     * @param chart the chart to be displayed
-     */
-    private static void displayChart(JFreeChart chart) {
-        // Chart panel
-        ChartPanel panel = new ChartPanel(chart);
-        panel.setFillZoomRectangle(true);
-        panel.setMouseWheelEnabled(true);
-        panel.setPreferredSize(new Dimension(1920, 1080));
-        // Application frame
-        ApplicationFrame frame = new ApplicationFrame("Ta4j - Buy and sell signals to chart");
-        frame.setContentPane(panel);
-        frame.pack();
-        RefineryUtilities.centerFrameOnScreen(frame);
-        frame.setVisible(true);
-    }
 
     public static void printSeries(BarSeries series, Strategy strategy, Map<? extends Indicator<Num>, String> indicators) {
         System.setProperty("java.awt.headless", "false");
-        /*
-         * Building chart datasets
-         */
-        TimeSeriesCollection dataset = new TimeSeriesCollection();
-        dataset.addSeries(buildChartTimeSeries(series, new ClosePriceIndicator(series), "Close"));
-        //dataset.addSeries(buildChartTimeSeries(series, new HighPriceIndicator(series), "Ask"));
-        //dataset.addSeries(buildChartTimeSeries(series, new LowPriceIndicator(series), "Bid"));
+        XYChart chart = new XYChartBuilder().title(strategy.getName()).xAxisTitle("Date").yAxisTitle("Price").build();
+        chart.getStyler().setZoomEnabled(true);
+        chart.getStyler().setCursorEnabled(true);
+
         for (Map.Entry<? extends Indicator<Num>, String> indicator : indicators.entrySet()) {
-            dataset.addSeries(buildChartTimeSeries(series, indicator.getKey(), indicator.getValue()));
+            addIndicatorToChart(indicator, chart, series);
         }
 
-        /*
-         * Creating the chart
-         */
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(strategy.getName(), // title
-                "Date", // x-axis label
-                "Price", // y-axis label
-                dataset, // data
-                true, // create legend?
-                true, // generate tooltips?
-                false // generate URLs?
-        );
-        XYPlot plot = (XYPlot) chart.getPlot();
-        DateAxis axis = (DateAxis) plot.getDomainAxis();
-        axis.setDateFormatOverride(new SimpleDateFormat("MM-dd HH:mm:ss"));
+        addPositionMarkerToChart(chart, strategy, series);
+        new SwingWrapper(chart).displayChart();
+    }
 
-        /*
-         * Running the strategy and adding the buy and sell signals to plot
-         */
-        addBuySellSignals(series, strategy, plot);
-        /*
-         * Displaying the chart
-         */
-        displayChart(chart);
+    private static void addPositionMarkerToChart(XYChart chart, Strategy strategy, BarSeries series) {
+        BarSeriesManager seriesManager = new BarSeriesManager(series);
+        List<Position> positions = seriesManager.run(strategy).getPositions();
+        for (Position position : positions) {
+            // Buy signal
+            Date entryDate = Date.from(series.getBar(position.getEntry().getIndex()).getEndTime().toInstant());
+            double entryDateAsDouble = Utils.getDoubleArrayFromDateList(List.of(entryDate))[0];
+            AnnotationLine buyAnnotation = new AnnotationLine(entryDateAsDouble, true, false);
+            buyAnnotation.setColor(Color.GREEN);
+            chart.addAnnotation(buyAnnotation);
+
+            Date exitDate = Date.from(series.getBar(position.getExit().getIndex()).getEndTime().toInstant());
+            double exitDateAsDouble = Utils.getDoubleArrayFromDateList(List.of(exitDate))[0];
+            AnnotationLine sellAnotation = new AnnotationLine(exitDateAsDouble, true, false);
+            buyAnnotation.setColor(Color.RED);
+            chart.addAnnotation(sellAnotation);
+        }
+    }
+
+    private static void addIndicatorToChart(Map.Entry<? extends Indicator<Num>, String> indicator, XYChart chart, BarSeries series) {
+        List<Date> dates= new LinkedList<>();
+        List<Number> values = new LinkedList<>();
+        for (int i = series.getBeginIndex(); i <= series.getEndIndex(); i++) {
+            Bar bar = series.getBar(i);
+            dates.add(Date.from(bar.getEndTime().toInstant()));
+            values.add(indicator.getKey().getValue(i).getDelegate());
+        }
+        XYSeries chartSeries = chart.addSeries(indicator.getValue(), dates, values);
+        chartSeries.setSmooth(false);
+        chartSeries.setMarker(SeriesMarkers.NONE);
+        if (indicator.getKey() instanceof StochasticOscillatorKIndicator) {
+            chartSeries.setYAxisGroup(1);
+            chart.setYAxisGroupTitle(1, "K osci");
+            chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
+            chartSeries.setLineColor(new Color(0,150,136,64));
+            chartSeries.setFillColor(new Color(100,255,218, 128));
+        } else {
+            if (indicator.getKey() instanceof MACDIndicator) {
+                chartSeries.setYAxisGroup(2);
+                chart.setYAxisGroupTitle(2, "MACD");
+                chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
+                chartSeries.setLineColor(new Color(103,58,183,64));
+                chartSeries.setFillColor(new Color(124,77,255, 64));
+            }
+        }
+
+
+
+
     }
 }

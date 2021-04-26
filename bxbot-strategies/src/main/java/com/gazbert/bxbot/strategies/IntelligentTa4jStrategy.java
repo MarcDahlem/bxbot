@@ -33,6 +33,8 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     private Indicator<Num> buyIndicatorShort;
     private Indicator<Num> sellIndicatorLong;
     private Indicator<Num> sellIndicatorShort;
+    private StochasticOscillatorKIndicator stochasticOscillaltorK;
+    private MACDIndicator macd;
 
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
@@ -43,26 +45,26 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
         HighPriceIndicator askPriceIndicator = new HighPriceIndicator(series);
 
-        StochasticOscillatorKIndicator stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
-        MACDIndicator macd = new MACDIndicator(closePriceIndicator, 9, 26);
-        EMAIndicator emaMacd = new EMAIndicator(macd, 18);
+        stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 140);
+        macd = new MACDIndicator(closePriceIndicator, 90, 260);
+        EMAIndicator emaMacd = new EMAIndicator(macd, 180);
 
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
-        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 39);
-        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 9), sellFeeFactor);
+        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 260);
+        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 90), sellFeeFactor);
 
-        sellIndicatorLong = new EMAIndicator(askPriceIndicator, 52);
-        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 9), buyFeeFactor);
+        sellIndicatorLong = new EMAIndicator(askPriceIndicator, 520);
+        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 90), buyFeeFactor);
 
         Rule entryRule = new CrossedUpIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
-                /*.and(new UnderIndicatorRule(stochasticOscillaltorK, 20))*/ // Signal 1
-                /*.and(new OverIndicatorRule(macd, emaMacd))*/; // Signal 2
+                /*.and(new UnderIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1*/
+                ;/*.and(new OverIndicatorRule(macd, emaMacd)); // Signal 2*/
 
         Rule exitRule = new CrossedDownIndicatorRule(sellIndicatorShort, sellIndicatorLong) // Trend
-                /*.and(new OverIndicatorRule(stochasticOscillaltorK, 80))*( // Signal 1
-                /*.and(new UnderIndicatorRule(macd, emaMacd))*/; // Signal 2
+                /*.and(new OverIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1*/
+                ;/*.and(new UnderIndicatorRule(macd, emaMacd)); // Signal 2*/
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j", entryRule, exitRule);
     }
 
@@ -74,6 +76,8 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         indicators.put(buyIndicatorLong, "buy long");
         indicators.put(sellIndicatorShort, "sell short");
         indicators.put(sellIndicatorLong, "sell long");
+        indicators.put(macd, "macd");
+        indicators.put(stochasticOscillaltorK, "stoch osci k");
         indicators.putAll(recordedStrategy.getIndicators());
 
         BuyAndSellSignalsToChart.printSeries(priceTracker.getSeries(), recordedStrategy, indicators);
@@ -165,14 +169,9 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
-        /*if (ta4jStrategy == null) {
+        if (ta4jStrategy == null) {
             initTa4jStrategy();
         }
-        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
-        if (result) {
-            recordedSellIndices.add(priceTracker.getSeries().getEndIndex());
-        }
-        return result;*/
-        return true;
+        return ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
     }
 }
