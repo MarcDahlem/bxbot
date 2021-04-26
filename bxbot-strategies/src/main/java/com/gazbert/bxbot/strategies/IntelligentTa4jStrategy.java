@@ -55,7 +55,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
-        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 52);
+        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 39);
         buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 9), sellFeeFactor);
 
         sellIndicatorLong = new EMAIndicator(askPriceIndicator, 52);
@@ -73,41 +73,34 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected void onClose() {
+        stateTracker.getRecordedStrategy();
         Map<Indicator<Num>, String> indicators = new HashMap<>();
-        //indicators.add(stochasticOscillaltorK);
-        //indicators.add(macd);
-        //indicators.add(emaMacd);
-        //indicators.put(shortTimeEma, "s-ema");
-        //indicators.put(longTimeEma, "l-ema");
         indicators.put(buyIndicatorShort, "buy short");
         indicators.put(buyIndicatorLong, "buy long");
         indicators.put(sellIndicatorShort, "sell short");
         indicators.put(sellIndicatorLong, "sell long");
         BreakEvenIndicator breakEvenIndicator = new BreakEvenIndicator(askPriceIndicator, buyFee, sellFee, recordedBuyIndeces, recordedSellIndices);
         indicators.put(breakEvenIndicator, "break even");
-        //indicators.put(shortTimeEmaAsk, "s-ema (ask)");
-        //indicators.put(longTimeEmaAsk, "l-ema (ask)");
-        //indicators.put(shortTimeEmaBid, "s-ema (bid)");
-        //indicators.put(longTimeEmaBid, "l-ema (bid)");
 
         BuyAndSellSignalsToChart.printSeries(priceTracker.getSeries(), ta4jStrategy, indicators);
     }
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) {
+        BigDecimal configuredSellStopLimitPercentageBelowBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-below-break-even");
+        BigDecimal configuredSellStopLimitPercentageAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-above-break-even");
+        BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-minimum-above-break-even");
         return new IntelligentSellPriceCalculator(priceTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
 
-            private final BigDecimal half = new BigDecimal("0.005");
-            private final BigDecimal oneAndHalf = new BigDecimal("0.01");
 
             @Override
             public BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException {
-                return tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
+                return buyFee;
             }
 
             @Override
             public BigDecimal getSellFee() throws TradingApiException, ExchangeNetworkException {
-                return tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
+                return sellFee;
             }
 
             @Override
@@ -122,17 +115,17 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
             @Override
             public BigDecimal getCurrentSellStopLimitPercentageBelowBreakEven() {
-                return BigDecimal.ZERO;
+                return configuredSellStopLimitPercentageBelowBreakEven;
             }
 
             @Override
             public BigDecimal getCurrentSellStopLimitPercentageAboveBreakEven() {
-                return BigDecimal.ZERO;
+                return configuredSellStopLimitPercentageAboveBreakEven;
             }
 
             @Override
             public BigDecimal getCurrentSellStopLimitPercentageMinimumAboveBreakEven() {
-                return half;
+                return configuredSellStopLimitPercentageMinimumAboveBreakEven;
             }
         });
     }
@@ -181,13 +174,14 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
-        if (ta4jStrategy == null) {
+        /*if (ta4jStrategy == null) {
             initTa4jStrategy();
         }
         boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
         if (result) {
             recordedSellIndices.add(priceTracker.getSeries().getEndIndex());
         }
-        return result;
+        return result;*/
+        return true;
     }
 }
