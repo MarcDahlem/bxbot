@@ -35,6 +35,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private static final String SIMULATED_COUNTER_CURRENCY_PROPERTY_NAME = "simulatedCounterCurrency";
     private static final String COUNTER_CURRENCY_START_BALANCE_PROPERTY_NAME = "counterCurrencyStartingBalance";
     private static final String SIMULATED_BASE_CURRENCY_PROPERTY_NAME = "simulatedBaseCurrency";
+    private static final String BASE_CURRENCY_START_BALANCE_PROPERTY_NAME = "baseCurrencyStartingBalance";
     private static final String PATH_TO_SERIES_JSON_PROPERTY_NAME = "trading-series-json-path";
     private static final String SHOULD_GENERATE_CHARTS_PROPERTY_NAME = "generate-order-overview-charts";
 
@@ -47,7 +48,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     private BarSeries tradingSeries;
 
-    private BigDecimal baseCurrencyBalance = BigDecimal.ZERO;
+    private BigDecimal baseCurrencyBalance;
     private BigDecimal counterCurrencyBalance;
     private OpenOrder currentOpenOrder;
     private int currentTick;
@@ -56,43 +57,10 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     @Override
     public void init(ExchangeConfig config) {
-        LOG.info(() -> "About to initialise ta4j recording ExchangeConfig: " + config);
+        LOG.info(() -> "About to initialise ta4j recording adapter with the following exchange config: " + config);
         setOtherConfig(config);
         loadRecodingSeriesFromJson();
         currentTick = tradingSeries.getBeginIndex() - 1;
-    }
-
-    private void loadRecodingSeriesFromJson() {
-        tradingSeries = JsonBarsSerializer.loadSeries(tradingSeriesTradingPath);
-        if (tradingSeries == null || tradingSeries.isEmpty()) {
-            throw new IllegalArgumentException("Could not load ta4j series from json '" + tradingSeriesTradingPath + "'");
-        }
-    }
-
-    private void setOtherConfig(ExchangeConfig exchangeConfig) {
-        final OtherConfig otherConfig = getOtherConfig(exchangeConfig);
-
-        final String orderFeeInConfig = getOtherConfigItem(otherConfig, ORDER_FEE_PROPERTY_NAME);
-        orderFeePercentage =
-                new BigDecimal(orderFeeInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-        LOG.info(() -> "Order fee % in BigDecimal format: " + orderFeePercentage);
-
-        tradingSeriesTradingPath = getOtherConfigItem(otherConfig, PATH_TO_SERIES_JSON_PROPERTY_NAME);
-        LOG.info(() -> "path to load series json from for recording:" + tradingSeriesTradingPath);
-
-        simulatedBaseCurrency = getOtherConfigItem(otherConfig, SIMULATED_BASE_CURRENCY_PROPERTY_NAME);
-        LOG.info(() -> "Base currency to be simulated:" + simulatedBaseCurrency);
-
-        simulatedCounterCurrency = getOtherConfigItem(otherConfig, SIMULATED_COUNTER_CURRENCY_PROPERTY_NAME);
-        LOG.info(() -> "Counter currency to be simulated:" + simulatedCounterCurrency);
-
-        final String startingBalanceInConfig = getOtherConfigItem(otherConfig, COUNTER_CURRENCY_START_BALANCE_PROPERTY_NAME);
-        counterCurrencyBalance = new BigDecimal(startingBalanceInConfig);
-        LOG.info(() -> "Counter currency balance at simulation start in BigDecimal format: " + counterCurrencyBalance);
-
-        final String shouldGenerateChartsInConfig = getOtherConfigItem(otherConfig, SHOULD_GENERATE_CHARTS_PROPERTY_NAME);
-        shouldPrintCharts = Boolean.parseBoolean(shouldGenerateChartsInConfig);
-        LOG.info(() -> "Should print charts at simulation end: " + shouldPrintCharts);
     }
 
     @Override
@@ -110,6 +78,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         LinkedList<OpenOrder> result = new LinkedList<>();
         if (currentOpenOrder != null) {
             result.add(currentOpenOrder);
+            LOG.info(() -> "Found an open DUMMY order: " + currentOpenOrder);
+        } else {
+            LOG.info(() -> "no open order found. Return empty order list");
         }
         return result;
     }
@@ -123,6 +94,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         Date creationDate = Date.from(tradingSeries.getBar(currentTick).getEndTime().toInstant());
         BigDecimal total = price.multiply(quantity);
         currentOpenOrder = new OpenOrderImpl(newOrderID, creationDate, marketId, orderType, price, quantity, quantity, total);
+        LOG.info(() -> "Created a new dummy order: " + currentOpenOrder);
         checkOpenOrderExecution(marketId);
         return newOrderID;
     }
@@ -135,6 +107,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         if (!currentOpenOrder.getId().equals(orderId)) {
             throw new TradingApiException("Tried to cancel a order, but the order id does not match the current open order. Expected: " + currentOpenOrder.getId() + ", actual: " + orderId);
         }
+        LOG.info(() -> "The following order is canceled: " + currentOpenOrder);
         currentOpenOrder = null;
         return true;
     }
@@ -149,7 +122,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         HashMap<String, BigDecimal> availableBalances = new HashMap<>();
         availableBalances.put(simulatedBaseCurrency, baseCurrencyBalance);
         availableBalances.put(simulatedCounterCurrency, counterCurrencyBalance);
-        return new BalanceInfoImpl(availableBalances, new HashMap<>());
+        BalanceInfoImpl currentBalance = new BalanceInfoImpl(availableBalances, new HashMap<>());
+        LOG.info(() -> "Return the following simulated balances: " + currentBalance);
+        return currentBalance;
     }
 
     @Override
@@ -174,6 +149,44 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         BigDecimal vwap = BigDecimal.ZERO;
         Long timestamp = currentBar.getEndTime().toInstant().toEpochMilli();
         return new TickerImpl(last, bid, ask, low, high, open, volume, vwap, timestamp);
+    }
+
+    private void loadRecodingSeriesFromJson() {
+        tradingSeries = JsonBarsSerializer.loadSeries(tradingSeriesTradingPath);
+        if (tradingSeries == null || tradingSeries.isEmpty()) {
+            throw new IllegalArgumentException("Could not load ta4j series from json '" + tradingSeriesTradingPath + "'");
+        }
+    }
+
+    private void setOtherConfig(ExchangeConfig exchangeConfig) {
+        LOG.info(() -> "Load ta4j adapter config...");
+        final OtherConfig otherConfig = getOtherConfig(exchangeConfig);
+
+        final String orderFeeInConfig = getOtherConfigItem(otherConfig, ORDER_FEE_PROPERTY_NAME);
+        orderFeePercentage =
+                new BigDecimal(orderFeeInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+        LOG.info(() -> "Order fee % in BigDecimal format: " + orderFeePercentage);
+
+        tradingSeriesTradingPath = getOtherConfigItem(otherConfig, PATH_TO_SERIES_JSON_PROPERTY_NAME);
+        LOG.info(() -> "path to load series json from for recording:" + tradingSeriesTradingPath);
+
+        simulatedBaseCurrency = getOtherConfigItem(otherConfig, SIMULATED_BASE_CURRENCY_PROPERTY_NAME);
+        LOG.info(() -> "Base currency to be simulated:" + simulatedBaseCurrency);
+
+        final String startingBaseBalanceInConfig = getOtherConfigItem(otherConfig, BASE_CURRENCY_START_BALANCE_PROPERTY_NAME);
+        baseCurrencyBalance = new BigDecimal(startingBaseBalanceInConfig);
+        LOG.info(() -> "Base currency balance at simulation start in BigDecimal format: " + baseCurrencyBalance);
+
+        simulatedCounterCurrency = getOtherConfigItem(otherConfig, SIMULATED_COUNTER_CURRENCY_PROPERTY_NAME);
+        LOG.info(() -> "Counter currency to be simulated:" + simulatedCounterCurrency);
+
+        final String startingBalanceInConfig = getOtherConfigItem(otherConfig, COUNTER_CURRENCY_START_BALANCE_PROPERTY_NAME);
+        counterCurrencyBalance = new BigDecimal(startingBalanceInConfig);
+        LOG.info(() -> "Counter currency balance at simulation start in BigDecimal format: " + counterCurrencyBalance);
+
+        final String shouldGenerateChartsInConfig = getOtherConfigItem(otherConfig, SHOULD_GENERATE_CHARTS_PROPERTY_NAME);
+        shouldPrintCharts = Boolean.parseBoolean(shouldGenerateChartsInConfig);
+        LOG.info(() -> "Should print charts at simulation end: " + shouldPrintCharts);
     }
 
     private void checkOpenOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {

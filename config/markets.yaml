@@ -9,7 +9,6 @@
 ############################################################################################
 ---
 markets:
-
   # The id value is the market id as defined on the exchange, e.g. 'XBTUSD'.
   # Kraken markets assets (e.g. currencies) can be referenced using their ISO4217-A3 names in the case of ISO
   # registered names, their 3 letter commonly used names in the case of unregistered names,

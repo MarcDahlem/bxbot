@@ -21,7 +21,7 @@ exchange:
   authenticationConfig:
     # See https://www.kraken.com/u/settings/api to get your Kraken Trading API credentials.
     key: your-api-key
-    secret: your-secret-key
+    secret: dGVzdHNlY3JldA==
 
   networkConfig:
     # This value is in SECONDS. It is the timeout value that the exchange adapter will wait on socket connect/socket read

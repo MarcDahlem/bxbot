@@ -201,8 +201,8 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
 
     private void checkOpenSellOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentBidPrice = getTicker(marketId).getBid();
-        if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) >= 0) {
-            LOG.info("SELL: the market's bid price moved above the limit price --> record sell order execution with the current bid price");
+        if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
+            LOG.info("SELL: the market's bid price moved below the limit price --> record sell order execution with the current bid price");
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
             BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
