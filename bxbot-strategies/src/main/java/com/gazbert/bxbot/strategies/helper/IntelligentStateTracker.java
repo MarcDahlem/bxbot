@@ -29,19 +29,17 @@ public class IntelligentStateTracker {
     private final TradingApi tradingApi;
     private final Market market;
     private final IntelligentPriceTracker priceTracker;
-    private final boolean debugModeEnabled;
 
     private IntelligentStrategyState strategyState;
     private PlacedOrder currentBuyOrder;
     private PlacedOrder currentSellOrder;
-    private Collection<Integer> recordedSellIndices = new HashSet<>();
-    private Collection<Integer> recordedBuyIndices = new HashSet<>();
+    private final Collection<Integer> recordedSellIndices = new HashSet<>();
+    private final Collection<Integer> recordedBuyIndices = new HashSet<>();
 
-    public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker, StrategyConfig config) {
+    public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker) {
         this.tradingApi = tradingApi;
         this.market = market;
         this.priceTracker = priceTracker;
-        debugModeEnabled = StrategyConfigParser.readBoolean(config, "debug-mode-enabled", false);
     }
 
     public IntelligentStrategyState getCurrentState() throws ExchangeNetworkException, TradingApiException, StrategyException {
@@ -131,10 +129,7 @@ public class IntelligentStateTracker {
                 } else {
                     LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Cancel the rest of the order and proceed with selling the partially filled BUY order.");
 
-                    boolean orderCanceled = true;
-                    if (!debugModeEnabled){
-                        orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
-                    }
+                    boolean orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
 
                     if (orderCanceled) {
                         LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Compute executed order amount for the partial order.");
@@ -166,10 +161,7 @@ public class IntelligentStateTracker {
                             LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Place a new BUY order to participate in the up trend.");
                         }
                     }
-                    boolean orderCanceled = true;
-                    if (!debugModeEnabled){
-                        orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
-                    }
+                    boolean orderCanceled = tradingApi.cancelOrder(currentBuyOrder.getId(), market.getId());
 
                     if (orderCanceled) {
                         LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Reset the strategy to the buy phase...");
@@ -224,10 +216,7 @@ public class IntelligentStateTracker {
                         LOG.info(() -> market.getName() + " The new SELL order's price '" + priceTracker.formatWithCounterCurrency(sellPrice)
                                 + "' is higher than the the current sell order's price ('" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice)+ "'). Cancel the current sell order '" + currentSellOrder.getId() + "' and trail the stop according to the higher stop limit.");
 
-                        boolean orderCanceled = true;
-                        if (!debugModeEnabled){
-                            orderCanceled = tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
-                        }
+                        boolean orderCanceled = tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
 
                         if (orderCanceled) {
                             LOG.info(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' successfully canceled. Reset the strategy to the sell phase...");
@@ -294,12 +283,7 @@ public class IntelligentStateTracker {
         final BigDecimal piecesToBuy = amountOfPiecesToBuyCalcualtor.calculate();
 
         LOG.info(() -> market.getName() + " BUY phase - Place a BUY order of '" + DECIMAL_FORMAT.format(piecesToBuy) + " * " + priceTracker.getFormattedAsk() + "'");
-        String orderID;
-        if (debugModeEnabled) {
-            orderID = "DUMMY_BUY_ORDER_ID_" + UUID.randomUUID().toString();
-        } else {
-            orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, priceTracker.getAsk());
-        }
+        String orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, priceTracker.getAsk());
 
         LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
 
@@ -322,13 +306,7 @@ public class IntelligentStateTracker {
         BigDecimal sellPrice = sellPriceCalculator.calculate();
         LOG.info(() -> market.getName() + " SELL phase - Place a SELL order of '" + DECIMAL_FORMAT.format(currentBuyOrder.getAmount()) + " * " + priceTracker.formatWithCounterCurrency(sellPrice) + "'");
 
-        String orderId;
-
-        if (debugModeEnabled) {
-            orderId = "DUMMY_SELL_ORDER_ID_" + UUID.randomUUID().toString();
-        } else {
-            orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
-        }
+        String orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
 
         LOG.info(() -> market.getName() + " SELL Order sent successfully to exchange. ID: " + orderId);
 

@@ -40,7 +40,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         this.market = market;
         this.tradingApi = tradingApi;
         priceTracker = new IntelligentPriceTracker(tradingApi, market);
-        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker, config);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
         buyPriceCalculator = createBuyPriceCalculator(config);
         sellPriceCalculator = createSellPriceCalculator(config);
         tradesObserver = createTradesObserver(config);

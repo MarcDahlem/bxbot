@@ -52,5 +52,3 @@ strategies:
 
       intelligent-limits-percentage-scale-factor: 10
 
-      debug-mode-enabled: false
-
