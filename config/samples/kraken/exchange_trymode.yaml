@@ -12,11 +12,11 @@
 exchange:
 
   # A friendly name for the Exchange. Value must be an alphanumeric string. Spaces are allowed.
-  name: Kraken
+  name: TryModeKraken
 
   # For the adapter value, you must specify the fully qualified name of your Exchange Adapter class so the Trading Engine
   # can load and execute it. The class must be on the runtime classpath.
-  adapter: com.gazbert.bxbot.exchanges.KrakenExchangeAdapter
+  adapter: com.gazbert.bxbot.exchanges.TryModeExchangeAdapter
 
   authenticationConfig:
     # See https://www.kraken.com/u/settings/api to get your Kraken Trading API credentials.
@@ -68,3 +68,18 @@ exchange:
     # This should always be lower than the value <sell-stop-limit-percentage-minimum-above-break-even> in the strategies.yaml
     # to ensure the intelligent strategy to work
     sell-stop-limit-percentage-distance: 0.15
+
+    # the counter currency which is simulated. This must fit to your used markets counter currency
+    simulatedCounterCurrency: ZEUR
+
+    # the starting balance for the simulation. The simulation starts with this amount as counter currency and 0 as base currency
+    counterCurrencyStartingBalance: 100
+
+    # the base currency which is simulated. This must fit to your used markets base currency
+    simulatedBaseCurrency: XXRP
+
+    # the starting balance for the simulation. The simulation starts with this amount as base currency
+    baseCurrencyStartingBalance: 0
+
+    # the adapter which should be used for public API calls. All special config values for this adapter must be given in this other config section as well
+    delegateAdapter: com.gazbert.bxbot.exchanges.KrakenExchangeAdapter

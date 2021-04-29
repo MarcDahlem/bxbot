@@ -1,4 +1,4 @@
-package com.gazbert.bxbot.strategies;
+package com.gazbert.bxbot.strategies.helper;
 
 public enum OpenOrderState {
     FULL_AVAILABLE,

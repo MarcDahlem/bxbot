@@ -279,14 +279,13 @@
       <dependency>
         <groupId>org.ta4j</groupId>
         <artifactId>ta4j-core</artifactId>
-        <version>0.13</version>
+        <version>0.14</version>
       </dependency>
       <dependency>
-        <groupId>org.jfree</groupId>
-        <artifactId>jfreechart</artifactId>
-        <version>1.0.17</version>
+        <groupId>org.knowm.xchart</groupId>
+        <artifactId>xchart</artifactId>
+        <version>3.8.0</version>
       </dependency>
-
       <!--
       Testing dependencies
       -->
