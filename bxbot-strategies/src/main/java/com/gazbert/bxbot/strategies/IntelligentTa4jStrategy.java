@@ -52,11 +52,11 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
-        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 260);
-        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 90), sellFeeFactor);
+        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 26);
+        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 9), sellFeeFactor);
 
-        sellIndicatorLong = new EMAIndicator(askPriceIndicator, 520);
-        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 90), buyFeeFactor);
+        sellIndicatorLong = new EMAIndicator(askPriceIndicator, 104);
+        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 9), buyFeeFactor);
 
         Rule entryRule = new CrossedUpIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
                 /*.and(new UnderIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1*/
