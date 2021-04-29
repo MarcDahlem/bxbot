@@ -177,7 +177,7 @@ public class TradingEngine {
         try {
             for (int scaleFactor = 0; scaleFactor <= maxScaleFactor; scaleFactor++) {
 
-                for (BigDecimal aboveBE = new BigDecimal("0.2").multiply(step.pow(2)); aboveBE.compareTo(end) <= 0; aboveBE = aboveBE.multiply(step)) {
+                for (BigDecimal aboveBE = new BigDecimal("0.2").multiply(step.pow(6)); aboveBE.compareTo(end) <= 0; aboveBE = aboveBE.multiply(step)) {
                     for (BigDecimal minAboveBE = new BigDecimal("0.1"); minAboveBE.compareTo(aboveBE) <= 0; minAboveBE = minAboveBE.multiply(step)) {
                         for (BigDecimal belowBE = new BigDecimal("0.2"); belowBE.compareTo(end) <= 0; belowBE = belowBE.multiply(step)) {
                             for (BigDecimal gainNeeded = new BigDecimal("0.2"); gainNeeded.compareTo(end) <= 0; gainNeeded = gainNeeded.multiply(step)) {
