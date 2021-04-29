@@ -75,7 +75,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected void onClose() throws TradingApiException, ExchangeNetworkException {
+    protected void botWillShutdown() throws TradingApiException, ExchangeNetworkException {
         RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
         Map<Indicator<Num>, String> indicators = new HashMap<>();
         indicators.put(buyIndicatorShort, "buy short");

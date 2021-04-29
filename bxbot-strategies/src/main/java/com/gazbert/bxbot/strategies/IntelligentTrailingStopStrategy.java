@@ -82,7 +82,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected void onClose() {
+    protected void botWillShutdown() {
     }
 
     @Override

@@ -52,3 +52,5 @@ strategies:
 
       intelligent-limits-percentage-scale-factor: 10
 
+      persist-ticker-data: true
+
