@@ -20,15 +20,21 @@ import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
 import java.util.*;
 
 @Component("intelligentTa4jStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
+    private static final DecimalFormat DECIMAL_FORMAT_PERCENTAGE = new DecimalFormat( "#.#### %");
+    private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
     private BaseStrategy ta4jStrategy;
     private BigDecimal buyFee;
     private BigDecimal sellFee;
+
+
     private Indicator<Num> buyIndicatorLong;
     private Indicator<Num> buyIndicatorShort;
     private Indicator<Num> sellIndicatorLong;
@@ -146,7 +152,24 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
             initTa4jStrategy();
         }
         boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex());
+        LOG.info(() -> {
+            Num currentLongEma = buyIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
+            Num currentShortEma = buyIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
+            return market.getName() +
+                    "\n######### MOVED UP? #########\n" +
+                    "* Current ask price: " + priceTracker.getFormattedAsk() +
+                    "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
+                    "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
+                    "\n* Percentage EMA gain needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal)getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +
+                    "\n* Absolute EMA gain needed: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.minus(currentShortEma).getDelegate()) +
+                    "\n* Place a BUY order?: " + result +
+                    "\n#############################";
+        });
         return result;
+    }
+
+    private Num getPercentageChange(Num newPrice, Num priceToCompareAgainst) {
+        return newPrice.minus(priceToCompareAgainst).dividedBy(priceToCompareAgainst);
     }
 
     @Override
@@ -154,6 +177,20 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         if (ta4jStrategy == null) {
             initTa4jStrategy();
         }
-        return ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
+        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
+        LOG.info(() -> {
+            Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
+            Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
+            return market.getName() +
+                    "\n######### MOVED DOWN? #########\n" +
+                    "* Current bid price: " + priceTracker.getFormattedBid() +
+                    "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
+                    "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
+                    "\n* Percentage EMA loss needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal)getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +
+                    "\n* Absolute EMA loss needed: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.minus(currentShortEma).getDelegate()) +
+                    "\n* Place a SELL order?: " + result +
+                    "\n###############################";
+        });
+        return result;
     }
 }
