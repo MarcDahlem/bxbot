@@ -9,9 +9,9 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBarSeries;
 import org.ta4j.core.BaseBarSeriesBuilder;
 
-import javax.xml.datatype.Duration;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -46,7 +46,7 @@ public class IntelligentPriceTracker {
         } else {
             tickerTimestamp = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestampInTicker), ZoneId.systemDefault());
         }
-        series.addBar(tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
+        series.addBar(Duration.ZERO, tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast(), BigDecimal.ZERO);
     }
 
     public BigDecimal getAsk() {
