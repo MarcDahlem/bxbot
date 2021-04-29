@@ -20,9 +20,9 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     protected IntelligentPriceTracker priceTracker;
     protected IntelligentStateTracker stateTracker;
 
-    private IntelligentStateTracker.OrderPriceCalculator buyPriceCalculator;
-    private IntelligentStateTracker.OrderPriceCalculator sellPriceCalculator;
-    private IntelligentStateTracker.OnTradeSuccessfullyClosedListener tradesObserver;
+    protected IntelligentStateTracker.OrderPriceCalculator buyPriceCalculator;
+    protected IntelligentStateTracker.OrderPriceCalculator sellPriceCalculator;
+    protected IntelligentStateTracker.OnTradeSuccessfullyClosedListener tradesObserver;
 
     /**
      * Initialises the Trading Strategy. Called once by the Trading Engine when the bot starts up;
@@ -40,7 +40,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         this.market = market;
         this.tradingApi = tradingApi;
         priceTracker = new IntelligentPriceTracker(tradingApi, market);
-        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker, config);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
         buyPriceCalculator = createBuyPriceCalculator(config);
         sellPriceCalculator = createSellPriceCalculator(config);
         tradesObserver = createTradesObserver(config);

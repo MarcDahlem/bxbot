@@ -23,10 +23,7 @@
 
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
-import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
-import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
-import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.*;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
@@ -89,6 +86,10 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) {
+        return createIntelligentSellPriceCalculator();
+    }
+
+    private IntelligentSellPriceCalculator createIntelligentSellPriceCalculator() {
         return new IntelligentSellPriceCalculator(priceTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
             @Override
             public BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException {
@@ -162,6 +163,11 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
     public void updateConfig(int scaleFactor, BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, int lookback, int lookingForUpMovement) {
         this.intelligentLimitAdapter = new IntelligentLimitAdapter(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
+        priceTracker = new IntelligentPriceTracker(tradingApi, market);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
+        buyPriceCalculator = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25"));
+        sellPriceCalculator = createIntelligentSellPriceCalculator();
+        tradesObserver = intelligentLimitAdapter;
     }
 
     public IntelligentLimitAdapter getCurrentState() {
