@@ -137,25 +137,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config) {
-        return new IntelligentStateTracker.OnTradeSuccessfullyClosedListener() {
-            private BigDecimal overallProfit = BigDecimal.ZERO;
-            private int amountOfTrades = 0;
-
-            @Override
-            public void onTradeCloseSuccess(BigDecimal profit) {
-                LOG.info("New profit received: " + priceTracker.formatWithCounterCurrency(profit));
-                overallProfit = overallProfit.add(profit);
-                LOG.info("New overall profit: " + priceTracker.formatWithCounterCurrency(overallProfit));
-                amountOfTrades++;
-                LOG.info("New amount of trades: " + amountOfTrades);
-            }
-
-            @Override
-            public void logStatistics() {
-                LOG.info("Overall profit: " + priceTracker.formatWithCounterCurrency(overallProfit));
-                LOG.info("Amount of trades: " + amountOfTrades);
-            }
-        };
+        return new IntelligentTradeTracker();
     }
 
     @Override
