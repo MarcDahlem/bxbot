@@ -26,11 +26,14 @@ exchange:
     # the counter currency which is simulated. This must fit to your used markets counter currency
     simulatedCounterCurrency: ZEUR
 
-    # the starting balance for the simulation. The simulation starts with this amount as counter currency and 0 as base currency
+    # the starting balance for the simulation. The simulation starts with this amount as counter currency
     counterCurrencyStartingBalance: 100
 
     # the base currency which is simulated. This must fit to your used markets base currency
     simulatedBaseCurrency: XXRP
+
+    # the starting balance for the simulation. The simulation starts with this amount as base currency
+    baseCurrencyStartingBalance: 0
 
     # the path to a json containing a recording of a market with ta4j BarSeries
     # See the example ta4j strategies to find out how to record market or to simulate a strategy
