@@ -17,7 +17,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 public class IntelligentPriceTracker {
@@ -26,13 +28,16 @@ public class IntelligentPriceTracker {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.########");
 
+    private static final int MAX_AMOUNT_LIVECHART_BARS = 500;
+
     private final TradingApi tradingApi;
     private final Market market;
     private final BarSeries series;
     private final Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
     private final boolean shouldShowLiveChart;
+
     private String liveGraphID;
-    private Map<Indicator<Num>, String> registeredLiveChartIndicators = new HashMap<>();
+    private final Collection<Ta4j2Chart.ChartIndicatorConfig> registeredLiveChartIndicatorConfigs = new HashSet<>();
 
     public IntelligentPriceTracker(TradingApi tradingApi, Market market, StrategyConfig config) {
         this.tradingApi = tradingApi;
@@ -144,21 +149,21 @@ public class IntelligentPriceTracker {
         return series;
     }
 
-    public void addLivechartIndicator(Indicator<Num> indicator, String nameInGraph) {
-        this.registeredLiveChartIndicators.put(indicator, nameInGraph);
+    public void addLivechartIndicatorConfig(Ta4j2Chart.ChartIndicatorConfig indicatorConfig) {
+        this.registeredLiveChartIndicatorConfigs.add(indicatorConfig);
     }
 
     private void updateLiveGraph() {
         if (shouldShowLiveChart) {
             if (liveGraphID == null) {
-                liveGraphID = Ta4j2Chart.createLiveChart(getSeries(), getLivechartIndicators(), 500);
+                liveGraphID = Ta4j2Chart.createLiveChart(getSeries(), getLivechartIndicatorConfigs(), MAX_AMOUNT_LIVECHART_BARS);
             } else {
                 Ta4j2Chart.updateLiveChart(liveGraphID);
             }
         }
     }
 
-    private Map<? extends Indicator<Num>, String> getLivechartIndicators() {
-        return new HashMap<>(this.registeredLiveChartIndicators);
+    private Collection<Ta4j2Chart.ChartIndicatorConfig> getLivechartIndicatorConfigs() {
+        return new HashSet<>(this.registeredLiveChartIndicatorConfigs);
     }
 }

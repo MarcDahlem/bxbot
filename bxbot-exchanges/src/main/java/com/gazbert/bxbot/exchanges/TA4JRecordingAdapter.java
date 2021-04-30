@@ -9,21 +9,16 @@ import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
 import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
-import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4jOptimalTradingStrategy;
-import com.google.common.primitives.Ints;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.*;
 import org.ta4j.core.cost.LinearTransactionCostModel;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.num.Num;
 import org.ta4j.core.reports.PerformanceReport;
 import org.ta4j.core.reports.PositionStatsReport;
 import org.ta4j.core.reports.TradingStatement;
-import org.ta4j.core.rules.FixedRule;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -235,10 +230,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
 
     private void finishRecording(String marketId) throws TradingApiException, ExchangeNetworkException {
         final List<Strategy> strategies = new ArrayList<>();
-        Strategy strategy = new BaseStrategy("Recorded ta4j trades", new FixedRule(Ints.toArray(buyIndices)), new FixedRule(Ints.toArray(sellIndices)));
-
-        Indicator<Num> strategyBreakEvenIndicator = new BreakEvenIndicator(new HighPriceIndicator(tradingSeries), getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId), buyIndices, sellIndices);
-        Map<Indicator<Num>, String> strategyIndicators = Map.of(strategyBreakEvenIndicator, "break even");
+        RecordedStrategy strategy = RecordedStrategy.createStrategyFromRecording("Recorded ta4j trades", tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId), buyIndices, sellIndices);
         strategies.add(strategy);
 
         RecordedStrategy optimalTradingStrategy = Ta4jOptimalTradingStrategy.createOptimalTradingStrategy(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
@@ -248,8 +240,8 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(25), Trade.TradeType.BUY);
         logReports(statements);
         if (shouldPrintCharts) {
-            Ta4j2Chart.printSeries(tradingSeries, strategy, strategyIndicators);
-            Ta4j2Chart.printSeries(tradingSeries, optimalTradingStrategy, optimalTradingStrategy.getIndicators());
+            Ta4j2Chart.printSeries(tradingSeries, strategy, strategy.createChartIndicators());
+            Ta4j2Chart.printSeries(tradingSeries, optimalTradingStrategy, optimalTradingStrategy.createChartIndicators());
         }
         throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
     }

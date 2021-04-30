@@ -18,6 +18,7 @@ import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
 
+import java.awt.*;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.util.*;
@@ -82,29 +83,38 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j", entryRule, exitRule);
 
 
-        priceTracker.addLivechartIndicator(askPriceIndicator, "ask");
-        priceTracker.addLivechartIndicator(bidPriceIndicator, "bid");
-        priceTracker.addLivechartIndicator(closePriceIndicator, "close");
-        priceTracker.addLivechartIndicator(buyIndicatorShort, "buy short");
-        priceTracker.addLivechartIndicator(buyIndicatorLong, "buy long");
-        priceTracker.addLivechartIndicator(sellIndicatorShort, "sell short");
-        priceTracker.addLivechartIndicator(sellIndicatorLong, "sell long");
-
+        priceTracker.addLivechartIndicatorConfig(new Ta4j2Chart.ChartIndicatorConfig(askPriceIndicator, "ask",  RecordedStrategy.ASK_PRICE_COLOR));
+        priceTracker.addLivechartIndicatorConfig(new Ta4j2Chart.ChartIndicatorConfig(bidPriceIndicator, "bid",  RecordedStrategy.BID_PRICE_COLOR));
+        priceTracker.addLivechartIndicatorConfig(new Ta4j2Chart.ChartIndicatorConfig(closePriceIndicator, "close", RecordedStrategy.CLOSE_PRICE_COLOR));
+        for (Ta4j2Chart.ChartIndicatorConfig config: createTa4jSpecificChartIndicators()) {
+            priceTracker.addLivechartIndicatorConfig(config);
+        }
     }
 
     @Override
     protected void botWillShutdown() throws TradingApiException, ExchangeNetworkException {
         RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
-        Map<Indicator<Num>, String> indicators = new HashMap<>();
-        indicators.put(buyIndicatorShort, "buy short");
-        indicators.put(buyIndicatorLong, "buy long");
-        indicators.put(sellIndicatorShort, "sell short");
-        indicators.put(sellIndicatorLong, "sell long");
-        indicators.put(macd, "macd");
-        indicators.put(stochasticOscillaltorK, "stoch osci k");
-        indicators.putAll(recordedStrategy.getIndicators());
+
+        Collection<Ta4j2Chart.ChartIndicatorConfig> indicators =createTa4jSpecificChartIndicators();
+        Ta4j2Chart.YAxisGroupConfig macdYAxisConfig = new Ta4j2Chart.YAxisGroupConfig("macd", 1, new Color(124, 77, 255, 64));
+        indicators.add(new Ta4j2Chart.ChartIndicatorConfig(macd, "macd",new Color(103, 58, 183, 64), macdYAxisConfig ));
+
+        Ta4j2Chart.YAxisGroupConfig osciKYAxisConfig = new Ta4j2Chart.YAxisGroupConfig("osci k", 2, new Color(100, 255, 218, 128));
+        indicators.add(new Ta4j2Chart.ChartIndicatorConfig(stochasticOscillaltorK, "stoch osci k",new Color(0, 150, 136, 64), osciKYAxisConfig ));
+
+        indicators.addAll(recordedStrategy.createChartIndicators());
 
         Ta4j2Chart.printSeries(priceTracker.getSeries(), recordedStrategy, indicators);
+    }
+
+    private Collection<Ta4j2Chart.ChartIndicatorConfig> createTa4jSpecificChartIndicators() {
+        HashSet<Ta4j2Chart.ChartIndicatorConfig> result = new HashSet<>();
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(buyIndicatorShort, "buy short", new Color(74,20,140)));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(buyIndicatorLong, "buy long", new Color(156,39,176)));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(sellIndicatorShort, "sell short", new Color(33,150,243)));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(sellIndicatorLong, "sell long", new Color(13,71,161 )));
+
+        return result;
     }
 
     @Override

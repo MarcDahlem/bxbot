@@ -18,14 +18,13 @@ public class Ta4j2Chart {
 
     private static final Map<String, LiveChartConfig> liveCharts = new HashMap<>();
 
-    public static void printSeries(BarSeries series, Strategy strategy, Map<? extends Indicator<Num>, String> indicators) {
-        System.setProperty("java.awt.headless", "false");
+    public static void printSeries(BarSeries series, Strategy strategy, Collection<ChartIndicatorConfig> indicators) {
         XYChart chart = new XYChartBuilder().title(strategy.getName()).xAxisTitle("Date").yAxisTitle("Price").build();
         chart.getStyler().setZoomEnabled(true);
         chart.getStyler().setCursorEnabled(true);
 
-        for (Map.Entry<? extends Indicator<Num>, String> indicator : indicators.entrySet()) {
-            addIndicatorToChart(indicator, chart, series, false, null);
+        for (ChartIndicatorConfig indicatorConfig : indicators) {
+            addIndicatorToChart(indicatorConfig, chart, series, false, null);
         }
 
         addPositionMarkerToChart(chart, strategy, series);
@@ -51,7 +50,7 @@ public class Ta4j2Chart {
         }
     }
 
-    private static void addIndicatorToChart(Map.Entry<? extends Indicator<Num>, String> indicator, XYChart chart, BarSeries series, boolean update, Integer limit) {
+    private static void addIndicatorToChart(ChartIndicatorConfig indicatorConfig, XYChart chart, BarSeries series, boolean update, Integer limit) {
         List<Date> dates= new LinkedList<>();
         List<Number> values = new LinkedList<>();
         int startIndex = series.getBeginIndex();
@@ -62,46 +61,41 @@ public class Ta4j2Chart {
         for (int i = startIndex; i <= series.getEndIndex(); i++) {
             Bar bar = series.getBar(i);
             dates.add(Date.from(bar.getEndTime().toInstant()));
-            values.add(indicator.getKey().getValue(i).getDelegate());
+            values.add(indicatorConfig.indicator.getValue(i).getDelegate());
         }
         if (update) {
-            chart.updateXYSeries(indicator.getValue(), dates, values, null);
+            chart.updateXYSeries(indicatorConfig.name, dates, values, null);
         } else {
-            XYSeries chartSeries = chart.addSeries(indicator.getValue(), dates, values);
+            XYSeries chartSeries = chart.addSeries(indicatorConfig.name, dates, values);
             chartSeries.setSmooth(false);
             chartSeries.setMarker(SeriesMarkers.NONE);
-            if (indicator.getKey() instanceof StochasticOscillatorKIndicator) {
-                chartSeries.setYAxisGroup(1);
-                chart.setYAxisGroupTitle(1, "K osci");
+
+            if (indicatorConfig.color != null) {
+                chartSeries.setLineColor(indicatorConfig.color);
+            }
+
+            if (indicatorConfig.yAxisGroup != null) {
+                chartSeries.setYAxisGroup(indicatorConfig.yAxisGroup.yAxisGroupIndex);
+                chart.setYAxisGroupTitle(indicatorConfig.yAxisGroup.yAxisGroupIndex, indicatorConfig.yAxisGroup.yAxisGroupLabel);
                 chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
-                chartSeries.setLineColor(new Color(0, 150, 136, 64));
-                chartSeries.setFillColor(new Color(100, 255, 218, 128));
-            } else {
-                if (indicator.getKey() instanceof MACDIndicator) {
-                    chartSeries.setYAxisGroup(2);
-                    chart.setYAxisGroupTitle(2, "MACD");
-                    chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
-                    chartSeries.setLineColor(new Color(103, 58, 183, 64));
-                    chartSeries.setFillColor(new Color(124, 77, 255, 64));
-                }
+                chartSeries.setFillColor(indicatorConfig.yAxisGroup.areaFillColor);
             }
         }
     }
 
-    public static String createLiveChart(BarSeries series, Map<? extends Indicator<Num>, String> indicators, Integer maxAmountBars) {
-        System.setProperty("java.awt.headless", "false");
+    public static String createLiveChart(BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
         XYChart chart = new XYChartBuilder().title(series.getName()).xAxisTitle("Date").yAxisTitle("Price").build();
         chart.getStyler().setZoomEnabled(true);
         chart.getStyler().setCursorEnabled(true);
 
-        for (Map.Entry<? extends Indicator<Num>, String> indicator : indicators.entrySet()) {
+        for (ChartIndicatorConfig indicator: indicatorConfigs) {
             addIndicatorToChart(indicator, chart, series, false, maxAmountBars);
         }
 
         SwingWrapper sw = new SwingWrapper(chart);
 
         String liveChartID = UUID.randomUUID().toString();
-        liveCharts.put(liveChartID, new LiveChartConfig(sw,chart, series, indicators, maxAmountBars));
+        liveCharts.put(liveChartID, new LiveChartConfig(sw,chart, series, indicatorConfigs, maxAmountBars));
         sw.displayChart();
 
         return liveChartID;
@@ -117,8 +111,8 @@ public class Ta4j2Chart {
         }
         liveChartConfig.waitForRun = true;
         javax.swing.SwingUtilities.invokeLater(() -> {
-            for (Map.Entry<? extends Indicator<Num>, String> indicator : liveChartConfig.indicators.entrySet()) {
-                addIndicatorToChart(indicator, liveChartConfig.chart, liveChartConfig.series, true, liveChartConfig.maxAmountBars);
+            for (ChartIndicatorConfig indicatorConfig : liveChartConfig.indicatorConfigs) {
+                addIndicatorToChart(indicatorConfig, liveChartConfig.chart, liveChartConfig.series, true, liveChartConfig.maxAmountBars);
             }
             liveChartConfig.sw.repaintChart();
             liveChartConfig.waitForRun = false;
@@ -129,16 +123,52 @@ public class Ta4j2Chart {
         final SwingWrapper sw;
         final XYChart chart;
         final BarSeries series;
-        final Map<? extends Indicator<Num>, String> indicators;
+        final Collection<ChartIndicatorConfig> indicatorConfigs;
         final Integer maxAmountBars;
         volatile boolean waitForRun;
 
-        LiveChartConfig(SwingWrapper sw, XYChart chart, BarSeries series, Map<? extends Indicator<Num>, String> indicators, Integer maxAmountBars) {
+        LiveChartConfig(SwingWrapper sw, XYChart chart, BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
             this.sw = sw;
             this.chart = chart;
             this.series = series;
-            this.indicators = indicators;
+            this.indicatorConfigs = indicatorConfigs;
             this.maxAmountBars = maxAmountBars;
+        }
+    }
+
+    public static class ChartIndicatorConfig {
+        final Indicator<Num> indicator;
+        final String name;
+        final Color color;
+        final YAxisGroupConfig yAxisGroup;
+
+        public ChartIndicatorConfig(Indicator<Num> indicator, String name) {
+            this(indicator, name, null);
+        }
+
+        public ChartIndicatorConfig(Indicator<Num> indicator, String name, Color color) {
+            this(indicator, name, color, null);
+
+        }
+
+        public ChartIndicatorConfig(Indicator<Num> indicator, String name, Color color, YAxisGroupConfig yAxisGroup) {
+            this.indicator = indicator;
+            this.name = name;
+            this.color = color;
+            this.yAxisGroup = yAxisGroup;
+        }
+    }
+
+    public static class YAxisGroupConfig {
+        final String yAxisGroupLabel;
+        final Integer yAxisGroupIndex;
+        final Color areaFillColor;
+
+        public YAxisGroupConfig(String yAxisGroupLabel, Integer yAxisGroupIndex, Color areaFillColor) {
+
+            this.yAxisGroupLabel = yAxisGroupLabel;
+            this.yAxisGroupIndex = yAxisGroupIndex;
+            this.areaFillColor = areaFillColor;
         }
     }
 }
