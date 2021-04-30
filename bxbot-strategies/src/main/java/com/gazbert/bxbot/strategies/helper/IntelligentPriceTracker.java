@@ -3,7 +3,7 @@ package com.gazbert.bxbot.strategies.helper;
 import com.gazbert.bxbot.strategies.StrategyConfigParser;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.*;
-import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.BarSeries;
@@ -151,9 +151,9 @@ public class IntelligentPriceTracker {
     private void updateLiveGraph() {
         if (shouldShowLiveChart) {
             if (liveGraphID == null) {
-                liveGraphID = BuyAndSellSignalsToChart.createLiveChart(getSeries(), getLivechartIndicators());
+                liveGraphID = Ta4j2Chart.createLiveChart(getSeries(), getLivechartIndicators());
             } else {
-                BuyAndSellSignalsToChart.updateLiveChart(liveGraphID);
+                Ta4j2Chart.updateLiveChart(liveGraphID);
             }
         }
     }

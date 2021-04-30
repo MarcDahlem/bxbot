@@ -10,7 +10,7 @@ import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
 import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4jOptimalTradingStrategy;
 import com.google.common.primitives.Ints;
@@ -248,8 +248,8 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         List<TradingStatement> statements = backtestExecutor.execute(strategies, tradingSeries.numOf(25), Trade.TradeType.BUY);
         logReports(statements);
         if (shouldPrintCharts) {
-            BuyAndSellSignalsToChart.printSeries(tradingSeries, strategy, strategyIndicators);
-            BuyAndSellSignalsToChart.printSeries(tradingSeries, optimalTradingStrategy, optimalTradingStrategy.getIndicators());
+            Ta4j2Chart.printSeries(tradingSeries, strategy, strategyIndicators);
+            Ta4j2Chart.printSeries(tradingSeries, optimalTradingStrategy, optimalTradingStrategy.getIndicators());
         }
         throw new TradingApiException("Simulation end finished. Ending balance: " + getBalanceInfo());
     }

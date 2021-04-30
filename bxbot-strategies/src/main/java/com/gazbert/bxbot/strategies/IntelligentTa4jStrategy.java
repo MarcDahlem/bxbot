@@ -6,8 +6,7 @@ import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.TradingApi;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.*;
@@ -18,11 +17,8 @@ import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
-import org.ta4j.core.rules.OverIndicatorRule;
-import org.ta4j.core.rules.UnderIndicatorRule;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.*;
 
@@ -108,7 +104,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         indicators.put(stochasticOscillaltorK, "stoch osci k");
         indicators.putAll(recordedStrategy.getIndicators());
 
-        BuyAndSellSignalsToChart.printSeries(priceTracker.getSeries(), recordedStrategy, indicators);
+        Ta4j2Chart.printSeries(priceTracker.getSeries(), recordedStrategy, indicators);
     }
 
     @Override

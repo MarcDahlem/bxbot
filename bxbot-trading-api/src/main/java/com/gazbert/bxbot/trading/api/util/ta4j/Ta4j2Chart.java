@@ -14,7 +14,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
 
-public class BuyAndSellSignalsToChart {
+public class Ta4j2Chart {
 
     private static final Map<String, LiveChartConfig> liveCharts = new HashMap<>();
 
