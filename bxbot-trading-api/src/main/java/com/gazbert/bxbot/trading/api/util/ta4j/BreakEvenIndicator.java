@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
+import com.google.common.primitives.Ints;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.CachedIndicator;
@@ -17,16 +18,14 @@ import static org.ta4j.core.num.NaN.NaN;
 public class BreakEvenIndicator extends CachedIndicator<Num> {
 
     private final TransformIndicator breakEvenIndicator;
-    private final TreeSet<Integer> sortedBuyIndeces;
-    private final TreeSet<Integer> sortedSellIndeces;
+    private final TreeSet<Integer> sortedBuyIndeces = new TreeSet<>();
+    private final TreeSet<Integer> sortedSellIndeces = new TreeSet<>();
 
-    public BreakEvenIndicator(Indicator<Num> indicator, BigDecimal buyFee, BigDecimal sellFee, Collection<Integer> buyIndeces, Collection<Integer> sellIndices) {
+    public BreakEvenIndicator(Indicator<Num> indicator, BigDecimal buyFee, BigDecimal sellFee) {
         super(indicator);
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
         breakEvenIndicator = TransformIndicator.divide(TransformIndicator.multiply(indicator, buyFeeFactor), sellFeeFactor);
-        sortedBuyIndeces = new TreeSet<>(buyIndeces);
-        sortedSellIndeces = new TreeSet<>(sellIndices);
     }
 
     @Override
@@ -41,5 +40,21 @@ public class BreakEvenIndicator extends CachedIndicator<Num> {
             return breakEvenIndicator.getValue(lastBuyIndex);
         }
         return NaN;
+    }
+
+    public void registerSellOrderExecution(Integer atIndex) {
+        sortedSellIndeces.add(atIndex);
+    }
+
+    public void registerBuyOrderExecution(Integer atIndex) {
+        sortedBuyIndeces.add(atIndex);
+    }
+
+    public int[] getRecordedBuyOrderExecutions() {
+        return Ints.toArray(this.sortedBuyIndeces);
+    }
+
+    public int[] getRecordedSellOrderExecutions() {
+        return Ints.toArray(this.sortedSellIndeces);
     }
 }

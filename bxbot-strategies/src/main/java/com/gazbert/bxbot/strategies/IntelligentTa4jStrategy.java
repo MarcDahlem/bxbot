@@ -82,10 +82,6 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
                 ;/*.and(new UnderIndicatorRule(macd, emaMacd)); // Signal 2*/
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j", entryRule, exitRule);
 
-
-        priceTracker.addLivechartIndicatorConfig(new Ta4j2Chart.ChartIndicatorConfig(askPriceIndicator, "ask",  RecordedStrategy.ASK_PRICE_COLOR));
-        priceTracker.addLivechartIndicatorConfig(new Ta4j2Chart.ChartIndicatorConfig(bidPriceIndicator, "bid",  RecordedStrategy.BID_PRICE_COLOR));
-        priceTracker.addLivechartIndicatorConfig(new Ta4j2Chart.ChartIndicatorConfig(closePriceIndicator, "close", RecordedStrategy.CLOSE_PRICE_COLOR));
         for (Ta4j2Chart.ChartIndicatorConfig config: createTa4jSpecificChartIndicators()) {
             priceTracker.addLivechartIndicatorConfig(config);
         }
@@ -93,7 +89,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected void botWillShutdown() throws TradingApiException, ExchangeNetworkException {
-        RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
+
 
         Collection<Ta4j2Chart.ChartIndicatorConfig> indicators =createTa4jSpecificChartIndicators();
         Ta4j2Chart.YAxisGroupConfig macdYAxisConfig = new Ta4j2Chart.YAxisGroupConfig("macd", 1, new Color(124, 77, 255, 64));
@@ -102,18 +98,16 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         Ta4j2Chart.YAxisGroupConfig osciKYAxisConfig = new Ta4j2Chart.YAxisGroupConfig("osci k", 2, new Color(100, 255, 218, 128));
         indicators.add(new Ta4j2Chart.ChartIndicatorConfig(stochasticOscillaltorK, "stoch osci k",new Color(0, 150, 136, 64), osciKYAxisConfig ));
 
-        indicators.addAll(recordedStrategy.createChartIndicators());
-
-        Ta4j2Chart.printSeries(priceTracker.getSeries(), recordedStrategy, indicators);
+        Ta4j2Chart.printSeries(priceTracker.getSeries(), stateTracker.getRecordedStrategy(), indicators);
     }
 
-    private Collection<Ta4j2Chart.ChartIndicatorConfig> createTa4jSpecificChartIndicators() {
-        HashSet<Ta4j2Chart.ChartIndicatorConfig> result = new HashSet<>();
+    private Collection<Ta4j2Chart.ChartIndicatorConfig> createTa4jSpecificChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
+        Collection<Ta4j2Chart.ChartIndicatorConfig> result = recordedStrategy.createChartIndicators();
         result.add(new Ta4j2Chart.ChartIndicatorConfig(buyIndicatorShort, "buy short", new Color(74,20,140)));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(buyIndicatorLong, "buy long", new Color(156,39,176)));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(sellIndicatorShort, "sell short", new Color(33,150,243)));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(sellIndicatorLong, "sell long", new Color(13,71,161 )));
-
         return result;
     }
 
