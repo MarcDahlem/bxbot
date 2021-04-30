@@ -151,7 +151,7 @@ public class IntelligentPriceTracker {
     private void updateLiveGraph() {
         if (shouldShowLiveChart) {
             if (liveGraphID == null) {
-                liveGraphID = Ta4j2Chart.createLiveChart(getSeries(), getLivechartIndicators());
+                liveGraphID = Ta4j2Chart.createLiveChart(getSeries(), getLivechartIndicators(), 500);
             } else {
                 Ta4j2Chart.updateLiveChart(liveGraphID);
             }
