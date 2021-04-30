@@ -11,8 +11,12 @@ import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.TradingApi;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
+import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.Collection;
 
 public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     protected static final Logger LOG = LogManager.getLogger();
@@ -37,7 +41,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
      *                   strategies.yaml file.
      */
     @Override
-    public void init(TradingApi tradingApi, Market market, StrategyConfig config) {
+    public final void init(TradingApi tradingApi, Market market, StrategyConfig config) {
         LOG.info(() -> "Initialising Trading Strategy...");
         this.market = market;
         this.tradingApi = tradingApi;
@@ -48,8 +52,25 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         tradesObserver = createTradesObserver(config);
         shouldPersistTickerData = StrategyConfigParser.readBoolean(config, "persist-ticker-data", false);
 
+        try {
+            botWillStartup();
+            initLiveChartIndicators();
+        } catch (TradingApiException | ExchangeNetworkException e) {
+            String errorMsg = "Failed to initialize the concrete strategy implementation on startup.";
+            LOG.error(() -> errorMsg);
+            throw new IllegalStateException(errorMsg, e);
+        }
 
         LOG.info(() -> "Trading Strategy initialised successfully!");
+    }
+
+    private void initLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
+        Collection<Ta4j2Chart.ChartIndicatorConfig> indicatorConfigs = recordedStrategy.createChartIndicators();
+        indicatorConfigs.addAll(createStrategySpecificChartIndicators());
+        for (Ta4j2Chart.ChartIndicatorConfig config : indicatorConfigs) {
+            priceTracker.addLivechartIndicatorConfig(config);
+        }
     }
 
     /**
@@ -106,8 +127,6 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         }
     }
 
-    protected abstract void botWillShutdown() throws TradingApiException, ExchangeNetworkException;
-
     private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
         if (marketMovedUp()) {
@@ -163,6 +182,10 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         }, tradesObserver);
     }
 
+    protected abstract void botWillStartup() throws TradingApiException, ExchangeNetworkException;
+
+    protected abstract Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificChartIndicators();
+
     protected abstract IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config);
 
     protected abstract IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config);
@@ -170,5 +193,8 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     protected abstract IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config);
 
     protected abstract boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException;
+
     protected abstract boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException;
+
+    protected abstract void botWillShutdown() throws TradingApiException, ExchangeNetworkException;
 }
