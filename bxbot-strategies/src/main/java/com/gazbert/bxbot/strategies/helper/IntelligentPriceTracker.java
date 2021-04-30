@@ -1,5 +1,7 @@
 package com.gazbert.bxbot.strategies.helper;
 
+import com.gazbert.bxbot.strategies.StrategyConfigParser;
+import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
 import org.apache.logging.log4j.LogManager;
@@ -28,13 +30,15 @@ public class IntelligentPriceTracker {
     private final Market market;
     private final BarSeries series;
     private final Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
+    private final boolean shouldShowLiveChart;
     private String liveGraphID;
     private Map<Indicator<Num>, String> registeredLiveChartIndicators = new HashMap<>();
 
-    public IntelligentPriceTracker(TradingApi tradingApi, Market market) {
+    public IntelligentPriceTracker(TradingApi tradingApi, Market market, StrategyConfig config) {
         this.tradingApi = tradingApi;
         this.market = market;
         this.series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
+        this.shouldShowLiveChart = StrategyConfigParser.readBoolean(config, "show-live-chart", false);
     }
 
 
@@ -145,10 +149,12 @@ public class IntelligentPriceTracker {
     }
 
     private void updateLiveGraph() {
-        if (liveGraphID == null) {
-            liveGraphID = BuyAndSellSignalsToChart.createLiveChart(getSeries(), getLivechartIndicators());
-        } else {
-            BuyAndSellSignalsToChart.updateLiveChart(liveGraphID);
+        if (shouldShowLiveChart) {
+            if (liveGraphID == null) {
+                liveGraphID = BuyAndSellSignalsToChart.createLiveChart(getSeries(), getLivechartIndicators());
+            } else {
+                BuyAndSellSignalsToChart.updateLiveChart(liveGraphID);
+            }
         }
     }
 
