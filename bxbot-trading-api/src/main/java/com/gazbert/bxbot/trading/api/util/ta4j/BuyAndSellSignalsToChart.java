@@ -107,12 +107,16 @@ public class BuyAndSellSignalsToChart {
             throw new IllegalArgumentException("No live chart with id '" + liveChartID + "' found");
         }
         LiveChartConfig liveChartConfig = liveCharts.get(liveChartID);
-
+        if(liveChartConfig.waitForRun) {
+            return;
+        }
+        liveChartConfig.waitForRun = true;
         javax.swing.SwingUtilities.invokeLater(() -> {
             for (Map.Entry<? extends Indicator<Num>, String> indicator : liveChartConfig.indicators.entrySet()) {
                 addIndicatorToChart(indicator, liveChartConfig.chart, liveChartConfig.series, true);
             }
             liveChartConfig.sw.repaintChart();
+            liveChartConfig.waitForRun = false;
         });
     }
 
@@ -121,6 +125,7 @@ public class BuyAndSellSignalsToChart {
         final XYChart chart;
         final BarSeries series;
         final Map<? extends Indicator<Num>, String> indicators;
+        public volatile boolean waitForRun;
 
         LiveChartConfig(SwingWrapper sw, XYChart chart, BarSeries series, Map<? extends Indicator<Num>, String> indicators) {
             this.sw = sw;
