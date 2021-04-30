@@ -3,6 +3,8 @@ package com.gazbert.bxbot.strategies;
 import com.gazbert.bxbot.strategies.helper.*;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
+import com.gazbert.bxbot.trading.api.Market;
+import com.gazbert.bxbot.trading.api.TradingApi;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
@@ -42,6 +44,16 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     private StochasticOscillatorKIndicator stochasticOscillaltorK;
     private MACDIndicator macd;
 
+    @Override
+    public void init(TradingApi tradingApi, Market market, StrategyConfig config) {
+        super.init(tradingApi, market, config);
+        try {
+            initTa4jStrategy();
+        } catch (TradingApiException | ExchangeNetworkException e) {
+            throw new IllegalStateException("Crash while initializing ta4j strategy: ", e);
+        }
+    }
+
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         buyFee =tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
@@ -72,6 +84,16 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
                 /*.and(new OverIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1*/
                 ;/*.and(new UnderIndicatorRule(macd, emaMacd)); // Signal 2*/
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j", entryRule, exitRule);
+
+
+        priceTracker.addLivechartIndicator(askPriceIndicator, "ask");
+        priceTracker.addLivechartIndicator(bidPriceIndicator, "bid");
+        priceTracker.addLivechartIndicator(closePriceIndicator, "close");
+        priceTracker.addLivechartIndicator(buyIndicatorShort, "buy short");
+        priceTracker.addLivechartIndicator(buyIndicatorLong, "buy long");
+        priceTracker.addLivechartIndicator(sellIndicatorShort, "sell short");
+        priceTracker.addLivechartIndicator(sellIndicatorLong, "sell long");
+
     }
 
     @Override
@@ -148,9 +170,6 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException {
-        if (ta4jStrategy == null) {
-            initTa4jStrategy();
-        }
         boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex());
         LOG.info(() -> {
             Num currentLongEma = buyIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
@@ -174,9 +193,6 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
-        if (ta4jStrategy == null) {
-            initTa4jStrategy();
-        }
         boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
         LOG.info(() -> {
             Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());

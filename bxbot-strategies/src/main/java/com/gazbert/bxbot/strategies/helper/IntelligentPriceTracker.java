@@ -1,13 +1,13 @@
 package com.gazbert.bxbot.strategies.helper;
 
-import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.*;
-import com.google.common.base.Predicates;
+import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBarSeries;
 import org.ta4j.core.BaseBarSeriesBuilder;
+import org.ta4j.core.Indicator;
+import org.ta4j.core.num.Num;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -28,6 +28,8 @@ public class IntelligentPriceTracker {
     private final Market market;
     private final BarSeries series;
     private final Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
+    private String liveGraphID;
+    private Map<Indicator<Num>, String> registeredLiveChartIndicators = new HashMap<>();
 
     public IntelligentPriceTracker(TradingApi tradingApi, Market market) {
         this.tradingApi = tradingApi;
@@ -47,7 +49,10 @@ public class IntelligentPriceTracker {
             tickerTimestamp = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestampInTicker), ZoneId.systemDefault());
         }
         series.addBar(Duration.ZERO, tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast(), BigDecimal.ZERO);
+        this.updateLiveGraph();
     }
+
+
 
     public BigDecimal getAsk() {
         return (BigDecimal) series.getLastBar().getHighPrice().getDelegate();
@@ -133,5 +138,21 @@ public class IntelligentPriceTracker {
 
     public BarSeries getSeries() {
         return series;
+    }
+
+    public void addLivechartIndicator(Indicator<Num> indicator, String nameInGraph) {
+        this.registeredLiveChartIndicators.put(indicator, nameInGraph);
+    }
+
+    private void updateLiveGraph() {
+        if (liveGraphID == null) {
+            liveGraphID = BuyAndSellSignalsToChart.createLiveChart(getSeries(), getLivechartIndicators());
+        } else {
+            BuyAndSellSignalsToChart.updateLiveChart(liveGraphID);
+        }
+    }
+
+    private Map<? extends Indicator<Num>, String> getLivechartIndicators() {
+        return new HashMap<>(this.registeredLiveChartIndicators);
     }
 }

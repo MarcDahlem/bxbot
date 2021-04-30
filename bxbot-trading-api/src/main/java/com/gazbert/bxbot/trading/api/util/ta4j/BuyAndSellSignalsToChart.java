@@ -11,12 +11,12 @@ import org.ta4j.core.num.Num;
 
 import java.awt.*;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 public class BuyAndSellSignalsToChart {
+
+    private static final Map<String, LiveChartConfig> liveCharts = new HashMap<>();
 
     public static void printSeries(BarSeries series, Strategy strategy, Map<? extends Indicator<Num>, String> indicators) {
         System.setProperty("java.awt.headless", "false");
@@ -25,7 +25,7 @@ public class BuyAndSellSignalsToChart {
         chart.getStyler().setCursorEnabled(true);
 
         for (Map.Entry<? extends Indicator<Num>, String> indicator : indicators.entrySet()) {
-            addIndicatorToChart(indicator, chart, series);
+            addIndicatorToChart(indicator, chart, series, false);
         }
 
         addPositionMarkerToChart(chart, strategy, series);
@@ -51,7 +51,7 @@ public class BuyAndSellSignalsToChart {
         }
     }
 
-    private static void addIndicatorToChart(Map.Entry<? extends Indicator<Num>, String> indicator, XYChart chart, BarSeries series) {
+    private static void addIndicatorToChart(Map.Entry<? extends Indicator<Num>, String> indicator, XYChart chart, BarSeries series, boolean update) {
         List<Date> dates= new LinkedList<>();
         List<Number> values = new LinkedList<>();
         for (int i = series.getBeginIndex(); i <= series.getEndIndex(); i++) {
@@ -59,27 +59,74 @@ public class BuyAndSellSignalsToChart {
             dates.add(Date.from(bar.getEndTime().toInstant()));
             values.add(indicator.getKey().getValue(i).getDelegate());
         }
-        XYSeries chartSeries = chart.addSeries(indicator.getValue(), dates, values);
-        chartSeries.setSmooth(false);
-        chartSeries.setMarker(SeriesMarkers.NONE);
-        if (indicator.getKey() instanceof StochasticOscillatorKIndicator) {
-            chartSeries.setYAxisGroup(1);
-            chart.setYAxisGroupTitle(1, "K osci");
-            chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
-            chartSeries.setLineColor(new Color(0,150,136,64));
-            chartSeries.setFillColor(new Color(100,255,218, 128));
+        if (update) {
+            chart.updateXYSeries(indicator.getValue(), dates, values, null);
         } else {
-            if (indicator.getKey() instanceof MACDIndicator) {
-                chartSeries.setYAxisGroup(2);
-                chart.setYAxisGroupTitle(2, "MACD");
+            XYSeries chartSeries = chart.addSeries(indicator.getValue(), dates, values);
+            chartSeries.setSmooth(false);
+            chartSeries.setMarker(SeriesMarkers.NONE);
+            if (indicator.getKey() instanceof StochasticOscillatorKIndicator) {
+                chartSeries.setYAxisGroup(1);
+                chart.setYAxisGroupTitle(1, "K osci");
                 chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
-                chartSeries.setLineColor(new Color(103,58,183,64));
-                chartSeries.setFillColor(new Color(124,77,255, 64));
+                chartSeries.setLineColor(new Color(0, 150, 136, 64));
+                chartSeries.setFillColor(new Color(100, 255, 218, 128));
+            } else {
+                if (indicator.getKey() instanceof MACDIndicator) {
+                    chartSeries.setYAxisGroup(2);
+                    chart.setYAxisGroupTitle(2, "MACD");
+                    chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
+                    chartSeries.setLineColor(new Color(103, 58, 183, 64));
+                    chartSeries.setFillColor(new Color(124, 77, 255, 64));
+                }
             }
         }
+    }
 
+    public static String createLiveChart(BarSeries series, Map<? extends Indicator<Num>, String> indicators) {
+        System.setProperty("java.awt.headless", "false");
+        XYChart chart = new XYChartBuilder().title(series.getName()).xAxisTitle("Date").yAxisTitle("Price").build();
+        chart.getStyler().setZoomEnabled(true);
+        chart.getStyler().setCursorEnabled(true);
 
+        for (Map.Entry<? extends Indicator<Num>, String> indicator : indicators.entrySet()) {
+            addIndicatorToChart(indicator, chart, series, false);
+        }
 
+        SwingWrapper sw = new SwingWrapper(chart);
 
+        String liveChartID = UUID.randomUUID().toString();
+        liveCharts.put(liveChartID, new LiveChartConfig(sw,chart, series, indicators));
+        sw.displayChart();
+
+        return liveChartID;
+    }
+
+    public static void updateLiveChart(String liveChartID) {
+        if (!liveCharts.containsKey(liveChartID)) {
+            throw new IllegalArgumentException("No live chart with id '" + liveChartID + "' found");
+        }
+        LiveChartConfig liveChartConfig = liveCharts.get(liveChartID);
+
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            for (Map.Entry<? extends Indicator<Num>, String> indicator : liveChartConfig.indicators.entrySet()) {
+                addIndicatorToChart(indicator, liveChartConfig.chart, liveChartConfig.series, true);
+            }
+            liveChartConfig.sw.repaintChart();
+        });
+    }
+
+    private static class LiveChartConfig {
+        final SwingWrapper sw;
+        final XYChart chart;
+        final BarSeries series;
+        final Map<? extends Indicator<Num>, String> indicators;
+
+        LiveChartConfig(SwingWrapper sw, XYChart chart, BarSeries series, Map<? extends Indicator<Num>, String> indicators) {
+            this.sw = sw;
+            this.chart = chart;
+            this.series = series;
+            this.indicators = indicators;
+        }
     }
 }
