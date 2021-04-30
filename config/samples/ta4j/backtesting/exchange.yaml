@@ -38,7 +38,7 @@ exchange:
     # the path to a json containing a recording of a market with ta4j BarSeries
     # See the example ta4j strategies to find out how to record market or to simulate a strategy
     #trading-series-json-path: barData_1618580976288.json
-    trading-series-json-path: XRPEUR1619755007893.json
+    trading-series-json-path: XRPEUR1619822902408.json
 
     # if enabled, the simulation will open
     # a) a graph for the executed strategy on the market, showing the buy and sell points
