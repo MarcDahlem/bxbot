@@ -163,7 +163,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
         int spanStartIndex = currentEndIndex - ticks;
         int availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
-        for (int i = availableStartIndex; i < currentEndIndex; i++) {
+        for (int i = availableStartIndex; i <= currentEndIndex; i++) {
             result = series.getBar(i).getHighPrice().min(result);
         }
         return (BigDecimal) result.getDelegate();
