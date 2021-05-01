@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
+import com.gazbert.bxbot.trading.api.TradingApiException;
 import org.knowm.xchart.*;
 import org.knowm.xchart.internal.Utils;
 import org.knowm.xchart.style.Styler;
@@ -10,6 +11,7 @@ import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
 import org.ta4j.core.num.Num;
 
 import java.awt.*;
+import java.lang.reflect.InvocationTargetException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
@@ -51,11 +53,11 @@ public class Ta4j2Chart {
     }
 
     private static void addIndicatorToChart(ChartIndicatorConfig indicatorConfig, XYChart chart, BarSeries series, boolean update, Integer limit) {
-        List<Date> dates= new LinkedList<>();
+        List<Date> dates = new LinkedList<>();
         List<Number> values = new LinkedList<>();
         int startIndex = series.getBeginIndex();
         if (limit != null) {
-            startIndex = Math.max(startIndex, series.getEndIndex()-limit);
+            startIndex = Math.max(startIndex, series.getEndIndex() - limit);
         }
 
         for (int i = startIndex; i <= series.getEndIndex(); i++) {
@@ -88,14 +90,14 @@ public class Ta4j2Chart {
         chart.getStyler().setZoomEnabled(true);
         chart.getStyler().setCursorEnabled(true);
 
-        for (ChartIndicatorConfig indicator: indicatorConfigs) {
+        for (ChartIndicatorConfig indicator : indicatorConfigs) {
             addIndicatorToChart(indicator, chart, series, false, maxAmountBars);
         }
 
         SwingWrapper sw = new SwingWrapper(chart);
 
         String liveChartID = UUID.randomUUID().toString();
-        liveCharts.put(liveChartID, new LiveChartConfig(sw,chart, series, indicatorConfigs, maxAmountBars));
+        liveCharts.put(liveChartID, new LiveChartConfig(sw, chart, series, indicatorConfigs, maxAmountBars));
         sw.displayChart();
 
         return liveChartID;
@@ -106,10 +108,11 @@ public class Ta4j2Chart {
             throw new IllegalArgumentException("No live chart with id '" + liveChartID + "' found");
         }
         LiveChartConfig liveChartConfig = liveCharts.get(liveChartID);
-        if(liveChartConfig.waitForRun) {
+        if (liveChartConfig.waitForRun) {
             return;
         }
         liveChartConfig.waitForRun = true;
+
         javax.swing.SwingUtilities.invokeLater(() -> {
             for (ChartIndicatorConfig indicatorConfig : liveChartConfig.indicatorConfigs) {
                 addIndicatorToChart(indicatorConfig, liveChartConfig.chart, liveChartConfig.series, true, liveChartConfig.maxAmountBars);
