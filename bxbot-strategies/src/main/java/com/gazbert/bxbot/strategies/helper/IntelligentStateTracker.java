@@ -1,23 +1,16 @@
 package com.gazbert.bxbot.strategies.helper;
 
-import com.gazbert.bxbot.strategies.StrategyConfigParser;
-import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.*;
-import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
+import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ta4j.core.BaseStrategy;
-import org.ta4j.core.Strategy;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.UUID;
 
 import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.*;
 
@@ -35,7 +28,7 @@ public class IntelligentStateTracker {
     private IntelligentStrategyState strategyState;
     private PlacedOrder currentBuyOrder;
     private PlacedOrder currentSellOrder;
-    private BreakEvenIndicator breakEvenIndicator;
+    private SellIndicator breakEvenIndicator;
 
     public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker) {
         this.tradingApi = tradingApi;
@@ -320,11 +313,11 @@ public class IntelligentStateTracker {
         return RecordedStrategy.createStrategyFromRecording(strategyName, getBreakEvenIndicator());
     }
 
-    private BreakEvenIndicator getBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
+    private SellIndicator getBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
         if (breakEvenIndicator == null) {
             BigDecimal buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
             BigDecimal sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
-            this.breakEvenIndicator = new BreakEvenIndicator(new HighPriceIndicator(this.priceTracker.getSeries()), buyFee, sellFee);
+            this.breakEvenIndicator = SellIndicator.createBreakEvenIndicator(this.priceTracker.getSeries(), buyFee, sellFee);
         }
         return breakEvenIndicator;
     }

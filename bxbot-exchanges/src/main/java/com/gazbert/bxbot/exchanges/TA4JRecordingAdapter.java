@@ -9,7 +9,7 @@ import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
 import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
-import com.gazbert.bxbot.trading.api.util.ta4j.BreakEvenIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4jOptimalTradingStrategy;
@@ -49,7 +49,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private BigDecimal counterCurrencyBalance;
     private OpenOrder currentOpenOrder;
     private int currentTick;
-    private BreakEvenIndicator recordingIndicator;
+    private SellIndicator recordingIndicator;
 
     @Override
     public void init(ExchangeConfig config) {
@@ -228,9 +228,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         }
     }
 
-    private BreakEvenIndicator getRecordingIndicator(String marketId) {
+    private SellIndicator getRecordingIndicator(String marketId) {
         if (recordingIndicator == null) {
-            recordingIndicator = new BreakEvenIndicator(new HighPriceIndicator(tradingSeries), getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
+            recordingIndicator = SellIndicator.createBreakEvenIndicator(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
         }
         return recordingIndicator;
     }

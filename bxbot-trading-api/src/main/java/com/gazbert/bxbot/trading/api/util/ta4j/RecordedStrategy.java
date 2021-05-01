@@ -17,18 +17,18 @@ import java.util.Collection;
 import java.util.HashSet;
 
 public class RecordedStrategy extends BaseStrategy {
-    private final BreakEvenIndicator breakEvenIndicator;
+    private final SellIndicator breakEvenIndicator;
     public static final Color CLOSE_PRICE_COLOR = new Color(183, 28, 28);
     public static  final Color BID_PRICE_COLOR = new Color(255, 111, 0);
     public static  final Color ASK_PRICE_COLOR = new Color(130, 119, 23);
     public static final Color BREAK_EVEN_COLOR = new Color(0, 200, 83);
 
-    protected RecordedStrategy(String name, BreakEvenIndicator breakEvenIndicator) {
+    protected RecordedStrategy(String name, SellIndicator breakEvenIndicator) {
         super(name, new FixedRule(breakEvenIndicator.getRecordedBuyOrderExecutions()), new FixedRule(breakEvenIndicator.getRecordedSellOrderExecutions()));
         this.breakEvenIndicator = breakEvenIndicator;
     }
 
-    public static RecordedStrategy createStrategyFromRecording(String strategyName, BreakEvenIndicator beIndicator) {
+    public static RecordedStrategy createStrategyFromRecording(String strategyName, SellIndicator beIndicator) {
         return new RecordedStrategy(strategyName, beIndicator);
     }
 
