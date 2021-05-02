@@ -5,6 +5,7 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.CachedIndicator;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.HighestValueIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
@@ -23,11 +24,11 @@ public class SellIndicator extends CachedIndicator<Num> {
     private final SellIndicator tradeKnowingIndicator;
     private final boolean useBuyTime;
 
-    protected SellIndicator(Indicator<Num> indicator, boolean useBuyTime) {
+    public SellIndicator(Indicator<Num> indicator, boolean useBuyTime) {
         this(indicator, null, useBuyTime);
     }
 
-    protected SellIndicator(Indicator<Num> indicator, SellIndicator tradeKnowingIndicator, boolean useBuyTime) {
+    public SellIndicator(Indicator<Num> indicator, SellIndicator tradeKnowingIndicator, boolean useBuyTime) {
         super(indicator);
         this.indicator = indicator;
         if (tradeKnowingIndicator != null) {
@@ -50,7 +51,7 @@ public class SellIndicator extends CachedIndicator<Num> {
             if (useBuyTime) {
                 return indicator.getValue(lastBuyIndex);
             } else {
-                return indicator.getValue(index);
+                return new HighestValueIndicator(indicator, index-lastBuyIndex).getValue(index);
             }
         }
         return NaN;
