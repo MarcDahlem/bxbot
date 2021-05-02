@@ -32,7 +32,7 @@ strategies:
       lowest-price-lookback-count: 80
       times-above-lowest-price-needed: 20
 
-      intelligent-limits-percentage-scale-factor: 10
+      intelligent-limits-percentage-scale-factor: 0
 
       show-live-chart: true
 
@@ -53,6 +53,31 @@ strategies:
       sell-stop-limit-percentage-below-break-even: 0
       sell-stop-limit-percentage-above-break-even: 0
       sell-stop-limit-percentage-minimum-above-break-even: 0
+
+      show-live-chart: true
+
+      persist-ticker-data: false
+  - id: intelligent-ta4j-trailing-stop-strategy
+
+    name: Intelligent Trailing Stop Strategy (Ta4j Version)
+
+    description: >
+      Trails a stop order and changes the limits dynamically/intelligently according to the last order (positive --> higher limit, negative --> lower limit).
+      Uses Ta4j for the computations
+
+    beanName: intelligentTa4jTrailingStopStrategy
+
+    configItems:
+      percentage-of-counter-currency-balance-to-use: 50
+      configured-emergency-stop-balance: 50
+
+      sell-stop-limit-percentage-below-break-even: 1.5
+      sell-stop-limit-percentage-above-break-even: 0.7
+      sell-stop-limit-percentage-minimum-above-break-even: 0.3
+
+      initial-percentage-gain-needed-to-place-buy-order: 0.5
+      lowest-price-lookback-count: 80
+      times-above-lowest-price-needed: 20
 
       show-live-chart: true
 
