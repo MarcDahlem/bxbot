@@ -6,7 +6,12 @@ import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.springframework.stereotype.Component;
+import org.ta4j.core.Indicator;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowestValueIndicator;
+import org.ta4j.core.indicators.helpers.TransformIndicator;
+import org.ta4j.core.num.Num;
+import org.ta4j.core.rules.OverIndicatorRule;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -17,16 +22,29 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     private BigDecimal buyFee;
     private BigDecimal sellFee;
+    private OverIndicatorRule buyRule;
 
     @Override
-    protected void botWillStartup() throws TradingApiException, ExchangeNetworkException {
+    protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
         buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
-        initTrailingStopRules();
+        initTrailingStopRules(config);
     }
 
-    private void initTrailingStopRules() {
-        
+    private void initTrailingStopRules(StrategyConfig config) {
+        BigDecimal configuredPercentageGainNeededToPlaceBuyOrder = StrategyConfigParser.readPercentageConfigValue(config, "initial-percentage-gain-needed-to-place-buy-order");
+        int configuredLowestPriceLookbackCount = StrategyConfigParser.readInteger(config, "lowest-price-lookback-count");
+        int configuredTimesAboveLowestPriceNeeded = StrategyConfigParser.readInteger(config, "times-above-lowest-price-needed");
+        if (configuredTimesAboveLowestPriceNeeded > configuredLowestPriceLookbackCount) {
+            throw new IllegalArgumentException("The amount for checking if the prices moved up must be lower or equal to the configured overall lookback");
+        }
+
+        HighPriceIndicator askPriceIndicator = new HighPriceIndicator(priceTracker.getSeries());
+        LowestValueIndicator buyLongIndicator = new LowestValueIndicator(askPriceIndicator, configuredLowestPriceLookbackCount);
+        LowestValueIndicator buyShortIndicator = new LowestValueIndicator(askPriceIndicator, configuredTimesAboveLowestPriceNeeded);
+        Indicator<Num> buyGainLine = TransformIndicator.multiply(buyLongIndicator, BigDecimal.ONE.add(configuredPercentageGainNeededToPlaceBuyOrder));
+
+        buyRule = new OverIndicatorRule(buyShortIndicator, buyGainLine);
     }
 
     @Override
@@ -52,8 +70,8 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     }
 
     @Override
-    protected boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException {
-        return false;
+    protected boolean marketMovedUp() {
+        return buyRule.isSatisfied(priceTracker.getSeries().getEndIndex());
     }
 
     @Override

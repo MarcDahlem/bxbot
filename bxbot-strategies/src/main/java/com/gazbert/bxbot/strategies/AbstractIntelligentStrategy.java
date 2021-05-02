@@ -53,7 +53,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         shouldPersistTickerData = StrategyConfigParser.readBoolean(config, "persist-ticker-data", false);
 
         try {
-            botWillStartup();
+            botWillStartup(config);
             initLiveChartIndicators();
         } catch (TradingApiException | ExchangeNetworkException e) {
             String errorMsg = "Failed to initialize the concrete strategy implementation on startup.";
@@ -192,7 +192,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         }, tradesObserver);
     }
 
-    protected abstract void botWillStartup() throws TradingApiException, ExchangeNetworkException;
+    protected abstract void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;
 
     protected abstract Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException;
 

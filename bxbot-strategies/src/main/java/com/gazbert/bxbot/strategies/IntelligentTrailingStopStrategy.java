@@ -95,7 +95,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected void botWillStartup() throws TradingApiException, ExchangeNetworkException {
+    protected void botWillStartup(StrategyConfig config) {
 
     }
 

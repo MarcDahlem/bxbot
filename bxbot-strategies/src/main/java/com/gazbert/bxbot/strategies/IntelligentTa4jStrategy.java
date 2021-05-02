@@ -46,15 +46,14 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     private MACDIndicator macd;
 
     @Override
-    protected void botWillStartup() throws TradingApiException, ExchangeNetworkException {
+    protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
+        buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
+        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
         initTa4jStrategy();
     }
 
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
-        buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
-        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
-
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
         HighPriceIndicator askPriceIndicator = new HighPriceIndicator(series);
