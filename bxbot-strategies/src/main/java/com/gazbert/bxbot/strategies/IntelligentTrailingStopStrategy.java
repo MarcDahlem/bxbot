@@ -38,7 +38,6 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
-import org.ta4j.core.indicators.helpers.DifferenceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 
@@ -57,7 +56,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     private static final BigDecimal oneHundred = new BigDecimal("100");
     private IntelligentLimitAdapter intelligentLimitAdapter;
 
-    protected boolean marketMovedUp() {
+    protected boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
         int currentLowestPriceLookbackCount = intelligentLimitAdapter.getCurrentLowestPriceLookbackCount();
         BigDecimal lowestAskPrice = calulateLowestAskPriceIn(currentLowestPriceLookbackCount);
@@ -174,7 +173,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
         return newPrice.subtract(priceToCompareAgainst).divide(priceToCompareAgainst, 10, RoundingMode.HALF_UP).multiply(oneHundred);
     }
 
-    private BigDecimal calulateLowestAskPriceIn(int ticks) {
+    private BigDecimal calulateLowestAskPriceIn(int ticks) throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         int currentEndIndex = series.getEndIndex();
         Num result = series.getBar(currentEndIndex).getHighPrice();
@@ -182,7 +181,13 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
         int spanStartIndex = currentEndIndex - ticks;
         int availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
-        for (int i = availableStartIndex; i <= currentEndIndex; i++) {
+        Integer lastRecordedSellIndex = stateTracker.getBreakEvenIndicator().getLastRecordedSellIndex();
+
+        int startIndexRegardingSells = availableStartIndex;
+        if (lastRecordedSellIndex != null) {
+            startIndexRegardingSells = Math.max(availableStartIndex, lastRecordedSellIndex);
+        }
+        for (int i = startIndexRegardingSells; i <= currentEndIndex; i++) {
             result = series.getBar(i).getHighPrice().min(result);
         }
         return (BigDecimal) result.getDelegate();

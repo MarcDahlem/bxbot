@@ -51,7 +51,7 @@ public class SellIndicator extends CachedIndicator<Num> {
             if (useBuyTime) {
                 return indicator.getValue(lastBuyIndex);
             } else {
-                return new HighestValueIndicator(indicator, index-lastBuyIndex).getValue(index);
+                return new HighestValueIndicator(indicator, index-lastBuyIndex+1).getValue(index);
             }
         }
         return NaN;
@@ -85,5 +85,12 @@ public class SellIndicator extends CachedIndicator<Num> {
         BigDecimal limitScaleFactor = BigDecimal.ONE.subtract(limitPercentageUnderCurrentBid);
         TransformIndicator sellLimitCalculator = TransformIndicator.multiply(bidPriceIndicator, limitScaleFactor);
         return new SellIndicator(sellLimitCalculator, tradeKnowingIndicator, false);
+    }
+
+    public Integer getLastRecordedSellIndex() {
+        if (sortedSellIndeces.isEmpty()) {
+            return null;
+        }
+        return sortedSellIndeces.last();
     }
 }
