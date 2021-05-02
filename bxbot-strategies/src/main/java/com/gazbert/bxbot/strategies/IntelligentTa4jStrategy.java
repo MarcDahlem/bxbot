@@ -176,19 +176,19 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     @Override
     protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
         boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
-        LOG.info(() -> {
-            Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
-            Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
-            return market.getName() +
-                    "\n######### MOVED DOWN? #########\n" +
-                    "* Current bid price: " + priceTracker.getFormattedBid() +
-                    "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
-                    "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
-                    "\n* Percentage EMA loss needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +
-                    "\n* Absolute EMA loss needed: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.minus(currentShortEma).getDelegate()) +
-                    "\n* Place a SELL order?: " + result +
-                    "\n###############################";
-        });
+        Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
+        Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
+        LOG.info(market.getName() +
+                "\n######### MOVED DOWN? #########\n" +
+                "* Current bid price: " + priceTracker.getFormattedBid() +
+                "\n Break even: " + priceTracker.formatWithCounterCurrency((BigDecimal) stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex()).getDelegate()) +
+                "\n market change (bid) to break even: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(priceTracker.getSeries().numOf(priceTracker.getBid()), stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex())).getDelegate()) +
+                "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
+                "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
+                "\n* Percentage EMA loss needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +
+                "\n* Absolute EMA loss needed: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.minus(currentShortEma).getDelegate()) +
+                "\n* Place a SELL order?: " + result +
+                "\n###############################");
         return result;
     }
 
