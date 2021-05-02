@@ -7,7 +7,6 @@ import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
@@ -85,7 +84,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected Collection<Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificChartIndicators() {
+    protected Collection<Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() {
         HashSet<Ta4j2Chart.ChartIndicatorConfig> result = new HashSet<>();
         result.add(new Ta4j2Chart.ChartIndicatorConfig(buyIndicatorShort, "buy short", new Color(74, 20, 140)));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(buyIndicatorLong, "buy long", new Color(156, 39, 176)));
@@ -194,19 +193,18 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected void botWillShutdown() throws TradingApiException, ExchangeNetworkException {
-        Collection<Ta4j2Chart.ChartIndicatorConfig> indicators = createStrategySpecificChartIndicators();
-
-        RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
-        indicators.addAll(recordedStrategy.createChartIndicators());
+    protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificOverviewChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        Collection<Ta4j2Chart.ChartIndicatorConfig> indicators = createStrategySpecificLiveChartIndicators();
 
         Ta4j2Chart.YAxisGroupConfig macdYAxisConfig = new Ta4j2Chart.YAxisGroupConfig("macd", 1, new Color(124, 77, 255, 64));
         indicators.add(new Ta4j2Chart.ChartIndicatorConfig(macd, "macd", new Color(103, 58, 183, 64), macdYAxisConfig));
 
         Ta4j2Chart.YAxisGroupConfig osciKYAxisConfig = new Ta4j2Chart.YAxisGroupConfig("osci k", 2, new Color(100, 255, 218, 128));
         indicators.add(new Ta4j2Chart.ChartIndicatorConfig(stochasticOscillaltorK, "stoch osci k", new Color(0, 150, 136, 64), osciKYAxisConfig));
+        return indicators;
+    }
 
-
-        Ta4j2Chart.printSeries(priceTracker.getSeries(), recordedStrategy, indicators);
+    @Override
+    protected void botWillShutdown() {
     }
 }

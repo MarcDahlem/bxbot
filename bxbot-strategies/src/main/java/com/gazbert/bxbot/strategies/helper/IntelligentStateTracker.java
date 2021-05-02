@@ -313,7 +313,7 @@ public class IntelligentStateTracker {
         return RecordedStrategy.createStrategyFromRecording(strategyName, getBreakEvenIndicator());
     }
 
-    private SellIndicator getBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
+    public SellIndicator getBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
         if (breakEvenIndicator == null) {
             BigDecimal buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
             BigDecimal sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());

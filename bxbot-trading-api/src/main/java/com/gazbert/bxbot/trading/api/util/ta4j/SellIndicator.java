@@ -5,6 +5,7 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.CachedIndicator;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 
@@ -19,18 +20,28 @@ public class SellIndicator extends CachedIndicator<Num> {
     private final TreeSet<Integer> sortedBuyIndeces = new TreeSet<>();
     private final TreeSet<Integer> sortedSellIndeces = new TreeSet<>();
     private final Indicator<Num> indicator;
+    private final SellIndicator tradeKnowingIndicator;
     private final boolean useBuyTime;
 
     protected SellIndicator(Indicator<Num> indicator, boolean useBuyTime) {
+        this(indicator, null, useBuyTime);
+    }
+
+    protected SellIndicator(Indicator<Num> indicator, SellIndicator tradeKnowingIndicator, boolean useBuyTime) {
         super(indicator);
         this.indicator = indicator;
+        if (tradeKnowingIndicator != null) {
+            this.tradeKnowingIndicator = tradeKnowingIndicator;
+        } else {
+            this.tradeKnowingIndicator  = this;
+        }
         this.useBuyTime = useBuyTime;
     }
 
     @Override
     protected Num calculate(int index) {
-        Integer lastBuyIndex = sortedBuyIndeces.floor(index);
-        Integer lastSellIndex = sortedSellIndeces.floor(index);
+        Integer lastBuyIndex = tradeKnowingIndicator.sortedBuyIndeces.floor(index);
+        Integer lastSellIndex = tradeKnowingIndicator.sortedSellIndeces.floor(index);
         if (lastBuyIndex == null) {
             return NaN;
         }
@@ -66,5 +77,12 @@ public class SellIndicator extends CachedIndicator<Num> {
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
         TransformIndicator breakEvenCalculator = TransformIndicator.divide(TransformIndicator.multiply(new HighPriceIndicator(series), buyFeeFactor), sellFeeFactor);
         return new SellIndicator(breakEvenCalculator, true);
+    }
+
+    public static SellIndicator createSellLimitIndicator(BarSeries series, BigDecimal limitPercentageUnderCurrentBid, SellIndicator tradeKnowingIndicator) {
+        LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
+        BigDecimal limitScaleFactor = BigDecimal.ONE.subtract(limitPercentageUnderCurrentBid);
+        TransformIndicator sellLimitCalculator = TransformIndicator.multiply(bidPriceIndicator, limitScaleFactor);
+        return new SellIndicator(sellLimitCalculator, tradeKnowingIndicator, false);
     }
 }

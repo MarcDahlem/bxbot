@@ -30,6 +30,7 @@ import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -92,8 +93,15 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificChartIndicators() {
-        return new HashSet<>();
+    protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        SellIndicator belowBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven(), stateTracker.getBreakEvenIndicator());
+        SellIndicator aboveBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven(), stateTracker.getBreakEvenIndicator());
+        SellIndicator minAboveBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentLimitAdapter.getCurrentSellStopLimitPercentageMinimumAboveBreakEven(), stateTracker.getBreakEvenIndicator());
+        HashSet<Ta4j2Chart.ChartIndicatorConfig> result = new HashSet<>();
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(aboveBreakEvenIndicator, "limit above BE"));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(minAboveBreakEvenIndicator, "limit min above BE"));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(belowBreakEvenIndicator, "limit below BE"));
+        return result;
     }
 
     @Override
@@ -167,5 +175,10 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
             result = series.getBar(i).getHighPrice().min(result);
         }
         return (BigDecimal) result.getDelegate();
+    }
+
+    @Override
+    protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificOverviewChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        return createStrategySpecificLiveChartIndicators();
     }
 }
