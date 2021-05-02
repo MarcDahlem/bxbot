@@ -38,9 +38,13 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowestValueIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 
+import java.awt.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
@@ -100,10 +104,16 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
         SellIndicator belowBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven(), stateTracker.getBreakEvenIndicator());
         SellIndicator aboveBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven(), stateTracker.getBreakEvenIndicator());
         Indicator<Num> minAboveBreakEvenIndicator = createMinAboveBreakEvenIndicator();
+        Indicator<Num> longBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentLimitAdapter.getCurrentLowestPriceLookbackCount() +1);
+        Indicator<Num> shortBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentLimitAdapter.getCurrentTimesAboveLowestPriceNeeded() +1);
+        Indicator<Num> gainLine = TransformIndicator.multiply(longBuyLowPrice, BigDecimal.ONE.add(intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy()));
         HashSet<Ta4j2Chart.ChartIndicatorConfig> result = new HashSet<>();
         result.add(new Ta4j2Chart.ChartIndicatorConfig(aboveBreakEvenIndicator, "limit above BE"));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(minAboveBreakEvenIndicator, "limit min above BE"));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(belowBreakEvenIndicator, "limit below BE"));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(longBuyLowPrice, "lowest (" + intelligentLimitAdapter.getCurrentLowestPriceLookbackCount() + ")", Color.MAGENTA));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(shortBuyLowPrice, "lowest (" + intelligentLimitAdapter.getCurrentTimesAboveLowestPriceNeeded() + ")", Color.GREEN));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(gainLine, "buy distance", Color.BLUE));
         return result;
     }
 
@@ -179,7 +189,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
         Num result = series.getBar(currentEndIndex).getHighPrice();
         int currentBeginIndex = series.getBeginIndex();
 
-        int spanStartIndex = currentEndIndex - ticks;
+        int spanStartIndex = currentEndIndex - ticks+1;
         int availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
         Integer lastRecordedSellIndex = stateTracker.getBreakEvenIndicator().getLastRecordedSellIndex();
 
