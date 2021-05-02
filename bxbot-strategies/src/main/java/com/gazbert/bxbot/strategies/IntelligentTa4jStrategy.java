@@ -98,7 +98,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         BigDecimal configuredSellStopLimitPercentageBelowBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-below-break-even");
         BigDecimal configuredSellStopLimitPercentageAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-above-break-even");
         BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-minimum-above-break-even");
-        return new IntelligentSellPriceCalculator(priceTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
+        return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
 
 
             @Override
@@ -109,16 +109,6 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
             @Override
             public BigDecimal getSellFee() throws TradingApiException, ExchangeNetworkException {
                 return sellFee;
-            }
-
-            @Override
-            public BigDecimal getCurrentBuyOrderPrice() {
-                return stateTracker.getCurrentBuyOrderPrice();
-            }
-
-            @Override
-            public BigDecimal getCurrentSellOrderPrice() {
-                return stateTracker.getCurrentSellOrderPrice();
             }
 
             @Override

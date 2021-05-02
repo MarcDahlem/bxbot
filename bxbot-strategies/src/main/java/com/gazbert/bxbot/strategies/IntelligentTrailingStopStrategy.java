@@ -126,7 +126,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) {
-        return new IntelligentSellPriceCalculator(priceTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
+        return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
             @Override
             public BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException {
                 return tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
@@ -135,16 +135,6 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
             @Override
             public BigDecimal getSellFee() throws TradingApiException, ExchangeNetworkException {
                 return tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
-            }
-
-            @Override
-            public BigDecimal getCurrentBuyOrderPrice() {
-                return stateTracker.getCurrentBuyOrderPrice();
-            }
-
-            @Override
-            public BigDecimal getCurrentSellOrderPrice() {
-                return stateTracker.getCurrentSellOrderPrice();
             }
 
             @Override

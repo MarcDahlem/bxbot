@@ -1,12 +1,15 @@
 package com.gazbert.bxbot.strategies;
 
+import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.HashSet;
 
@@ -30,12 +33,14 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
-        return null;
+        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
+        result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
+        return result;
     }
 
     @Override
     protected IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config) {
-        return null;
+        return new IntelligentTradeTracker();
     }
 
     @Override
@@ -50,7 +55,7 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     @Override
     protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificOverviewChartIndicators() throws TradingApiException, ExchangeNetworkException {
-        return null;
+        return new HashSet<>();
     }
 
     @Override
