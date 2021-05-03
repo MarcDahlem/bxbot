@@ -38,9 +38,11 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     private LowestValueIndicator buyLongIndicator;
     private LowestValueIndicator buyShortIndicator;
     private TransformIndicator buyGainLine;
+    private StrategyConfig config;
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
+        this.config = config;
         initTrailingStopRules(config);
     }
 
@@ -92,6 +94,10 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
         buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
+        return createSellPriceCalculator();
+    }
+
+    private IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator() {
         return new IntelligentStateTracker.OrderPriceCalculator() {
             @Override
             public BigDecimal calculate() throws TradingApiException, ExchangeNetworkException, StrategyException {
@@ -138,5 +144,19 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     @Override
     protected void botWillShutdown() throws TradingApiException, ExchangeNetworkException {
 
+    }
+
+    public void updateConfig(BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, int lookback, int lookingForUpMovement) throws TradingApiException, ExchangeNetworkException {
+        this.intelligentTrailingStopConfigParams = new IntelligentTrailingStopConfigParams(gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
+        priceTracker = new IntelligentPriceTracker(tradingApi, market, config);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
+        buyPriceCalculator = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25"));
+        sellPriceCalculator = createSellPriceCalculator();
+        tradesObserver = intelligentTrailingStopConfigParams;
+        initTrailingStopRules(config);
+    }
+
+    public IntelligentTrailingStopConfigParams getCurrentState() {
+        return this.intelligentTrailingStopConfigParams;
     }
 }

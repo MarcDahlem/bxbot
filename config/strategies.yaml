@@ -32,9 +32,7 @@ strategies:
       lowest-price-lookback-count: 80
       times-above-lowest-price-needed: 20
 
-      intelligent-limits-percentage-scale-factor: 0
-
-      show-live-chart: true
+      show-live-chart: false
 
       persist-ticker-data: false
   - id: intelligent-ta4j-strategy
@@ -79,5 +77,5 @@ strategies:
       intelligent-limits-percentage-scale-factor: 10
       lowest-price-lookback-count: 80
       times-above-lowest-price-needed: 20
-      show-live-chart: true
+      show-live-chart: false
       persist-ticker-data: false

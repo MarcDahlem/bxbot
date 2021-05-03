@@ -40,6 +40,7 @@ import com.gazbert.bxbot.services.config.EngineConfigService;
 import com.gazbert.bxbot.services.config.ExchangeConfigService;
 import com.gazbert.bxbot.services.config.MarketConfigService;
 import com.gazbert.bxbot.services.config.StrategyConfigService;
+import com.gazbert.bxbot.strategies.IntelligentTa4jTrailingStopStrategy;
 import com.gazbert.bxbot.strategies.IntelligentTrailingStopConfigParams;
 import com.gazbert.bxbot.strategies.IntelligentTrailingStopStrategy;
 import com.gazbert.bxbot.strategy.api.StrategyException;
@@ -188,7 +189,7 @@ public class TradingEngine {
                                             "lookback: " + lookback + ", " +
                                             "upLookback: " + lookingForUpMovement);
                                     init();
-                                    IntelligentTrailingStopStrategy strategy = (IntelligentTrailingStopStrategy) tradingStrategies.get(0);
+                                    IntelligentTa4jTrailingStopStrategy strategy = (IntelligentTa4jTrailingStopStrategy) tradingStrategies.get(0);
                                     strategy.updateConfig(gainNeeded, belowBE, aboveBE, minAboveBE, Math.toIntExact(lookback), Math.toIntExact(lookingForUpMovement));
                                     int maxIndex = ((TA4JRecordingAdapter) exchangeAdapter).getMaxIndex();
                                     for (int i = 0; i <= maxIndex; i++) {
