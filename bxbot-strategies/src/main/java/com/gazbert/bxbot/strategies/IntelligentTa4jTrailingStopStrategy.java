@@ -2,6 +2,7 @@ package com.gazbert.bxbot.strategies;
 
 import com.gazbert.bxbot.strategies.helper.*;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
+import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator;
@@ -29,6 +30,7 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     private OverIndicatorRule buyRule;
     private IntelligentTrailingStopConfigParams intelligentTrailingStopConfigParams;
     private UnderIndicatorRule sellRule;
+    private IntelligentTrailIndicator intelligentTrailIndicator;
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
@@ -55,7 +57,8 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
         Indicator<Num> minAboveBreakEvenIndicator = createMinAboveBreakEvenIndicator();
 
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(priceTracker.getSeries());
-        sellRule = new UnderIndicatorRule(bidPriceIndicator, new IntelligentTrailIndicator(belowBreakEvenIndicator, aboveBreakEvenIndicator, minAboveBreakEvenIndicator, stateTracker.getBreakEvenIndicator()));
+        intelligentTrailIndicator = new IntelligentTrailIndicator(belowBreakEvenIndicator, aboveBreakEvenIndicator, minAboveBreakEvenIndicator, stateTracker.getBreakEvenIndicator());
+        sellRule = new UnderIndicatorRule(bidPriceIndicator, intelligentTrailIndicator);
     }
 
     private Indicator<Num> createMinAboveBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
@@ -74,7 +77,17 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
         buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
-        return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new StaticSellPriceParams(buyFee, sellFee, config));
+        return new IntelligentStateTracker.OrderPriceCalculator() {
+            @Override
+            public BigDecimal calculate() throws TradingApiException, ExchangeNetworkException, StrategyException {
+                return (BigDecimal) intelligentTrailIndicator.getValue(priceTracker.getSeries().getEndIndex()).getDelegate();
+            }
+
+            @Override
+            public void logStatistics() throws TradingApiException, ExchangeNetworkException, StrategyException {
+
+            }
+        };
     }
 
     @Override
@@ -99,7 +112,7 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     @Override
     protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
-        return sellRule.isSatisfied(priceTracker.getSeries().getEndIndex());
+        return true;
     }
 
     @Override
