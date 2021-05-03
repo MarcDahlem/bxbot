@@ -11,42 +11,73 @@
 ---
 strategies:
 
-  # A unique identifier for the strategy. The markets.yaml tradingStrategyId entries reference this.
-  # Value must be an alphanumeric string. Underscores and dashes are also permitted. E.g. my-macd-strat-1
   - id: intelligent-trailing-stop-strategy
 
-    # A friendly name for the strategy.
-    # Value must be an alphanumeric string. Spaces are allowed. E.g. My Super MACD Strat
     name: Intelligent Trailing Stop Strategy
 
-    # The description value is optional.
     description: >
       Trails a stop order and changes the limits dynamically/intelligently according to the last order (positive --> higher limit, negative --> lower limit)
 
-    # For the className value, you must specify the fully qualified name of your Strategy class for the
-    # Trading Engine to load and execute. This class must be on the runtime classpath.
-    # If you set this value to load your strategy, you cannot set the beanName value.
-    #className: com.gazbert.bxbot.strategies.IntelligentTrailingStopStrategy
-
-    # For the beanName value, you must specify the Spring bean name of you Strategy component class
-    # for the Trading Engine to load and execute.
-    # You will also need to annotate your strategy class with `@Component("exampleScalpingStrategy")` -
-    # take a look at ExampleScalpingStrategy.java. This results in Spring injecting the bean.
-    # (see https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/stereotype/Component.html)
-    # If you set this value to load your strategy, you cannot set the className value.
     beanName: intelligentTrailingStopStrategy
 
-    # The configItems section is optional and allows you to set custom key/value pair config items. This config
-    # is passed to your Trading Strategy when the bot starts up.
     configItems:
       percentage-of-counter-currency-balance-to-use: 50
       configured-emergency-stop-balance: 50
+
+      sell-stop-limit-percentage-below-break-even: 1.5
+      sell-stop-limit-percentage-above-break-even: 0.7
+      sell-stop-limit-percentage-minimum-above-break-even: 0.3
+
       initial-percentage-gain-needed-to-place-buy-order: 0.5
-      sell-stop-limit-percentage-below-break-even: 0.5
-      sell-stop-limit-percentage-above-break-even: 1
-      sell-stop-limit-percentage-minimum-above-break-even: 0.2
+      lowest-price-lookback-count: 80
+      times-above-lowest-price-needed: 20
+
+      intelligent-limits-percentage-scale-factor: 0
+
+      show-live-chart: true
+
+      persist-ticker-data: false
+  - id: intelligent-ta4j-strategy
+
+    name: Intelligent TA4J Strategy
+
+    description: >
+      Uses ta4j for entering and leaving the market
+
+    beanName: intelligentTa4jStrategy
+
+    configItems:
+      percentage-of-counter-currency-balance-to-use: 50
+      configured-emergency-stop-balance: 50
+
+      sell-stop-limit-percentage-below-break-even: 0
+      sell-stop-limit-percentage-above-break-even: 0
+      sell-stop-limit-percentage-minimum-above-break-even: 0
+
+      show-live-chart: true
+
+      persist-ticker-data: false
+  - id: intelligent-ta4j-trailing-stop-strategy
+
+    name: Intelligent Trailing Stop Strategy (Ta4j Version)
+
+    description: >
+      Trails a stop order and changes the limits dynamically/intelligently according to the last order (positive --> higher limit, negative --> lower limit).
+      Uses Ta4j for the computations
+
+    beanName: intelligentTa4jTrailingStopStrategy
+
+    configItems:
+      percentage-of-counter-currency-balance-to-use: 50
+      configured-emergency-stop-balance: 50
+
+      sell-stop-limit-percentage-below-break-even: 1.5
+      sell-stop-limit-percentage-above-break-even: 0.7
+      sell-stop-limit-percentage-minimum-above-break-even: 0.3
+
+      initial-percentage-gain-needed-to-place-buy-order: 0.5
       intelligent-limits-percentage-scale-factor: 10
       lowest-price-lookback-count: 80
       times-above-lowest-price-needed: 20
-      debug-mode-enabled: false
-
+      show-live-chart: true
+      persist-ticker-data: false

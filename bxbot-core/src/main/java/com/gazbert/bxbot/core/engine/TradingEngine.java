@@ -40,7 +40,7 @@ import com.gazbert.bxbot.services.config.EngineConfigService;
 import com.gazbert.bxbot.services.config.ExchangeConfigService;
 import com.gazbert.bxbot.services.config.MarketConfigService;
 import com.gazbert.bxbot.services.config.StrategyConfigService;
-import com.gazbert.bxbot.strategies.IntelligentLimitAdapter;
+import com.gazbert.bxbot.strategies.IntelligentTrailingStopConfigParams;
 import com.gazbert.bxbot.strategies.IntelligentTrailingStopStrategy;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -170,52 +170,47 @@ public class TradingEngine {
         double lookbackStepPercentage = 1.25;
         double lookbackMoveUpPercentage = 1.1;
         int maxLookback = 500;
-        int maxScaleFactor = 0;
 
-        List<IntelligentLimitAdapter> results = new LinkedList<>();
-        IntelligentLimitAdapter bestResult = null;
+        List<IntelligentTrailingStopConfigParams> results = new LinkedList<>();
+        IntelligentTrailingStopConfigParams bestResult = null;
         try {
-            for (int scaleFactor = 0; scaleFactor <= maxScaleFactor; scaleFactor++) {
-
-                for (BigDecimal aboveBE = new BigDecimal("0.2").multiply(step.pow(6)); aboveBE.compareTo(end) <= 0; aboveBE = aboveBE.multiply(step)) {
-                    for (BigDecimal minAboveBE = new BigDecimal("0.1"); minAboveBE.compareTo(aboveBE) <= 0; minAboveBE = minAboveBE.multiply(step)) {
-                        for (BigDecimal belowBE = new BigDecimal("0.2"); belowBE.compareTo(end) <= 0; belowBE = belowBE.multiply(step)) {
-                            for (BigDecimal gainNeeded = new BigDecimal("0.2"); gainNeeded.compareTo(end) <= 0; gainNeeded = gainNeeded.multiply(step)) {
-                                for (long lookback = 2; lookback <= maxLookback; lookback = Math.round(Math.ceil(lookback * lookbackStepPercentage))) {
-                                    for (long lookingForUpMovement = 1; lookingForUpMovement < lookback; lookingForUpMovement = Math.round(Math.ceil(lookingForUpMovement * lookbackMoveUpPercentage))) {
-                                        LOG.warn("New round started:\n" +
-                                                "scaleFactor: " + scaleFactor + ", " +
-                                                "gainNeeded: " + DECIMAL_FORMAT.format(gainNeeded) + ", " +
-                                                "belowBE: " + DECIMAL_FORMAT.format(belowBE) + ", " +
-                                                "aboveBE: " + DECIMAL_FORMAT.format(aboveBE) + ", " +
-                                                "minAboveBE: " + DECIMAL_FORMAT.format(minAboveBE) + ", " +
-                                                "lookback: " + lookback + ", " +
-                                                "upLookback: " + lookingForUpMovement);
-                                        init();
-                                        IntelligentTrailingStopStrategy strategy = (IntelligentTrailingStopStrategy) tradingStrategies.get(0);
-                                        strategy.updateConfig(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, Math.toIntExact(lookback), Math.toIntExact(lookingForUpMovement));
-                                        int maxIndex = ((TA4JRecordingAdapter) exchangeAdapter).getMaxIndex();
-                                        for (int i = 0; i <= maxIndex; i++) {
-                                            strategy.execute();
-                                        }
-                                        IntelligentLimitAdapter currentState = strategy.getCurrentState();
-                                        results.add(currentState);
-                                        if (bestResult == null) {
+            for (BigDecimal aboveBE = new BigDecimal("0.2").multiply(step.pow(6)); aboveBE.compareTo(end) <= 0; aboveBE = aboveBE.multiply(step)) {
+                for (BigDecimal minAboveBE = new BigDecimal("0.1"); minAboveBE.compareTo(aboveBE) <= 0; minAboveBE = minAboveBE.multiply(step)) {
+                    for (BigDecimal belowBE = new BigDecimal("0.2"); belowBE.compareTo(end) <= 0; belowBE = belowBE.multiply(step)) {
+                        for (BigDecimal gainNeeded = new BigDecimal("0.2"); gainNeeded.compareTo(end) <= 0; gainNeeded = gainNeeded.multiply(step)) {
+                            for (long lookback = 2; lookback <= maxLookback; lookback = Math.round(Math.ceil(lookback * lookbackStepPercentage))) {
+                                for (long lookingForUpMovement = 1; lookingForUpMovement < lookback; lookingForUpMovement = Math.round(Math.ceil(lookingForUpMovement * lookbackMoveUpPercentage))) {
+                                    LOG.warn("New round started:\n" +
+                                            "gainNeeded: " + DECIMAL_FORMAT.format(gainNeeded) + ", " +
+                                            "belowBE: " + DECIMAL_FORMAT.format(belowBE) + ", " +
+                                            "aboveBE: " + DECIMAL_FORMAT.format(aboveBE) + ", " +
+                                            "minAboveBE: " + DECIMAL_FORMAT.format(minAboveBE) + ", " +
+                                            "lookback: " + lookback + ", " +
+                                            "upLookback: " + lookingForUpMovement);
+                                    init();
+                                    IntelligentTrailingStopStrategy strategy = (IntelligentTrailingStopStrategy) tradingStrategies.get(0);
+                                    strategy.updateConfig(gainNeeded, belowBE, aboveBE, minAboveBE, Math.toIntExact(lookback), Math.toIntExact(lookingForUpMovement));
+                                    int maxIndex = ((TA4JRecordingAdapter) exchangeAdapter).getMaxIndex();
+                                    for (int i = 0; i <= maxIndex; i++) {
+                                        strategy.execute();
+                                    }
+                                    IntelligentTrailingStopConfigParams currentState = strategy.getCurrentState();
+                                    results.add(currentState);
+                                    if (bestResult == null) {
+                                        bestResult = currentState;
+                                    } else {
+                                        if (currentState.getOverallStrategyGain().compareTo(bestResult.getOverallStrategyGain()) > 0) {
                                             bestResult = currentState;
+                                            LOG.warn("\n%%%%%%%%%%%%%%% New Best Result %%%%%%%%%%%%%%%\n" +
+                                                    bestResult.calculateCurrentStatistics() +
+                                                    "\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
                                         } else {
-                                            if (currentState.getOverallStrategyGain().compareTo(bestResult.getOverallStrategyGain()) > 0) {
-                                                bestResult = currentState;
-                                                LOG.warn("\n%%%%%%%%%%%%%%% New Best Result %%%%%%%%%%%%%%%\n" +
+                                            if (currentState.getOverallStrategyGain().compareTo(bestResult.getOverallStrategyGain()) == 0) {
+                                                LOG.warn("\n%%%%%%%%%%%%%%% Conflicting Best Result %%%%%%%%%%%%%%%\n" +
                                                         bestResult.calculateCurrentStatistics() +
+                                                        "\n---------------------------------------------------\n" +
+                                                        currentState.calculateCurrentStatistics() +
                                                         "\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
-                                            } else {
-                                                if (currentState.getOverallStrategyGain().compareTo(bestResult.getOverallStrategyGain()) == 0) {
-                                                    LOG.warn("\n%%%%%%%%%%%%%%% Conflicting Best Result %%%%%%%%%%%%%%%\n" +
-                                                            bestResult.calculateCurrentStatistics() +
-                                                            "\n---------------------------------------------------\n" +
-                                                            currentState.calculateCurrentStatistics() +
-                                                            "\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
-                                                }
                                             }
                                         }
                                     }
@@ -226,44 +221,44 @@ public class TradingEngine {
                 }
             }
         } finally {
-            if(bestResult != null) {
+            if (bestResult != null) {
                 LOG.warn("\n%%%%%%%%%%%%%%% Overall Best Result %%%%%%%%%%%%%%%\n" +
                         bestResult.calculateCurrentStatistics() +
                         "\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
-                storeResults(results, maxLookback, maxScaleFactor, end);
+                storeResults(results, maxLookback, end);
             } else {
                 LOG.error("No best result. Did the benchmark process even start?!");
             }
         }
     }
 
-    private void storeResults(List<IntelligentLimitAdapter> results, int maxLookback, int maxScaleFactor, BigDecimal end) {
+    private void storeResults(List<IntelligentTrailingStopConfigParams> results, int maxLookback, BigDecimal end) {
 
         long timestamp = System.currentTimeMillis();
-        String suffix = timestamp + "_maxlookback_" + maxLookback + "_maxscale_" + maxScaleFactor + "_maxEnd_" + end.doubleValue();
+        String suffix = timestamp + "_maxlookback_" + maxLookback + "_maxscale_" + "_maxEnd_" + end.doubleValue();
         store(results, suffix);
 
-        Comparator<IntelligentLimitAdapter> gainComparer = Comparator.comparing(IntelligentLimitAdapter::getOverallStrategyGain);
-        Comparator<IntelligentLimitAdapter> postiveGainComparer = Comparator.comparing(IntelligentLimitAdapter::getOverallPositiveGain);
-        Comparator<IntelligentLimitAdapter> negativeLossesComparer = Comparator.comparing(IntelligentLimitAdapter::getOverallNegativeLosses);
-        Comparator<IntelligentLimitAdapter> amountOfTradesComparer = Comparator.comparing(IntelligentLimitAdapter::getAmountOfTrades);
-        Comparator<IntelligentLimitAdapter> amountOfPositiveTradesComparer = Comparator.comparing(IntelligentLimitAdapter::getAmountOfPositiveTrades);
-        Comparator<IntelligentLimitAdapter> amountOfNegativeTradesComparer = Comparator.comparing(IntelligentLimitAdapter::getAmountOfNegativeTrades);
-        Map<Comparator<IntelligentLimitAdapter>, String> comperators = new HashMap<>();
+        Comparator<IntelligentTrailingStopConfigParams> gainComparer = Comparator.comparing(IntelligentTrailingStopConfigParams::getOverallStrategyGain);
+        Comparator<IntelligentTrailingStopConfigParams> postiveGainComparer = Comparator.comparing(IntelligentTrailingStopConfigParams::getOverallPositiveGain);
+        Comparator<IntelligentTrailingStopConfigParams> negativeLossesComparer = Comparator.comparing(IntelligentTrailingStopConfigParams::getOverallNegativeLosses);
+        Comparator<IntelligentTrailingStopConfigParams> amountOfTradesComparer = Comparator.comparing(IntelligentTrailingStopConfigParams::getAmountOfTrades);
+        Comparator<IntelligentTrailingStopConfigParams> amountOfPositiveTradesComparer = Comparator.comparing(IntelligentTrailingStopConfigParams::getAmountOfPositiveTrades);
+        Comparator<IntelligentTrailingStopConfigParams> amountOfNegativeTradesComparer = Comparator.comparing(IntelligentTrailingStopConfigParams::getAmountOfNegativeTrades);
+        Map<Comparator<IntelligentTrailingStopConfigParams>, String> comperators = new HashMap<>();
         comperators.put(gainComparer, "_overallGain");
         comperators.put(postiveGainComparer, "_postitiveGain");
         comperators.put(negativeLossesComparer, "_negativeLosses");
         comperators.put(amountOfTradesComparer, "_overallTrades");
         comperators.put(amountOfPositiveTradesComparer, "_postiveTrades");
         comperators.put(amountOfNegativeTradesComparer, "_negativeTrades");
-        for (Map.Entry<Comparator<IntelligentLimitAdapter>, String> entry : comperators.entrySet()) {
+        for (Map.Entry<Comparator<IntelligentTrailingStopConfigParams>, String> entry : comperators.entrySet()) {
             results.sort(entry.getKey());
             store(results, suffix + entry.getValue());
         }
 
     }
 
-    private void store(List<IntelligentLimitAdapter> results, String suffix) {
+    private void store(List<IntelligentTrailingStopConfigParams> results, String suffix) {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         FileWriter writer = null;
         try {

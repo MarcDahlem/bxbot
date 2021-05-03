@@ -27,16 +27,24 @@ import com.gazbert.bxbot.strategies.helper.*;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.BuyAndSellSignalsToChart;
+import com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
+import org.ta4j.core.Indicator;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowestValueIndicator;
+import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 
+import java.awt.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.util.Collection;
 import java.util.HashSet;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
@@ -46,14 +54,14 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.########");
     private static final BigDecimal oneHundred = new BigDecimal("100");
+    private IntelligentTrailingStopConfigParams intelligentTrailingStopConfigParams;
+    private StrategyConfig config;
 
-    private IntelligentLimitAdapter intelligentLimitAdapter;
-
-    protected boolean marketMovedUp() {
-        BigDecimal currentPercentageGainNeededForBuy = intelligentLimitAdapter.getCurrentPercentageGainNeededForBuy();
-        int currentLowestPriceLookbackCount = intelligentLimitAdapter.getCurrentLowestPriceLookbackCount();
+    protected boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException {
+        BigDecimal currentPercentageGainNeededForBuy = intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy();
+        int currentLowestPriceLookbackCount = intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount();
         BigDecimal lowestAskPrice = calulateLowestAskPriceIn(currentLowestPriceLookbackCount);
-        int currentTimesAboveLowestPriceNeeded = intelligentLimitAdapter.getCurrentTimesAboveLowestPriceNeeded();
+        int currentTimesAboveLowestPriceNeeded = intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded();
         BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(currentTimesAboveLowestPriceNeeded);
         BigDecimal amountToMoveUp = lowestAskPrice.multiply(currentPercentageGainNeededForBuy);
         BigDecimal goalToReach = lowestAskPrice.add(amountToMoveUp);
@@ -81,7 +89,37 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected void onClose() {
+    protected void botWillShutdown() {
+    }
+
+    @Override
+    protected void botWillStartup(StrategyConfig config) {
+        this.config = config;
+    }
+
+    @Override
+    protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        SellIndicator belowBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageBelowBreakEven(), stateTracker.getBreakEvenIndicator());
+        SellIndicator aboveBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageAboveBreakEven(), stateTracker.getBreakEvenIndicator());
+        Indicator<Num> minAboveBreakEvenIndicator = createMinAboveBreakEvenIndicator();
+        Indicator<Num> longBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() +1);
+        Indicator<Num> shortBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() +1);
+        Indicator<Num> gainLine = TransformIndicator.multiply(longBuyLowPrice, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
+        HashSet<Ta4j2Chart.ChartIndicatorConfig> result = new HashSet<>();
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(aboveBreakEvenIndicator, "limit above BE"));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(minAboveBreakEvenIndicator, "limit min above BE"));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(belowBreakEvenIndicator, "limit below BE"));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(longBuyLowPrice, "lowest (" + intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() + ")", Color.MAGENTA));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(shortBuyLowPrice, "lowest (" + intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() + ")", Color.GREEN));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(gainLine, "buy distance", Color.BLUE));
+        return result;
+    }
+
+    private Indicator<Num> createMinAboveBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
+        SellIndicator limitIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven(), stateTracker.getBreakEvenIndicator());
+        BigDecimal minimumAboveBreakEvenAsFactor = BigDecimal.ONE.subtract(intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven());
+        TransformIndicator minimalDistanceNeededToBreakEven = TransformIndicator.divide(stateTracker.getBreakEvenIndicator(), minimumAboveBreakEvenAsFactor);
+        return CombineIndicator.min(limitIndicator, minimalDistanceNeededToBreakEven);
     }
 
     @Override
@@ -90,7 +128,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     private IntelligentSellPriceCalculator createIntelligentSellPriceCalculator() {
-        return new IntelligentSellPriceCalculator(priceTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
+        return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
             @Override
             public BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException {
                 return tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
@@ -102,28 +140,18 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
             }
 
             @Override
-            public BigDecimal getCurrentBuyOrderPrice() {
-                return stateTracker.getCurrentBuyOrderPrice();
-            }
-
-            @Override
-            public BigDecimal getCurrentSellOrderPrice() {
-                return stateTracker.getCurrentSellOrderPrice();
-            }
-
-            @Override
             public BigDecimal getCurrentSellStopLimitPercentageBelowBreakEven() {
-                return intelligentLimitAdapter.getCurrentSellStopLimitPercentageBelowBreakEven();
+                return intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageBelowBreakEven();
             }
 
             @Override
             public BigDecimal getCurrentSellStopLimitPercentageAboveBreakEven() {
-                return intelligentLimitAdapter.getCurrentSellStopLimitPercentageAboveBreakEven();
+                return intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageAboveBreakEven();
             }
 
             @Override
             public BigDecimal getCurrentSellStopLimitPercentageMinimumAboveBreakEven() {
-                return intelligentLimitAdapter.getCurrentSellStopLimitPercentageMinimumAboveBreakEven();
+                return intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven();
             }
         });
     }
@@ -136,41 +164,53 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected IntelligentLimitAdapter createTradesObserver(StrategyConfig config) {
-        if (intelligentLimitAdapter == null) {
-            intelligentLimitAdapter = new IntelligentLimitAdapter(config);
+    protected IntelligentTrailingStopConfigParams createTradesObserver(StrategyConfig config) {
+        if (intelligentTrailingStopConfigParams == null) {
+            intelligentTrailingStopConfigParams = new IntelligentTrailingStopConfigParams(config);
         }
-        return intelligentLimitAdapter;
+        return intelligentTrailingStopConfigParams;
     }
 
     private BigDecimal getPercentageChange(BigDecimal newPrice, BigDecimal priceToCompareAgainst) {
         return newPrice.subtract(priceToCompareAgainst).divide(priceToCompareAgainst, 10, RoundingMode.HALF_UP).multiply(oneHundred);
     }
 
-    private BigDecimal calulateLowestAskPriceIn(int ticks) {
+    private BigDecimal calulateLowestAskPriceIn(int ticks) throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         int currentEndIndex = series.getEndIndex();
         Num result = series.getBar(currentEndIndex).getHighPrice();
         int currentBeginIndex = series.getBeginIndex();
 
-        int spanStartIndex = currentEndIndex - ticks;
+        int spanStartIndex = currentEndIndex - ticks+1;
         int availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
-        for (int i = availableStartIndex; i <= currentEndIndex; i++) {
+
+        Integer lastRecordedSellIndex = stateTracker.getBreakEvenIndicator().getLastRecordedSellIndex();
+
+        int startIndexRegardingSells = availableStartIndex;
+        if (lastRecordedSellIndex != null) {
+            startIndexRegardingSells = Math.max(availableStartIndex, lastRecordedSellIndex);
+        }
+        for (int i = startIndexRegardingSells; i <= currentEndIndex; i++) {
             result = series.getBar(i).getHighPrice().min(result);
         }
         return (BigDecimal) result.getDelegate();
     }
 
-    public void updateConfig(int scaleFactor, BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, int lookback, int lookingForUpMovement) {
-        this.intelligentLimitAdapter = new IntelligentLimitAdapter(scaleFactor, gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
-        priceTracker = new IntelligentPriceTracker(tradingApi, market);
+    public void updateConfig(BigDecimal gainNeeded, BigDecimal belowBE, BigDecimal aboveBE, BigDecimal minAboveBE, int lookback, int lookingForUpMovement) {
+        this.intelligentTrailingStopConfigParams = new IntelligentTrailingStopConfigParams(gainNeeded, belowBE, aboveBE, minAboveBE, lookback, lookingForUpMovement);
+        priceTracker = new IntelligentPriceTracker(tradingApi, market, config);
         stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
         buyPriceCalculator = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25"));
         sellPriceCalculator = createIntelligentSellPriceCalculator();
-        tradesObserver = intelligentLimitAdapter;
+        tradesObserver = intelligentTrailingStopConfigParams;
     }
 
-    public IntelligentLimitAdapter getCurrentState() {
-        return this.intelligentLimitAdapter;
+    public IntelligentTrailingStopConfigParams getCurrentState() {
+        return this.intelligentTrailingStopConfigParams;
+    }
+
+    @Override
+    protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificOverviewChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        return createStrategySpecificLiveChartIndicators();
     }
 }

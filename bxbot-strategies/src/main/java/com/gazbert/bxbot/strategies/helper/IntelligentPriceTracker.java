@@ -1,21 +1,25 @@
 package com.gazbert.bxbot.strategies.helper;
 
-import com.gazbert.bxbot.strategy.api.StrategyException;
+import com.gazbert.bxbot.strategies.StrategyConfigParser;
+import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.*;
-import com.google.common.base.Predicates;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBarSeries;
 import org.ta4j.core.BaseBarSeriesBuilder;
+import org.ta4j.core.Indicator;
+import org.ta4j.core.num.Num;
 
-import javax.xml.datatype.Duration;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 public class IntelligentPriceTracker {
@@ -24,15 +28,22 @@ public class IntelligentPriceTracker {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.########");
 
+    private static final int MAX_AMOUNT_LIVECHART_BARS = 500;
+
     private final TradingApi tradingApi;
     private final Market market;
     private final BarSeries series;
     private final Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
+    private final boolean shouldShowLiveChart;
 
-    public IntelligentPriceTracker(TradingApi tradingApi, Market market) {
+    private String liveGraphID;
+    private final Collection<Ta4j2Chart.ChartIndicatorConfig> registeredLiveChartIndicatorConfigs = new HashSet<>();
+
+    public IntelligentPriceTracker(TradingApi tradingApi, Market market, StrategyConfig config) {
         this.tradingApi = tradingApi;
         this.market = market;
         this.series = new BaseBarSeriesBuilder().withName(market.getName() + "_" + System.currentTimeMillis()).build();
+        this.shouldShowLiveChart = StrategyConfigParser.readBoolean(config, "show-live-chart", false);
     }
 
 
@@ -46,8 +57,11 @@ public class IntelligentPriceTracker {
         } else {
             tickerTimestamp = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestampInTicker), ZoneId.systemDefault());
         }
-        series.addBar(tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast());
+        series.addBar(Duration.ZERO, tickerTimestamp, currentTicker.getLast(), currentTicker.getAsk(), currentTicker.getBid(), currentTicker.getLast(), BigDecimal.ZERO);
+        this.updateLiveGraph();
     }
+
+
 
     public BigDecimal getAsk() {
         return (BigDecimal) series.getLastBar().getHighPrice().getDelegate();
@@ -133,5 +147,23 @@ public class IntelligentPriceTracker {
 
     public BarSeries getSeries() {
         return series;
+    }
+
+    public void addLivechartIndicatorConfig(Ta4j2Chart.ChartIndicatorConfig indicatorConfig) {
+        this.registeredLiveChartIndicatorConfigs.add(indicatorConfig);
+    }
+
+    private void updateLiveGraph() {
+        if (shouldShowLiveChart) {
+            if (liveGraphID == null) {
+                liveGraphID = Ta4j2Chart.createLiveChart(getSeries(), getLivechartIndicatorConfigs(), MAX_AMOUNT_LIVECHART_BARS);
+            } else {
+                Ta4j2Chart.updateLiveChart(liveGraphID);
+            }
+        }
+    }
+
+    private Collection<Ta4j2Chart.ChartIndicatorConfig> getLivechartIndicatorConfigs() {
+        return new HashSet<>(this.registeredLiveChartIndicatorConfigs);
     }
 }

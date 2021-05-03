@@ -10,8 +10,13 @@ import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.TradingApi;
 import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
+import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.Collection;
 
 public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     protected static final Logger LOG = LogManager.getLogger();
@@ -23,6 +28,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     protected IntelligentStateTracker.OrderPriceCalculator buyPriceCalculator;
     protected IntelligentStateTracker.OrderPriceCalculator sellPriceCalculator;
     protected IntelligentStateTracker.OnTradeSuccessfullyClosedListener tradesObserver;
+    private boolean shouldPersistTickerData;
 
     /**
      * Initialises the Trading Strategy. Called once by the Trading Engine when the bot starts up;
@@ -35,17 +41,37 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
      *                   strategies.yaml file.
      */
     @Override
-    public void init(TradingApi tradingApi, Market market, StrategyConfig config) {
+    public final void init(TradingApi tradingApi, Market market, StrategyConfig config) {
         LOG.info(() -> "Initialising Trading Strategy...");
         this.market = market;
         this.tradingApi = tradingApi;
-        priceTracker = new IntelligentPriceTracker(tradingApi, market);
+
+        priceTracker = new IntelligentPriceTracker(tradingApi, market, config);
         stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
-        buyPriceCalculator = createBuyPriceCalculator(config);
-        sellPriceCalculator = createSellPriceCalculator(config);
-        tradesObserver = createTradesObserver(config);
+        shouldPersistTickerData = StrategyConfigParser.readBoolean(config, "persist-ticker-data", false);
+
+        try {
+            buyPriceCalculator = createBuyPriceCalculator(config);
+            sellPriceCalculator = createSellPriceCalculator(config);
+            tradesObserver = createTradesObserver(config);
+            botWillStartup(config);
+            initLiveChartIndicators();
+        } catch (TradingApiException | ExchangeNetworkException e) {
+            String errorMsg = "Failed to initialize the concrete strategy implementation on startup.";
+            LOG.error(() -> errorMsg);
+            throw new IllegalStateException(errorMsg, e);
+        }
 
         LOG.info(() -> "Trading Strategy initialised successfully!");
+    }
+
+    private void initLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
+        Collection<Ta4j2Chart.ChartIndicatorConfig> indicatorConfigs = recordedStrategy.createChartIndicators();
+        indicatorConfigs.addAll(createStrategySpecificLiveChartIndicators());
+        for (Ta4j2Chart.ChartIndicatorConfig config : indicatorConfigs) {
+            priceTracker.addLivechartIndicatorConfig(config);
+        }
     }
 
     /**
@@ -85,11 +111,15 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         } catch (TradingApiException | ExchangeNetworkException | StrategyException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
             // shutdown the bot.
-            // TODO reanable JsonBarsSerializer.persistSeries(series, market.getId() + System.currentTimeMillis() + ".json");
+            if (shouldPersistTickerData) {
+                JsonBarsSerializer.persistSeries(priceTracker.getSeries(), market.getId() + System.currentTimeMillis() + ".json");
+            }
             try {
-                onClose();
-            } catch (TradingApiException | ExchangeNetworkException tradingApiException) {
-                tradingApiException.printStackTrace();
+                showOverviewCharts();
+                botWillShutdown();
+            } catch (TradingApiException | ExchangeNetworkException e1) {
+                String errorMsg = "Failed to shutdown the concrete strategy implementation.";
+                LOG.error(() -> errorMsg, e1);
             }
             LOG.error(
                     market.getName()
@@ -100,13 +130,19 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         }
     }
 
-    protected abstract void onClose() throws TradingApiException, ExchangeNetworkException;
+    protected void showOverviewCharts() throws TradingApiException, ExchangeNetworkException {
+        RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
+        Collection<Ta4j2Chart.ChartIndicatorConfig> indicatorConfigs = recordedStrategy.createChartIndicators();
+        indicatorConfigs.addAll(createStrategySpecificOverviewChartIndicators());
+
+        Ta4j2Chart.printSeries(priceTracker.getSeries(), recordedStrategy, indicatorConfigs);
+    }
 
     private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
-        buyPriceCalculator.logStatistics();
         if (marketMovedUp()) {
             LOG.info(() -> market.getName() + " BUY phase - The market moved up. Place a BUY order on the exchange -->");
+            buyPriceCalculator.logStatistics();
             stateTracker.placeBuyOrder(buyPriceCalculator);
         } else {
             LOG.info(() -> market.getName() + " BUY phase - The market gain needed to place a BUY order was not reached. Wait for the next trading strategy tick.");
@@ -157,12 +193,21 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         }, tradesObserver);
     }
 
-    protected abstract IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config);
+    protected abstract void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;
+
+    protected abstract Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException;
+
+    protected abstract IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;
 
     protected abstract IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config);
 
     protected abstract IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config);
 
     protected abstract boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException;
+
     protected abstract boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException;
+
+    protected abstract Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificOverviewChartIndicators() throws TradingApiException, ExchangeNetworkException;
+
+    protected abstract void botWillShutdown() throws TradingApiException, ExchangeNetworkException;
 }

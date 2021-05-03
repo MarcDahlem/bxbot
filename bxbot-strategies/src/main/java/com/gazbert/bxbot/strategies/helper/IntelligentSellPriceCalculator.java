@@ -1,5 +1,6 @@
 package com.gazbert.bxbot.strategies.helper;
 
+import com.gazbert.bxbot.strategies.IntelligentTradeTracker;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
@@ -16,10 +17,12 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
     private final IntelligentPriceTracker priceTracker;
+    private final IntelligentStateTracker stateTracker;
     private final IntelligentSellPriceParameters params;
 
-    public IntelligentSellPriceCalculator(IntelligentPriceTracker priceTracker, IntelligentSellPriceParameters params) {
+    public IntelligentSellPriceCalculator(IntelligentPriceTracker priceTracker, IntelligentStateTracker stateTracker, IntelligentSellPriceParameters params) {
         this.priceTracker = priceTracker;
+        this.stateTracker = stateTracker;
         this.params = params;
     }
 
@@ -47,7 +50,7 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
         BigDecimal buyFees = BigDecimal.ONE.add(params.getBuyFee());
         BigDecimal sellFees = BigDecimal.ONE.subtract(params.getSellFee());
 
-        BigDecimal totalBuy = params.getCurrentBuyOrderPrice().multiply(buyFees);
+        BigDecimal totalBuy = stateTracker.getCurrentBuyOrderPrice().multiply(buyFees);
         BigDecimal estimatedBreakEven = totalBuy.divide(sellFees, 8, RoundingMode.HALF_UP);
         return estimatedBreakEven;
     }
@@ -78,13 +81,13 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
 
     public void logStatistics() throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentMarketBidPrice = priceTracker.getBid();
-        BigDecimal currentSellOrderPrice = params.getCurrentSellOrderPrice();
+        BigDecimal currentSellOrderPrice = stateTracker.getCurrentSellOrderPrice();
         BigDecimal breakEven = calculateBreakEven();
 
         BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
         BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
         BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
-        BigDecimal currentBuyOrderPrice = params.getCurrentBuyOrderPrice();
+        BigDecimal currentBuyOrderPrice = stateTracker.getCurrentBuyOrderPrice();
         BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketBidPrice, currentBuyOrderPrice);
         BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketBidPrice, breakEven);
         BigDecimal percentageChangeCurrentSellToMarket = getPercentageChange(currentSellOrderPrice, currentMarketBidPrice);
@@ -121,8 +124,6 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
     public interface IntelligentSellPriceParameters {
         BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException;
         BigDecimal getSellFee() throws TradingApiException, ExchangeNetworkException;
-        BigDecimal getCurrentBuyOrderPrice();
-        BigDecimal getCurrentSellOrderPrice();
         BigDecimal getCurrentSellStopLimitPercentageBelowBreakEven();
         BigDecimal getCurrentSellStopLimitPercentageAboveBreakEven();
         BigDecimal getCurrentSellStopLimitPercentageMinimumAboveBreakEven();
