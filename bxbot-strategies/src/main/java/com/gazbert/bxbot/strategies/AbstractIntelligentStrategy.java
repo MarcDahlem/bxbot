@@ -47,13 +47,13 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         this.tradingApi = tradingApi;
         priceTracker = new IntelligentPriceTracker(tradingApi, market, config);
         stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
-        buyPriceCalculator = createBuyPriceCalculator(config);
-        sellPriceCalculator = createSellPriceCalculator(config);
-        tradesObserver = createTradesObserver(config);
         shouldPersistTickerData = StrategyConfigParser.readBoolean(config, "persist-ticker-data", false);
 
         try {
-            botWillStartup();
+            buyPriceCalculator = createBuyPriceCalculator(config);
+            sellPriceCalculator = createSellPriceCalculator(config);
+            tradesObserver = createTradesObserver(config);
+            botWillStartup(config);
             initLiveChartIndicators();
         } catch (TradingApiException | ExchangeNetworkException e) {
             String errorMsg = "Failed to initialize the concrete strategy implementation on startup.";
@@ -192,11 +192,11 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         }, tradesObserver);
     }
 
-    protected abstract void botWillStartup() throws TradingApiException, ExchangeNetworkException;
+    protected abstract void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;
 
     protected abstract Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException;
 
-    protected abstract IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config);
+    protected abstract IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;
 
     protected abstract IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config);
 

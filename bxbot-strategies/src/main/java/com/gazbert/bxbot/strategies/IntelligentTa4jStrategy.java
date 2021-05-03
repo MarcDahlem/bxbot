@@ -1,9 +1,6 @@
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
-import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
-import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
-import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.*;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
@@ -49,15 +46,14 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     private MACDIndicator macd;
 
     @Override
-    protected void botWillStartup() throws TradingApiException, ExchangeNetworkException {
+    protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
+        buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
+        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
         initTa4jStrategy();
     }
 
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
-        buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
-        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
-
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
         HighPriceIndicator askPriceIndicator = new HighPriceIndicator(series);
@@ -95,47 +91,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) {
-        BigDecimal configuredSellStopLimitPercentageBelowBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-below-break-even");
-        BigDecimal configuredSellStopLimitPercentageAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-above-break-even");
-        BigDecimal configuredSellStopLimitPercentageMinimumAboveBreakEven = StrategyConfigParser.readPercentageConfigValue(config, "sell-stop-limit-percentage-minimum-above-break-even");
-        return new IntelligentSellPriceCalculator(priceTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
-
-
-            @Override
-            public BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException {
-                return buyFee;
-            }
-
-            @Override
-            public BigDecimal getSellFee() throws TradingApiException, ExchangeNetworkException {
-                return sellFee;
-            }
-
-            @Override
-            public BigDecimal getCurrentBuyOrderPrice() {
-                return stateTracker.getCurrentBuyOrderPrice();
-            }
-
-            @Override
-            public BigDecimal getCurrentSellOrderPrice() {
-                return stateTracker.getCurrentSellOrderPrice();
-            }
-
-            @Override
-            public BigDecimal getCurrentSellStopLimitPercentageBelowBreakEven() {
-                return configuredSellStopLimitPercentageBelowBreakEven;
-            }
-
-            @Override
-            public BigDecimal getCurrentSellStopLimitPercentageAboveBreakEven() {
-                return configuredSellStopLimitPercentageAboveBreakEven;
-            }
-
-            @Override
-            public BigDecimal getCurrentSellStopLimitPercentageMinimumAboveBreakEven() {
-                return configuredSellStopLimitPercentageMinimumAboveBreakEven;
-            }
-        });
+        return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new StaticSellPriceParams(buyFee, sellFee, config));
     }
 
     @Override
