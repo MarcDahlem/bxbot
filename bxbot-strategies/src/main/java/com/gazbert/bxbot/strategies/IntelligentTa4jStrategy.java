@@ -10,6 +10,7 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
+import org.ta4j.core.indicators.CCIIndicator;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
@@ -20,6 +21,8 @@ import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
 
 import java.awt.*;
 import java.math.BigDecimal;
@@ -47,8 +50,6 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
-        buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
-        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
         initTa4jStrategy();
     }
 
@@ -66,7 +67,7 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
         buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 26);
-        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 9), sellFeeFactor);
+        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 16), sellFeeFactor);
 
         sellIndicatorLong = new EMAIndicator(askPriceIndicator, 104);
         sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 9), buyFeeFactor);
@@ -90,7 +91,9 @@ public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) {
+    protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
+        buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
+        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
         return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new StaticSellPriceParams(buyFee, sellFee, config));
     }
 
