@@ -79,6 +79,7 @@ public class IntelligentStateTracker {
             BigDecimal estimatedBuyPrice = priceTracker.getAsk().max(currentOpenOrder.getPrice());
             currentBuyOrder = new PlacedOrder("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_SELL_ORDER", OrderType.BUY, currentOpenOrder.getQuantity(), estimatedBuyPrice);
             currentSellOrder = new PlacedOrder(currentOpenOrder.getId(), currentOpenOrder.getType(), currentOpenOrder.getQuantity(), currentOpenOrder.getPrice());
+            getBreakEvenIndicator().registerBuyOrderExecution(priceTracker.getSeries().getEndIndex());
             strategyState = IntelligentStrategyState.WAIT_FOR_SELL;
         }
     }
@@ -127,7 +128,7 @@ public class IntelligentStateTracker {
 
                     if (orderCanceled) {
                         LOG.info(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' successfully canceled. Compute executed order amount for the partial order.");
-                        BigDecimal filledOrderAmount = priceTracker.getAvailableCounterCurrencyBalance();
+                        BigDecimal filledOrderAmount = priceTracker.getAvailableBaseCurrencyBalance();
                         currentBuyOrder = new PlacedOrder(currentBuyOrder.getId(), currentBuyOrder.getType(), filledOrderAmount, getCurrentBuyOrderPrice());
                         LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentBuyOrder.getId() + "' successfully with '" + DECIMAL_FORMAT.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with SELL phase");
                         getBreakEvenIndicator().registerBuyOrderExecution(priceTracker.getSeries().getEndIndex());
