@@ -40,13 +40,13 @@ markets:
     name: ADA/EUR(trailing-ta4j)
     baseCurrency: ADA
     counterCurrency: ZEUR
-    enabled: false
+    enabled: true
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: XDGEUR
     name: XDG/EUR(trailing-ta4j)
     baseCurrency: XXDG
     counterCurrency: ZEUR
-    enabled: false
+    enabled: true
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: ETHEUR
     name: ETH/EUR(trailing-ta4j)
@@ -58,13 +58,13 @@ markets:
     name: LTC/EUR(trailing-ta4j)
     baseCurrency: XLTC
     counterCurrency: ZEUR
-    enabled: false
+    enabled: true
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: BCHEUR
     name: BCH/EUR(trailing-ta4j)
     baseCurrency: BCH
     counterCurrency: ZEUR
-    enabled: false
+    enabled: true
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: DOTEUR
     name: DOT/EUR(trailing-ta4j)

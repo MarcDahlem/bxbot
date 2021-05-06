@@ -8,6 +8,7 @@ import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
@@ -24,6 +25,7 @@ import java.util.Collection;
 import java.util.HashSet;
 
 @Component("intelligentTa4jTrailingStopStrategy") // used to load the strategy using Spring bean injection
+@Scope("prototype") // create always a new instance if it is injected
 public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStrategy{
 
     private BigDecimal buyFee;
