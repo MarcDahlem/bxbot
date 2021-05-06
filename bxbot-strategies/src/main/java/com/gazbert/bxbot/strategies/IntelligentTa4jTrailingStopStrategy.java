@@ -108,7 +108,7 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
         IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
-        result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
+        //result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
         return result;
     }
 

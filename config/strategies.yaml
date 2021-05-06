@@ -32,8 +32,6 @@ strategies:
       lowest-price-lookback-count: 80
       times-above-lowest-price-needed: 20
 
-      intelligent-limits-percentage-scale-factor: 0
-
       show-live-chart: true
 
       persist-ticker-data: false
@@ -56,7 +54,7 @@ strategies:
 
       show-live-chart: true
 
-      persist-ticker-data: false
+      persist-ticker-data: true
   - id: intelligent-ta4j-trailing-stop-strategy
 
     name: Intelligent Trailing Stop Strategy (Ta4j Version)
@@ -71,14 +69,14 @@ strategies:
       percentage-of-counter-currency-balance-to-use: 50
       configured-emergency-stop-balance: 50
 
-      sell-stop-limit-percentage-below-break-even: 1.5
-      sell-stop-limit-percentage-above-break-even: 0.7
-      sell-stop-limit-percentage-minimum-above-break-even: 0.3
+      sell-stop-limit-percentage-below-break-even: 4
+      sell-stop-limit-percentage-above-break-even: 2
+      sell-stop-limit-percentage-minimum-above-break-even: 0.5
 
-      initial-percentage-gain-needed-to-place-buy-order: 0.5
+      initial-percentage-gain-needed-to-place-buy-order: 1
       lowest-price-lookback-count: 80
       times-above-lowest-price-needed: 20
 
       show-live-chart: true
 
-      persist-ticker-data: false
+      persist-ticker-data: true
