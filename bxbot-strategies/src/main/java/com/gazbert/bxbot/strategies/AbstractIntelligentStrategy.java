@@ -110,16 +110,6 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         } catch (TradingApiException | ExchangeNetworkException | StrategyException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
             // shutdown the bot.
-            if (shouldPersistTickerData) {
-                JsonBarsSerializer.persistSeries(priceTracker.getSeries(), market.getId() + System.currentTimeMillis() + ".json");
-            }
-            try {
-                showOverviewCharts();
-                botWillShutdown();
-            } catch (TradingApiException | ExchangeNetworkException e1) {
-                String errorMsg = "Failed to shutdown the concrete strategy implementation.";
-                LOG.error(() -> errorMsg, e1);
-            }
             LOG.error(
                     market.getName()
                             + " Failed to perform the strategy because Exchange threw TradingApiException, ExchangeNetworkexception or StrategyException. "
@@ -190,6 +180,20 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
                     throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
             }
         }, tradesObserver);
+    }
+
+    @Override
+    public void saveState() {
+        if (shouldPersistTickerData) {
+            JsonBarsSerializer.persistSeries(priceTracker.getSeries(), market.getId() + System.currentTimeMillis() + ".json");
+        }
+        try {
+            showOverviewCharts();
+            botWillShutdown();
+        } catch (Exception e1) {
+            String errorMsg = "Failed to shutdown the concrete strategy implementation.";
+            LOG.error(() -> errorMsg, e1);
+        }
     }
 
     protected abstract void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;

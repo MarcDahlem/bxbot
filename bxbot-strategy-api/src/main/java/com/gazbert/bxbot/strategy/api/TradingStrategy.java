@@ -55,4 +55,6 @@ public interface TradingStrategy {
    *     this exception if they want the Trading Engine to shutdown the bot immediately.
    */
   void execute() throws StrategyException;
+
+  default void saveState() {};
 }

@@ -150,35 +150,44 @@ public class TradingEngine {
    */
   private void runMainControlLoop() {
     LOG.info(() -> "Starting Trading Engine for " + engineConfig.getBotId() + " ...");
-    while (keepAlive) {
-      try {
-        LOG.info(() -> "*** Starting next trade cycle... ***");
+    try {
+      while (keepAlive) {
+        try {
+          LOG.info(() -> "*** Starting next trade cycle... ***");
 
-        // Emergency Stop Check MUST run at start of every trade cycle.
-        if (isEmergencyStopLimitBreached()) {
-          break;
+          // Emergency Stop Check MUST run at start of every trade cycle.
+          if (isEmergencyStopLimitBreached()) {
+            break;
+          }
+
+          for (final TradingStrategy tradingStrategy : tradingStrategies) {
+            LOG.info(
+                    () ->
+                            "Executing Trading Strategy ---> " + tradingStrategy.getClass().getSimpleName());
+            tradingStrategy.execute();
+          }
+
+          sleepUntilNextTradingCycle();
+
+        } catch (ExchangeNetworkException e) {
+          handleExchangeNetworkException(e);
+
+        } catch (TradingApiException e) {
+          handleTradingApiException(e);
+
+        } catch (StrategyException e) {
+          handleStrategyException(e);
+
+        } catch (Exception e) {
+          handleUnexpectedException(e);
         }
-
-        for (final TradingStrategy tradingStrategy : tradingStrategies) {
-          LOG.info(
-              () ->
-                  "Executing Trading Strategy ---> " + tradingStrategy.getClass().getSimpleName());
-          tradingStrategy.execute();
-        }
-
-        sleepUntilNextTradingCycle();
-
-      } catch (ExchangeNetworkException e) {
-        handleExchangeNetworkException(e);
-
-      } catch (TradingApiException e) {
-        handleTradingApiException(e);
-
-      } catch (StrategyException e) {
-        handleStrategyException(e);
-
-      } catch (Exception e) {
-        handleUnexpectedException(e);
+      }
+    } finally {
+      for (final TradingStrategy tradingStrategy : tradingStrategies) {
+        LOG.info(
+                () ->
+                        "Finishing Trading Strategy ---> " + tradingStrategy.getClass().getSimpleName());
+        tradingStrategy.saveState();
       }
     }
 
@@ -187,6 +196,10 @@ public class TradingEngine {
     synchronized (IS_RUNNING_MONITOR) {
       isRunning = false;
     }
+
+
+
+
   }
 
   /*
