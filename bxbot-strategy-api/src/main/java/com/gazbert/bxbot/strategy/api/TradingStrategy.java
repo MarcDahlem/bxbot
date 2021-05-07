@@ -56,5 +56,5 @@ public interface TradingStrategy {
    */
   void execute() throws StrategyException;
 
-  default void saveState() {};
+  default void saveState() {}
 }

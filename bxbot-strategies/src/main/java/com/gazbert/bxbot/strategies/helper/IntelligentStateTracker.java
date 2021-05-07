@@ -10,10 +10,7 @@ import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.*;
@@ -34,7 +31,12 @@ public class IntelligentStateTracker {
     private PlacedOrder currentSellOrder;
     private SellIndicator breakEvenIndicator;
 
-    private final static Map<Integer, List<OpenOrder>> allOpenOrders = new HashMap<>();
+    private final static Map<Integer, List<OpenOrder>> allOpenOrders = new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry eldest) {
+            return size() > 10;
+        }
+    };
 
     public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker) {
         this.tradingApi = tradingApi;

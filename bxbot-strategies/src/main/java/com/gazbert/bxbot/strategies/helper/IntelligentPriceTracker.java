@@ -17,10 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
 public class IntelligentPriceTracker {
 
@@ -33,7 +30,12 @@ public class IntelligentPriceTracker {
     private final TradingApi tradingApi;
     private final Market market;
     private final BarSeries series;
-    private final static Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
+    private final static Map<Integer, Map<String, BigDecimal>> balances = new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry eldest) {
+            return size() > 10;
+        }
+    };
     private final boolean shouldShowLiveChart;
 
     private String liveGraphID;
