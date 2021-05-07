@@ -204,9 +204,14 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
     setNetworkConfig(config);
     loadPairPrecisionConfig();
     setOtherConfig(config);
-
-    nonce = System.currentTimeMillis();
     initSecureMessageLayer();
+  }
+
+  // Returns a unique nonce
+  private String createNonce() {
+    nonce++;
+    long timestamp = (new Date()).getTime();
+    return timestamp + String.format("%04d", nonce);
   }
 
   // --------------------------------------------------------------------------
@@ -987,8 +992,8 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
       // The nonce is required by Kraken in every request.
       // It MUST be incremented each time and the nonce param MUST match the value used in
       // signature.
-      nonce++;
-      params.put("nonce", Long.toString(nonce));
+      String createdNonce = createNonce();
+      params.put("nonce", createdNonce);
 
       // Build the URL with query param args in it - yuk!
       final StringBuilder postData = new StringBuilder();
@@ -1005,7 +1010,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
       final byte[] pathInBytes =
           ("/" + KRAKEN_API_VERSION + KRAKEN_PRIVATE_PATH + apiMethod)
               .getBytes(StandardCharsets.UTF_8);
-      final String noncePrependedToPostData = Long.toString(nonce) + postData;
+      final String noncePrependedToPostData = createdNonce + postData;
 
       // Create sha256 hash of nonce and post data:
       final MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -1147,7 +1152,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
         final KrakenOpenOrderDescription krakenOpenOrderDescription = krakenOpenOrder.descr;
 
         if (!marketId.equalsIgnoreCase(krakenOpenOrderDescription.pair)) {
-          continue;
+          //continue;
         }
 
         switch (krakenOpenOrderDescription.type) {
@@ -1167,7 +1172,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
             new OpenOrderImpl(
                 openOrder.getKey(),
                 new Date((long) krakenOpenOrder.opentm), // opentm == creationDate
-                marketId,
+                krakenOpenOrderDescription.pair,
                 orderType,
                 krakenOpenOrderDescription.price,
                 // vol_exec == amount of order that has been executed

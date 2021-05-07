@@ -10,7 +10,11 @@ import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.*;
 
@@ -30,6 +34,8 @@ public class IntelligentStateTracker {
     private PlacedOrder currentSellOrder;
     private SellIndicator breakEvenIndicator;
 
+    private final static Map<Integer, List<OpenOrder>> allOpenOrders = new HashMap<>();
+
     public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker) {
         this.tradingApi = tradingApi;
         this.market = market;
@@ -46,7 +52,7 @@ public class IntelligentStateTracker {
     }
 
     private void computeInitialStrategyState() throws ExchangeNetworkException, TradingApiException, StrategyException {
-        final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
+        final List<OpenOrder> myOrders = getAllOpenOrdersForMarket(market.getId());
         if (myOrders.isEmpty()) {
             LOG.info(() -> market.getName() + " No open orders found. Check available balance for the base currency, to know if a new sell order should be created.");
             final BigDecimal currentBaseCurrencyBalance = priceTracker.getAvailableBaseCurrencyBalance();
@@ -82,6 +88,16 @@ public class IntelligentStateTracker {
             getBreakEvenIndicator().registerBuyOrderExecution(priceTracker.getSeries().getEndIndex());
             strategyState = IntelligentStrategyState.WAIT_FOR_SELL;
         }
+    }
+
+    private List<OpenOrder> getAllOpenOrdersForMarket(String id) throws ExchangeNetworkException, TradingApiException {
+        if(!allOpenOrders.containsKey(priceTracker.getCurrentTick())) {
+            List<OpenOrder> allLoadedOrders = tradingApi.getYourOpenOrders(market.getId());
+            allOpenOrders.put(priceTracker.getCurrentTick(), allLoadedOrders);
+        }
+
+        List<OpenOrder> currentOpenOrders = allOpenOrders.get(priceTracker.getCurrentTick());
+        return currentOpenOrders.stream().filter(openOrder -> market.getId().equalsIgnoreCase(openOrder.getMarketId())).collect(Collectors.toList());
     }
 
     public void updateStateTo(IntelligentStrategyState newState) {
@@ -248,7 +264,7 @@ public class IntelligentStateTracker {
     }
 
     private OpenOrderState retrievOrderStateFromMarket(PlacedOrder order) throws ExchangeNetworkException, TradingApiException {
-        final List<OpenOrder> myOrders = tradingApi.getYourOpenOrders(market.getId());
+        final List<OpenOrder> myOrders = getAllOpenOrdersForMarket(market.getId());
         for (final OpenOrder myOrder : myOrders) {
             if (myOrder.getId().equals(order.getId())) {
                 LOG.info(() -> market.getName() + "Order is still available on the market: '. " + myOrder + "'. Check if it is fully available or partly fulfilled");

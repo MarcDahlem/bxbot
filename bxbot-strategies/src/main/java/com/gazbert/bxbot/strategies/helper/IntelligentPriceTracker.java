@@ -33,7 +33,7 @@ public class IntelligentPriceTracker {
     private final TradingApi tradingApi;
     private final Market market;
     private final BarSeries series;
-    private final Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
+    private final static Map<Integer, Map<String, BigDecimal>> balances = new HashMap<>();
     private final boolean shouldShowLiveChart;
 
     private String liveGraphID;
@@ -119,7 +119,7 @@ public class IntelligentPriceTracker {
         balances.put(getCurrentTick(), loadedBalances);
     }
 
-    private int getCurrentTick() {
+    public int getCurrentTick() {
         return series.getEndIndex();
     }
 
