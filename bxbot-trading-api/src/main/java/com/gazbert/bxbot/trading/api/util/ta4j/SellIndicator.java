@@ -17,19 +17,25 @@ import static org.ta4j.core.num.NaN.NaN;
 public class SellIndicator extends TradeBasedIndicator<Num> {
 
     private final BiFunction<Integer, Integer, Indicator<Num>> buyIndicatorCreator;
+    private final BiFunction<Integer, Integer, Indicator<Num>> sellIndicatorCreator;
 
     public SellIndicator(BarSeries series, BiFunction<Integer, Integer, Indicator<Num>> buyIndicatorCreator) {
         this(series, null, buyIndicatorCreator);
     }
 
     public SellIndicator(BarSeries series, TradeBasedIndicator<Num> tradeKnowingIndicator, BiFunction<Integer, Integer, Indicator<Num>> buyIndicatorCreator) {
+        this(series,  tradeKnowingIndicator, buyIndicatorCreator, getNanCreator(series));
+    }
+
+    public SellIndicator(BarSeries series, TradeBasedIndicator<Num> tradeKnowingIndicator, BiFunction<Integer, Integer, Indicator<Num>> buyIndicatorCreator, BiFunction<Integer, Integer, Indicator<Num>> sellIndicatorCreator) {
         super(series, tradeKnowingIndicator);
         this.buyIndicatorCreator = buyIndicatorCreator;
+        this.sellIndicatorCreator = sellIndicatorCreator;
     }
 
     @Override
     protected Num calculateNoLastTradeAvailable(int index) {
-        return NaN;
+        return sellIndicatorCreator.apply(0, index).getValue(index);
     }
 
     @Override
@@ -39,7 +45,7 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
 
     @Override
     protected Num calculateLastTradeWasSell(int sellIndex, int index) {
-        return NaN;
+        return sellIndicatorCreator.apply(sellIndex, index).getValue(index);
     }
 
     public static SellIndicator createBreakEvenIndicator(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) {
@@ -53,6 +59,23 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
         BigDecimal limitScaleFactor = BigDecimal.ONE.subtract(limitPercentageUnderCurrentBid);
         TransformIndicator sellLimitCalculator = TransformIndicator.multiply(bidPriceIndicator, limitScaleFactor);
-        return new SellIndicator(series, tradeKnowingIndicator, (buyIndex, index) -> new HighestValueIndicator(sellLimitCalculator, index-buyIndex+1));
+        return new SellIndicator(series, tradeKnowingIndicator, (buyIndex, index) -> new HighestValueIndicator(sellLimitCalculator, index - buyIndex + 1));
+    }
+
+    public static SellIndicator createLowestSinceLastSellIndicator(Indicator<Num> originalIndicator, int maxLookback, SellIndicator tradeKnowingIndicator) {
+
+        final BiFunction<Integer,Integer,Indicator<Num>> lowestSinceCreator = (Integer sellIndex, Integer index) -> new LowestValueIndicator(originalIndicator, Math.max(index - sellIndex + 1, index-maxLookback + 1));
+
+
+        return new SellIndicator(
+                originalIndicator.getBarSeries(),
+                tradeKnowingIndicator,
+                getNanCreator(originalIndicator.getBarSeries()),
+                lowestSinceCreator);
+
+    }
+
+    private static BiFunction<Integer, Integer, Indicator<Num>> getNanCreator(BarSeries series) {
+        return (Integer startIndex, Integer index) -> new ConstantIndicator<>(series, NaN);
     }
 }
