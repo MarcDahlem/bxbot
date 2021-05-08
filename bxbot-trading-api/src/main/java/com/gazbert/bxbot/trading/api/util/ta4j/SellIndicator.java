@@ -16,61 +16,38 @@ import java.util.TreeSet;
 import static org.ta4j.core.num.NaN.NaN;
 
 /* This indicator is only active in a sell phase and when the last trade is still open. */
-public class SellIndicator extends CachedIndicator<Num> {
+public class SellIndicator extends TradeBasedIndicator<Num> {
 
-    private final TreeSet<Integer> sortedBuyIndeces = new TreeSet<>();
-    private final TreeSet<Integer> sortedSellIndeces = new TreeSet<>();
     private final Indicator<Num> indicator;
-    private final SellIndicator tradeKnowingIndicator;
     private final boolean useBuyTime;
 
     public SellIndicator(Indicator<Num> indicator, boolean useBuyTime) {
         this(indicator, null, useBuyTime);
     }
 
-    public SellIndicator(Indicator<Num> indicator, SellIndicator tradeKnowingIndicator, boolean useBuyTime) {
-        super(indicator);
+    public SellIndicator(Indicator<Num> indicator, TradeBasedIndicator<Num> tradeKnowingIndicator, boolean useBuyTime) {
+        super(indicator.getBarSeries(), tradeKnowingIndicator);
         this.indicator = indicator;
-        if (tradeKnowingIndicator != null) {
-            this.tradeKnowingIndicator = tradeKnowingIndicator;
-        } else {
-            this.tradeKnowingIndicator  = this;
-        }
         this.useBuyTime = useBuyTime;
     }
 
     @Override
-    protected Num calculate(int index) {
-        Integer lastBuyIndex = tradeKnowingIndicator.sortedBuyIndeces.floor(index);
-        Integer lastSellIndex = tradeKnowingIndicator.sortedSellIndeces.floor(index);
-        if (lastBuyIndex == null) {
-            return NaN;
-        }
-
-        if (lastSellIndex == null || lastSellIndex <= lastBuyIndex || lastSellIndex == index) {
-            if (useBuyTime) {
-                return indicator.getValue(lastBuyIndex);
-            } else {
-                return new HighestValueIndicator(indicator, index-lastBuyIndex+1).getValue(index);
-            }
-        }
+    protected Num calculateNoLastTradeAvailable(int index) {
         return NaN;
     }
 
-    public void registerSellOrderExecution(Integer atIndex) {
-        sortedSellIndeces.add(atIndex);
+    @Override
+    protected Num calculateLastTradeWasBuy(int buyIndex, int index) {
+        if (useBuyTime) {
+            return indicator.getValue(buyIndex);
+        } else {
+            return new HighestValueIndicator(indicator, index-buyIndex+1).getValue(index);
+        }
     }
 
-    public void registerBuyOrderExecution(Integer atIndex) {
-        sortedBuyIndeces.add(atIndex);
-    }
-
-    public int[] getRecordedBuyOrderExecutions() {
-        return Ints.toArray(this.sortedBuyIndeces);
-    }
-
-    public int[] getRecordedSellOrderExecutions() {
-        return Ints.toArray(this.sortedSellIndeces);
+    @Override
+    protected Num calculateLastTradeWasSell(int sellIndex, int index) {
+        return NaN;
     }
 
     public static SellIndicator createBreakEvenIndicator(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) {
@@ -85,12 +62,5 @@ public class SellIndicator extends CachedIndicator<Num> {
         BigDecimal limitScaleFactor = BigDecimal.ONE.subtract(limitPercentageUnderCurrentBid);
         TransformIndicator sellLimitCalculator = TransformIndicator.multiply(bidPriceIndicator, limitScaleFactor);
         return new SellIndicator(sellLimitCalculator, tradeKnowingIndicator, false);
-    }
-
-    public Integer getLastRecordedSellIndex() {
-        if (sortedSellIndeces.isEmpty()) {
-            return null;
-        }
-        return sortedSellIndeces.last();
     }
 }
