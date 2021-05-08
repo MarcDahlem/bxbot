@@ -88,7 +88,7 @@ public class Ta4j2Chart {
     public static String createLiveChart(BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
         XYChart chart = new XYChartBuilder().title(series.getName()).xAxisTitle("Date").yAxisTitle("Price").build();
         chart.getStyler().setZoomEnabled(true);
-        chart.getStyler().setCursorEnabled(true);
+        //chart.getStyler().setCursorEnabled(true); //disable cursor, as it has memory leaks in live charts. Check https://github.com/knowm/XChart/issues/593
 
         for (ChartIndicatorConfig indicator : indicatorConfigs) {
             addIndicatorToChart(indicator, chart, series, false, maxAmountBars);
