@@ -210,8 +210,9 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
   // Returns a unique nonce
   private String createNonce() {
     nonce++;
+    nonce = nonce % 1000000;
     long timestamp = (new Date()).getTime();
-    return timestamp + String.format("%04d", nonce);
+    return timestamp + String.format("%06d", nonce);
   }
 
   // --------------------------------------------------------------------------
