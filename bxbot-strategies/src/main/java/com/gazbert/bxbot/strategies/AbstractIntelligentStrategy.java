@@ -16,6 +16,7 @@ import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.File;
 import java.util.Collection;
 
 public abstract class AbstractIntelligentStrategy implements TradingStrategy {
@@ -185,7 +186,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     @Override
     public void saveState() {
         if (shouldPersistTickerData) {
-            JsonBarsSerializer.persistSeries(priceTracker.getSeries(), market.getId() + System.currentTimeMillis() + ".json");
+            JsonBarsSerializer.persistSeries(priceTracker.getSeries(), "recordedMarketData" + File.separator + market.getId() + System.currentTimeMillis() + ".json");
         }
         try {
             showOverviewCharts();
