@@ -66,17 +66,17 @@ strategies:
     beanName: intelligentTa4jTrailingStopStrategy
 
     configItems:
-      percentage-of-counter-currency-balance-to-use: 50
+      percentage-of-counter-currency-balance-to-use: 25
       configured-emergency-stop-balance: 50
 
-      sell-stop-limit-percentage-below-break-even: 20
-      sell-stop-limit-percentage-above-break-even: 8
-      sell-stop-limit-percentage-minimum-above-break-even: 2
+      sell-stop-limit-percentage-below-break-even: 7
+      sell-stop-limit-percentage-above-break-even: 3
+      sell-stop-limit-percentage-minimum-above-break-even: 1
 
       initial-percentage-gain-needed-to-place-buy-order: 2
-      lowest-price-lookback-count: 80
+      lowest-price-lookback-count: 120
       times-above-lowest-price-needed: 20
 
-      show-live-chart: true
+      show-live-chart: false
 
       persist-ticker-data: true

@@ -36,6 +36,36 @@ markets:
     counterCurrency: ZEUR
     enabled: false
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: BTCEUR
+    name: BTC/EUR(trailing-ta4j)
+    baseCurrency: XXBT
+    counterCurrency: ZEUR
+    enabled: false
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: XTZEUR
+    name: XTZ/EUR(trailing-ta4j)
+    baseCurrency: XXTZ
+    counterCurrency: ZEUR
+    enabled: false
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: GRTEUR
+    name: GRT/EUR(trailing-ta4j)
+    baseCurrency: GRT
+    counterCurrency: ZEUR
+    enabled: false
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: FILEUR
+    name: FIL/EUR(trailing-ta4j)
+    baseCurrency: FIL
+    counterCurrency: ZEUR
+    enabled: false
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: ETHEUR
+    name: ETH/EUR(trailing-ta4j)
+    baseCurrency: XETH
+    counterCurrency: ZEUR
+    enabled: false
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: ADAEUR
     name: ADA/EUR(trailing-ta4j)
     baseCurrency: ADA
@@ -47,12 +77,6 @@ markets:
     baseCurrency: XXDG
     counterCurrency: ZEUR
     enabled: true
-    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
-  - id: ETHEUR
-    name: ETH/EUR(trailing-ta4j)
-    baseCurrency: XETH
-    counterCurrency: ZEUR
-    enabled: false
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: LTCEUR
     name: LTC/EUR(trailing-ta4j)
@@ -69,6 +93,30 @@ markets:
   - id: DOTEUR
     name: DOT/EUR(trailing-ta4j)
     baseCurrency: DOT
+    counterCurrency: ZEUR
+    enabled: true
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: XMREUR
+    name: XMR/EUR(trailing-ta4j)
+    baseCurrency: XXMR
+    counterCurrency: ZEUR
+    enabled: true
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: UNIEUR
+    name: UNI/EUR(trailing-ta4j)
+    baseCurrency: UNI
+    counterCurrency: ZEUR
+    enabled: true
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: DASHEUR
+    name: DASH/EUR(trailing-ta4j)
+    baseCurrency: DASH
+    counterCurrency: ZEUR
+    enabled: true
+    tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
+  - id: KSMEUR
+    name: KSM/EUR(trailing-ta4j)
+    baseCurrency: KSM
     counterCurrency: ZEUR
     enabled: true
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
