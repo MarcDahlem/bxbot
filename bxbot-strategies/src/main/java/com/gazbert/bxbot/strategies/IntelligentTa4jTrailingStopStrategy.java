@@ -37,8 +37,8 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     private SellIndicator aboveBreakEvenIndicator;
     private Indicator<Num> minAboveBreakEvenIndicator;
     private SellIndicator belowBreakEvenIndicator;
-    private LowestValueIndicator buyLongIndicator;
-    private LowestValueIndicator buyShortIndicator;
+    private Indicator<Num> buyLongIndicator;
+    private Indicator<Num> buyShortIndicator;
     private TransformIndicator buyGainLine;
 
     @Override
@@ -51,12 +51,14 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
         initSellIndicators();
     }
 
-    private void initBuyRule() {
+    private void initBuyRule() throws TradingApiException, ExchangeNetworkException {
         HighPriceIndicator askPriceIndicator = new HighPriceIndicator(priceTracker.getSeries());
-        buyLongIndicator = new LowestValueIndicator(askPriceIndicator, intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount());
-        buyShortIndicator = new LowestValueIndicator(askPriceIndicator, intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded());
+        buyLongIndicator = SellIndicator.createLowestSinceLastSellIndicator(askPriceIndicator, intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount(), stateTracker.getBreakEvenIndicator());
+        buyShortIndicator = SellIndicator.createLowestSinceLastSellIndicator(askPriceIndicator, intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded(), stateTracker.getBreakEvenIndicator());
+        //buyGainLine = TransformIndicator.multiply( SellIndicator.createLowestSinceLastSellIndicator(buyLongIndicator, 400, stateTracker.getBreakEvenIndicator()), BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
         buyGainLine = TransformIndicator.multiply(buyLongIndicator, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
 
+        //buyRule = new OverIndicatorRule(askPriceIndicator, buyGainLine);
         buyRule = new OverIndicatorRule(buyShortIndicator, buyGainLine);
     }
 
