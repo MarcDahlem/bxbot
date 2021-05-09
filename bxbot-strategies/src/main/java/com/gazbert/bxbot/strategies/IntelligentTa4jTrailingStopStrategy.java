@@ -13,9 +13,13 @@ import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.Indicator;
+import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
+import org.ta4j.core.indicators.keltner.KeltnerChannelLowerIndicator;
+import org.ta4j.core.indicators.keltner.KeltnerChannelMiddleIndicator;
+import org.ta4j.core.indicators.keltner.KeltnerChannelUpperIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
@@ -30,7 +34,7 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     private BigDecimal buyFee;
     private BigDecimal sellFee;
-    private OverIndicatorRule buyRule;
+    private Rule buyRule;
     private IntelligentTrailingStopConfigParams intelligentTrailingStopConfigParams;
     private UnderIndicatorRule sellRule;
     private IntelligentTrailIndicator intelligentTrailIndicator;
@@ -38,8 +42,9 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     private Indicator<Num> minAboveBreakEvenIndicator;
     private SellIndicator belowBreakEvenIndicator;
     private Indicator<Num> buyLongIndicator;
-    //private Indicator<Num> buyShortIndicator;
-    private TransformIndicator buyGainLine;
+    private Indicator<Num> buyShortIndicator;
+    private Indicator<Num> buyGainLine;
+    private Indicator<Num> km_ask;
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
@@ -53,12 +58,17 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     private void initBuyRule() throws TradingApiException, ExchangeNetworkException {
         HighPriceIndicator askPriceIndicator = new HighPriceIndicator(priceTracker.getSeries());
-        buyLongIndicator = SellIndicator.createLowestSinceLastSellIndicator(askPriceIndicator, intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount(), stateTracker.getBreakEvenIndicator());
-        //buyShortIndicator = SellIndicator.createLowestSinceLastSellIndicator(askPriceIndicator, intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded(), stateTracker.getBreakEvenIndicator());
-        buyGainLine = TransformIndicator.multiply(SellIndicator.createLowestSinceLastSellIndicator(buyLongIndicator, 400, stateTracker.getBreakEvenIndicator()), BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
+        Indicator<Num> bidPriceIndicator = new LowPriceIndicator(priceTracker.getSeries());
+
+        int keltnerBarCount = 333;
+        int keltnerRatio = 16;
+
+        buyLongIndicator = new KeltnerChannelMiddleIndicator(askPriceIndicator, keltnerBarCount);;
+        buyShortIndicator = new KeltnerChannelUpperIndicator(new KeltnerChannelMiddleIndicator(bidPriceIndicator, keltnerBarCount), keltnerRatio, keltnerBarCount);
+        buyGainLine = new KeltnerChannelLowerIndicator((KeltnerChannelMiddleIndicator)buyLongIndicator, keltnerRatio, keltnerBarCount);
         //buyGainLine = TransformIndicator.multiply(buyLongIndicator, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
 
-        buyRule = new OverIndicatorRule(askPriceIndicator, buyGainLine);
+        buyRule = new UnderIndicatorRule(askPriceIndicator, buyGainLine);
         //buyRule = new OverIndicatorRule(buyShortIndicator, buyGainLine);
     }
 
@@ -86,7 +96,7 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
         result.add(new Ta4j2Chart.ChartIndicatorConfig(minAboveBreakEvenIndicator, "limit min above BE", Ta4j2Chart.SELL_LIMIT_1_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(belowBreakEvenIndicator, "limit below BE", Ta4j2Chart.SELL_LIMIT_3_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(buyLongIndicator, "lowest (" + intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() + ")", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
-        //result.add(new Ta4j2Chart.ChartIndicatorConfig(buyShortIndicator, "lowest (" + intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() + ")", Ta4j2Chart.TRAILING_BUY_SHORT_LOOKBACK_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(buyShortIndicator, "lowest (" + intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() + ")", Ta4j2Chart.BUY_SHORT_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(buyGainLine, "buy distance", Ta4j2Chart.BUY_TRIGGER_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(intelligentTrailIndicator, "intelligent trail stop loss", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR));
         return result;
