@@ -39,7 +39,7 @@ public class IntelligentPriceTracker {
     private final boolean shouldShowLiveChart;
 
     private String liveGraphID;
-    private final Collection<Ta4j2Chart.ChartIndicatorConfig> registeredLiveChartIndicatorConfigs = new HashSet<>();
+    private final Collection<Ta4j2Chart.ChartIndicatorConfig> registeredLiveChartIndicatorConfigs = new LinkedList<>();
 
     public IntelligentPriceTracker(TradingApi tradingApi, Market market, StrategyConfig config) {
         this.tradingApi = tradingApi;
@@ -166,6 +166,6 @@ public class IntelligentPriceTracker {
     }
 
     private Collection<Ta4j2Chart.ChartIndicatorConfig> getLivechartIndicatorConfigs() {
-        return new HashSet<>(this.registeredLiveChartIndicatorConfigs);
+        return new LinkedList<>(this.registeredLiveChartIndicatorConfigs);
     }
 }

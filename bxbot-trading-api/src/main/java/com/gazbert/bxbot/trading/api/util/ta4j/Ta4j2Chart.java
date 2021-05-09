@@ -1,22 +1,38 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import com.gazbert.bxbot.trading.api.TradingApiException;
 import org.knowm.xchart.*;
 import org.knowm.xchart.internal.Utils;
 import org.knowm.xchart.style.Styler;
 import org.knowm.xchart.style.markers.SeriesMarkers;
 import org.ta4j.core.*;
-import org.ta4j.core.indicators.MACDIndicator;
-import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
 import org.ta4j.core.num.Num;
 
 import java.awt.*;
-import java.lang.reflect.InvocationTargetException;
-import java.text.SimpleDateFormat;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 
 public class Ta4j2Chart {
+
+    public static final Color CLOSE_PRICE_COLOR = new Color(183, 28, 28);
+    public static final Color BID_PRICE_COLOR = new Color(255, 111, 0);
+    public static final Color ASK_PRICE_COLOR = new Color(130, 119, 23);
+
+    public static final Color BREAK_EVEN_COLOR = new Color(0, 200, 83);
+
+    public static final Color BUY_TRIGGER_COLOR = new Color(0, 229, 255);
+    public static final Color BUY_LONG_LOOKBACK_COLOR = new Color(106, 27, 154);
+    public static final Color BUY_SHORT_LOOKBACK_COLOR = new Color(171, 71, 188);
+
+
+    public static final Color SELL_CURRENT_LIMIT_COLOR = new Color(0, 0, 255);
+    public static final Color SELL_LIMIT_1_COLOR = new Color(255, 0, 255);
+    public static final Color SELL_LIMIT_2_COLOR = new Color(251, 192, 45);
+    public static final Color SELL_LIMIT_3_COLOR = new Color(0, 131, 143);
+
+    public static final Color AREA_COLOR_LINE_1 = new Color(103, 58, 183, 64);
+    public static final Color AREA_COLOR_1 = new Color(124, 77, 255, 64);
+    public static final Color AREA_COLOR_LINE_2 = new Color(0, 150, 136, 64);
+    public static final Color AREA_COLOR_2 = new Color(100, 255, 218, 128);
 
     private static final Map<String, LiveChartConfig> liveCharts = new HashMap<>();
 
@@ -30,7 +46,7 @@ public class Ta4j2Chart {
         }
 
         addPositionMarkerToChart(chart, strategy, series);
-        new SwingWrapper(chart).displayChart();
+        new SwingWrapper<>(chart).displayChart();
     }
 
     private static void addPositionMarkerToChart(XYChart chart, Strategy strategy, BarSeries series) {
@@ -86,15 +102,17 @@ public class Ta4j2Chart {
     }
 
     public static String createLiveChart(BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
-        XYChart chart = new XYChartBuilder().title(series.getName()).xAxisTitle("Date").yAxisTitle("Price").build();
+        XYChart chart = new XYChartBuilder().title(series.getName()).xAxisTitle("Date").yAxisTitle("Price").height(900 / 2).width(1680 / 3).build();
         chart.getStyler().setZoomEnabled(true);
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNW);
         //chart.getStyler().setCursorEnabled(true); //disable cursor, as it has memory leaks in live charts. Check https://github.com/knowm/XChart/issues/593
 
         for (ChartIndicatorConfig indicator : indicatorConfigs) {
             addIndicatorToChart(indicator, chart, series, false, maxAmountBars);
         }
 
-        SwingWrapper sw = new SwingWrapper(chart);
+        SwingWrapper<XYChart> sw = new SwingWrapper<>(chart);
+        sw.isCentered(false);
 
         String liveChartID = UUID.randomUUID().toString();
         liveCharts.put(liveChartID, new LiveChartConfig(sw, chart, series, indicatorConfigs, maxAmountBars));
@@ -123,14 +141,14 @@ public class Ta4j2Chart {
     }
 
     private static class LiveChartConfig {
-        final SwingWrapper sw;
+        final SwingWrapper<XYChart> sw;
         final XYChart chart;
         final BarSeries series;
         final Collection<ChartIndicatorConfig> indicatorConfigs;
         final Integer maxAmountBars;
         volatile boolean waitForRun;
 
-        LiveChartConfig(SwingWrapper sw, XYChart chart, BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
+        LiveChartConfig(SwingWrapper<XYChart> sw, XYChart chart, BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
             this.sw = sw;
             this.chart = chart;
             this.series = series;
@@ -144,10 +162,6 @@ public class Ta4j2Chart {
         final String name;
         final Color color;
         final YAxisGroupConfig yAxisGroup;
-
-        public ChartIndicatorConfig(Indicator<Num> indicator, String name) {
-            this(indicator, name, null);
-        }
 
         public ChartIndicatorConfig(Indicator<Num> indicator, String name, Color color) {
             this(indicator, name, color, null);

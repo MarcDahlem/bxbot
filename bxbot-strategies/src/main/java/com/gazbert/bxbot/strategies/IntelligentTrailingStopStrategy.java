@@ -43,12 +43,11 @@ import org.ta4j.core.indicators.helpers.LowestValueIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 
-import java.awt.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedList;
 
 @Component("intelligentTrailingStopStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy {
@@ -106,13 +105,13 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
         Indicator<Num> longBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() +1);
         Indicator<Num> shortBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() +1);
         Indicator<Num> gainLine = TransformIndicator.multiply(longBuyLowPrice, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
-        HashSet<Ta4j2Chart.ChartIndicatorConfig> result = new HashSet<>();
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(aboveBreakEvenIndicator, "limit above BE"));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(minAboveBreakEvenIndicator, "limit min above BE"));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(belowBreakEvenIndicator, "limit below BE"));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(longBuyLowPrice, "lowest (" + intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() + ")", Color.MAGENTA));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(shortBuyLowPrice, "lowest (" + intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() + ")", Color.GREEN));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(gainLine, "buy distance", Color.BLUE));
+        LinkedList<Ta4j2Chart.ChartIndicatorConfig> result = new LinkedList<>();
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(aboveBreakEvenIndicator, "limit above BE", Ta4j2Chart.SELL_LIMIT_2_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(minAboveBreakEvenIndicator, "limit min above BE", Ta4j2Chart.SELL_LIMIT_1_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(belowBreakEvenIndicator, "limit below BE", Ta4j2Chart.SELL_LIMIT_3_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(longBuyLowPrice, "lowest (" + intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() + ")", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(shortBuyLowPrice, "lowest (" + intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() + ")", Ta4j2Chart.BUY_SHORT_LOOKBACK_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(gainLine, "buy distance", Ta4j2Chart.BUY_TRIGGER_COLOR));
         return result;
     }
 
