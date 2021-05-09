@@ -64,8 +64,9 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
     public static SellIndicator createLowestSinceLastSellIndicator(Indicator<Num> originalIndicator, int maxLookback, SellIndicator tradeKnowingIndicator) {
 
         final BiFunction<Integer, Integer, Indicator<Num>> lowestSinceCreator = (Integer sellIndex, Integer index) -> {
-            int max = Math.max(index - sellIndex + 1, index - maxLookback + 1);
-            return new LowestValueIndicator(originalIndicator, max);
+            int lookbackSinceLastSell = index - sellIndex;
+            int limitedLookback = Math.min(lookbackSinceLastSell, maxLookback);
+            return new LowestValueIndicator(originalIndicator, limitedLookback+1);
         };
 
         return new SellIndicator(
