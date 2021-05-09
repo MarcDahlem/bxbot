@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
+import org.ta4j.core.indicators.UnstableIndicator;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
@@ -64,9 +65,8 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
         buyLongIndicator = new KeltnerChannelMiddleIndicator(askPriceIndicator, keltnerBarCount);;
         buyShortIndicator = new KeltnerChannelUpperIndicator(new KeltnerChannelMiddleIndicator(bidPriceIndicator, keltnerBarCount), keltnerRatio, keltnerBarCount);
-        buyGainLine = new KeltnerChannelLowerIndicator((KeltnerChannelMiddleIndicator)buyLongIndicator, keltnerRatio, keltnerBarCount);
+        buyGainLine = new UnstableIndicator(new KeltnerChannelLowerIndicator((KeltnerChannelMiddleIndicator)buyLongIndicator, keltnerRatio, keltnerBarCount), keltnerBarCount);
         //buyGainLine = TransformIndicator.multiply(buyLongIndicator, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
-
         buyRule = new UnderIndicatorRule(askPriceIndicator, buyGainLine);
         //buyRule = new OverIndicatorRule(buyShortIndicator, buyGainLine);
     }
