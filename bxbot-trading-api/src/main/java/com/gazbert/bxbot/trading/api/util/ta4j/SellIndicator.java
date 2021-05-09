@@ -1,14 +1,13 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import com.google.common.primitives.Ints;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
-import org.ta4j.core.indicators.CachedIndicator;
 import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.num.Num;
 
 import java.math.BigDecimal;
-import java.util.TreeSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.BiFunction;
 
 import static org.ta4j.core.num.NaN.NaN;
@@ -24,7 +23,7 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
     }
 
     public SellIndicator(BarSeries series, TradeBasedIndicator<Num> tradeKnowingIndicator, BiFunction<Integer, Integer, Indicator<Num>> buyIndicatorCreator) {
-        this(series,  tradeKnowingIndicator, buyIndicatorCreator, getNanCreator(series));
+        this(series, tradeKnowingIndicator, buyIndicatorCreator, getNanCreator(series));
     }
 
     public SellIndicator(BarSeries series, TradeBasedIndicator<Num> tradeKnowingIndicator, BiFunction<Integer, Integer, Indicator<Num>> buyIndicatorCreator, BiFunction<Integer, Integer, Indicator<Num>> sellIndicatorCreator) {
@@ -35,7 +34,7 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
 
     @Override
     protected Num calculateNoLastTradeAvailable(int index) {
-        return sellIndicatorCreator.apply(0, index).getValue(index);
+        return calculateLastTradeWasSell(0, index);
     }
 
     @Override
@@ -64,15 +63,16 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
 
     public static SellIndicator createLowestSinceLastSellIndicator(Indicator<Num> originalIndicator, int maxLookback, SellIndicator tradeKnowingIndicator) {
 
-        final BiFunction<Integer,Integer,Indicator<Num>> lowestSinceCreator = (Integer sellIndex, Integer index) -> new LowestValueIndicator(originalIndicator, Math.max(index - sellIndex + 1, index-maxLookback + 1));
-
+        final BiFunction<Integer, Integer, Indicator<Num>> lowestSinceCreator = (Integer sellIndex, Integer index) -> {
+            int max = Math.max(index - sellIndex + 1, index - maxLookback + 1);
+            return new LowestValueIndicator(originalIndicator, max);
+        };
 
         return new SellIndicator(
                 originalIndicator.getBarSeries(),
                 tradeKnowingIndicator,
                 getNanCreator(originalIndicator.getBarSeries()),
                 lowestSinceCreator);
-
     }
 
     private static BiFunction<Integer, Integer, Indicator<Num>> getNanCreator(BarSeries series) {
