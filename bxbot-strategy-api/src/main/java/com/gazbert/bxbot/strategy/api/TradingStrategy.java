@@ -23,6 +23,7 @@
 
 package com.gazbert.bxbot.strategy.api;
 
+import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.TradingApi;
 
@@ -54,7 +55,7 @@ public interface TradingStrategy {
    * @throws StrategyException if something goes bad. Trading Strategy implementations should throw
    *     this exception if they want the Trading Engine to shutdown the bot immediately.
    */
-  void execute() throws StrategyException;
+  void execute() throws StrategyException, ExchangeNetworkException;
 
   default void saveState() {}
 }

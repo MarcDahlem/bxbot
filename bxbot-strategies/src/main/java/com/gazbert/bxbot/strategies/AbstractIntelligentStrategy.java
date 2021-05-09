@@ -85,7 +85,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
      *                           shutdown the bot immediately to help prevent unexpected losses.
      */
     @Override
-    public void execute() throws StrategyException {
+    public void execute() throws StrategyException, ExchangeNetworkException {
 
         try {
 
@@ -109,15 +109,22 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
                 default:
                     throw new StrategyException("Unknown strategy state encounted: " + strategyState);
             }
-        } catch (TradingApiException | ExchangeNetworkException | StrategyException e) {
+        } catch (TradingApiException | StrategyException e) {
             // We are just going to re-throw as StrategyException for engine to deal with - it will
             // shutdown the bot.
             LOG.error(
                     market.getName()
-                            + " Failed to perform the strategy because Exchange threw TradingApiException, ExchangeNetworkexception or StrategyException. "
+                            + " Failed to perform the strategy because Exchange threw TradingApiException or StrategyException. "
                             + "Telling Trading Engine to shutdown bot!",
                     e);
             throw new StrategyException(e);
+        } catch (ExchangeNetworkException e) {
+            LOG.error(
+                    market.getName()
+                            + " Failed to perform the strategy because Exchange threw ExchangeNetworkexception"
+                            + "Telling Trading Engine to shutdown bot!",
+                    e);
+            throw e;
         }
     }
 
