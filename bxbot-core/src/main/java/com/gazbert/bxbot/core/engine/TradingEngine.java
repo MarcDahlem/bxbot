@@ -79,6 +79,7 @@ public class TradingEngine {
   private static final Logger LOG = LogManager.getLogger();
 
   private static final String CRITICAL_EMAIL_ALERT_SUBJECT = "CRITICAL Alert message from BX-bot";
+  private static final String WARN_EMAIL_ALERT_SUBJECT = "WARN Alert message from BX-bot";
   private static final String DETAILS_ERROR_MSG_LABEL = " Details: ";
   private static final String CAUSE_ERROR_MSG_LABEL = " Cause: ";
 
@@ -244,6 +245,18 @@ public class TradingEngine {
             + engineConfig.getTradeCycleInterval()
             + "s...";
     LOG.error(() -> errorMessage, e);
+    emailAlerter.sendMessage(
+            WARN_EMAIL_ALERT_SUBJECT,
+            EmailAlertMessageBuilder.buildCriticalMsgContent(
+                    "An network error has occured while executing strategies. Wait another tick. Maybe the strategy and network can come back."
+                            + DETAILS_ERROR_MSG_LABEL
+                            + e.getMessage()
+                            + CAUSE_ERROR_MSG_LABEL
+                            + e.getCause(),
+                    e,
+                    engineConfig.getBotId(),
+                    engineConfig.getBotName(),
+                    exchangeAdapter.getClass().getName()));
 
     try {
       Thread.sleep(engineConfig.getTradeCycleInterval() * 1000L);
