@@ -44,7 +44,6 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     private Indicator<Num> buyLongIndicator;
     private Indicator<Num> buyShortIndicator;
     private Indicator<Num> buyGainLine;
-    private Indicator<Num> km_ask;
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
