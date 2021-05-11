@@ -3,6 +3,7 @@ package com.gazbert.bxbot.strategies;
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
+import com.gazbert.bxbot.strategies.helper.TripleKeltnerChannelMiddleIndicator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
@@ -60,14 +61,18 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
         HighPriceIndicator askPriceIndicator = new HighPriceIndicator(priceTracker.getSeries());
         Indicator<Num> bidPriceIndicator = new LowPriceIndicator(priceTracker.getSeries());
 
-        int keltnerBarCount = 333;
-        int keltnerRatio = 16;
+        int keltnerBarCount = 119;
+        int keltnerRatio = 7;
 
-        buyLongIndicator = new KeltnerChannelMiddleIndicator(askPriceIndicator, keltnerBarCount);;
-        buyShortIndicator = new KeltnerChannelUpperIndicator(new KeltnerChannelMiddleIndicator(bidPriceIndicator, keltnerBarCount), keltnerRatio, keltnerBarCount);
+        //buyLongIndicator = new KeltnerChannelMiddleIndicator(askPriceIndicator, keltnerBarCount);;
+        buyLongIndicator = new TripleKeltnerChannelMiddleIndicator(askPriceIndicator, keltnerBarCount);;
+        //KeltnerChannelMiddleIndicator keltnerBidMiddleIndicator = new KeltnerChannelMiddleIndicator(bidPriceIndicator, keltnerBarCount);
+        KeltnerChannelMiddleIndicator keltnerBidMiddleIndicator = new TripleKeltnerChannelMiddleIndicator(bidPriceIndicator, keltnerBarCount);
+
+        buyShortIndicator = new UnstableIndicator(new KeltnerChannelUpperIndicator(keltnerBidMiddleIndicator, keltnerRatio, keltnerBarCount), keltnerBarCount);
         buyGainLine = new UnstableIndicator(new KeltnerChannelLowerIndicator((KeltnerChannelMiddleIndicator)buyLongIndicator, keltnerRatio, keltnerBarCount), keltnerBarCount);
         //buyGainLine = TransformIndicator.multiply(buyLongIndicator, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
-        buyRule = new UnderIndicatorRule(askPriceIndicator, buyGainLine);
+        buyRule = (new UnderIndicatorRule(askPriceIndicator, buyGainLine)).or(new OverIndicatorRule(askPriceIndicator, buyShortIndicator));
         //buyRule = new OverIndicatorRule(buyShortIndicator, buyGainLine);
     }
 

@@ -88,7 +88,7 @@ markets:
     name: BCH/EUR(trailing-ta4j)
     baseCurrency: BCH
     counterCurrency: ZEUR
-    enabled: true
+    enabled: false
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: DOTEUR
     name: DOT/EUR(trailing-ta4j)

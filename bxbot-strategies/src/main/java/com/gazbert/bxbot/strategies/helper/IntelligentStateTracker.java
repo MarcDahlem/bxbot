@@ -215,8 +215,8 @@ public class IntelligentStateTracker {
                 if (currentSellOrderPrice.compareTo(currentMarketBidPrice) > 0) {
                     LOG.warn(() -> market.getName() + " The current SELL order is above the current market bid price. It should soon be fulfilled.");
                     currentSellOrder.increaseOrderNotExecutedCounter();
-                    if (currentSellOrder.getOrderNotExecutedCounter() >= 100) { // TODO make 10 configurable or another approach
-                        String errorMsg = market.getName() + " The current SELL order was 10 times above the current market price. It should normally be fulfilled. Stop the bot.";
+                    if (currentSellOrder.getOrderNotExecutedCounter() >= 1000) { // TODO make 10 configurable or another approach
+                        String errorMsg = market.getName() + " The current SELL order was "+currentSellOrder.getOrderNotExecutedCounter()+" times above the current market price. It should normally be fulfilled. Stop the bot.";
                         LOG.error(() -> errorMsg);
                         throw new StrategyException(errorMsg);
                     }
