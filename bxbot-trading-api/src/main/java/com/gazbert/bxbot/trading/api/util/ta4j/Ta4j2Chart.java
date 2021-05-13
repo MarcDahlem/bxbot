@@ -1,5 +1,7 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
+import static org.ta4j.core.num.NaN.NaN;
+
 import org.knowm.xchart.*;
 import org.knowm.xchart.internal.Utils;
 import org.knowm.xchart.style.Styler;
@@ -23,7 +25,6 @@ public class Ta4j2Chart {
     public static final Color BUY_LONG_LOOKBACK_COLOR = new Color(106, 27, 154);
     public static final Color BUY_SHORT_LOOKBACK_COLOR = new Color(171, 71, 188);
 
-
     public static final Color SELL_CURRENT_LIMIT_COLOR = new Color(0, 0, 255);
     public static final Color SELL_LIMIT_1_COLOR = new Color(255, 0, 255);
     public static final Color SELL_LIMIT_2_COLOR = new Color(251, 192, 45);
@@ -36,8 +37,14 @@ public class Ta4j2Chart {
 
     private static final Map<String, LiveChartConfig> liveCharts = new HashMap<>();
 
-    public static void printSeries(BarSeries series, Strategy strategy, Collection<ChartIndicatorConfig> indicators) {
-        XYChart chart = new XYChartBuilder().title(strategy.getName()).xAxisTitle("Date").yAxisTitle("Price").build();
+    public static void printSeries(
+            BarSeries series, Strategy strategy, Collection<ChartIndicatorConfig> indicators) {
+        XYChart chart =
+                new XYChartBuilder()
+                        .title(strategy.getName())
+                        .xAxisTitle("Date")
+                        .yAxisTitle("Price")
+                        .build();
         chart.getStyler().setZoomEnabled(true);
         chart.getStyler().setCursorEnabled(true);
 
@@ -54,13 +61,15 @@ public class Ta4j2Chart {
         List<Position> positions = seriesManager.run(strategy).getPositions();
         for (Position position : positions) {
             // Buy signal
-            Date entryDate = Date.from(series.getBar(position.getEntry().getIndex()).getEndTime().toInstant());
+            Date entryDate =
+                    Date.from(series.getBar(position.getEntry().getIndex()).getEndTime().toInstant());
             double entryDateAsDouble = Utils.getDoubleArrayFromDateList(List.of(entryDate))[0];
             AnnotationLine buyAnnotation = new AnnotationLine(entryDateAsDouble, true, false);
             buyAnnotation.setColor(Color.GREEN);
             chart.addAnnotation(buyAnnotation);
 
-            Date exitDate = Date.from(series.getBar(position.getExit().getIndex()).getEndTime().toInstant());
+            Date exitDate =
+                    Date.from(series.getBar(position.getExit().getIndex()).getEndTime().toInstant());
             double exitDateAsDouble = Utils.getDoubleArrayFromDateList(List.of(exitDate))[0];
             AnnotationLine sellAnotation = new AnnotationLine(exitDateAsDouble, true, false);
             buyAnnotation.setColor(Color.RED);
@@ -68,7 +77,12 @@ public class Ta4j2Chart {
         }
     }
 
-    private static void addIndicatorToChart(ChartIndicatorConfig indicatorConfig, XYChart chart, BarSeries series, boolean update, Integer limit) {
+    private static void addIndicatorToChart(
+            ChartIndicatorConfig indicatorConfig,
+            XYChart chart,
+            BarSeries series,
+            boolean update,
+            Integer limit) {
         List<Date> dates = new LinkedList<>();
         List<Number> values = new LinkedList<>();
         int startIndex = series.getBeginIndex();
@@ -78,8 +92,31 @@ public class Ta4j2Chart {
 
         for (int i = startIndex; i <= series.getEndIndex(); i++) {
             Bar bar = series.getBar(i);
-            dates.add(Date.from(bar.getEndTime().toInstant()));
-            values.add(indicatorConfig.indicator.getValue(i).getDelegate());
+            if (indicatorConfig.indicator instanceof IchimokuLaggingSpanIndicator) {
+                if (i - 26 >= startIndex) {
+                    Bar oldBar = series.getBar(i - 26);
+                    dates.add(Date.from(oldBar.getEndTime().toInstant()));
+                    values.add(indicatorConfig.indicator.getValue(i).getDelegate());
+                } else {
+                    dates.add(Date.from(series.getBar(startIndex).getEndTime().toInstant()));
+                    values.add(NaN.getDelegate());
+                }
+            } else {
+                if (indicatorConfig.indicator instanceof IchimokuLead1FutureIndicator || indicatorConfig.indicator instanceof IchimokuLead2FutureIndicator) {
+                    if (i + 26 <= series.getEndIndex()) {
+                        Bar futureBar = series.getBar(i + 26);
+                        dates.add(Date.from(futureBar.getEndTime().toInstant()));
+                        values.add(indicatorConfig.indicator.getValue(i).getDelegate());
+                    } else {
+                        dates.add(Date.from(series.getBar(i).getEndTime().plusSeconds(26*3).toInstant()));
+                        values.add(indicatorConfig.indicator.getValue(i).getDelegate());
+                    }
+                } else {
+
+                    dates.add(Date.from(bar.getEndTime().toInstant()));
+                    values.add(indicatorConfig.indicator.getValue(i).getDelegate());
+                }
+            }
         }
         if (update) {
             chart.updateXYSeries(indicatorConfig.name, dates, values, null);
@@ -94,18 +131,28 @@ public class Ta4j2Chart {
 
             if (indicatorConfig.yAxisGroup != null) {
                 chartSeries.setYAxisGroup(indicatorConfig.yAxisGroup.yAxisGroupIndex);
-                chart.setYAxisGroupTitle(indicatorConfig.yAxisGroup.yAxisGroupIndex, indicatorConfig.yAxisGroup.yAxisGroupLabel);
+                chart.setYAxisGroupTitle(
+                        indicatorConfig.yAxisGroup.yAxisGroupIndex, indicatorConfig.yAxisGroup.yAxisGroupLabel);
                 chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
                 chartSeries.setFillColor(indicatorConfig.yAxisGroup.areaFillColor);
             }
         }
     }
 
-    public static String createLiveChart(BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
-        XYChart chart = new XYChartBuilder().title(series.getName()).xAxisTitle("Date").yAxisTitle("Price").height(900 / 3).width(1680 / 3).build();
+    public static String createLiveChart(
+            BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
+        XYChart chart =
+                new XYChartBuilder()
+                        .title(series.getName())
+                        .xAxisTitle("Date")
+                        .yAxisTitle("Price")
+                        .height(900 / 3)
+                        .width(1680 / 3)
+                        .build();
         chart.getStyler().setZoomEnabled(true);
         chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNW);
-        //chart.getStyler().setCursorEnabled(true); //disable cursor, as it has memory leaks in live charts. Check https://github.com/knowm/XChart/issues/593
+        // chart.getStyler().setCursorEnabled(true); //disable cursor, as it has memory leaks in live
+        // charts. Check https://github.com/knowm/XChart/issues/593
 
         for (ChartIndicatorConfig indicator : indicatorConfigs) {
             addIndicatorToChart(indicator, chart, series, false, maxAmountBars);
@@ -115,7 +162,8 @@ public class Ta4j2Chart {
         sw.isCentered(false);
 
         String liveChartID = UUID.randomUUID().toString();
-        liveCharts.put(liveChartID, new LiveChartConfig(sw, chart, series, indicatorConfigs, maxAmountBars));
+        liveCharts.put(
+                liveChartID, new LiveChartConfig(sw, chart, series, indicatorConfigs, maxAmountBars));
         sw.displayChart();
 
         return liveChartID;
@@ -131,13 +179,19 @@ public class Ta4j2Chart {
         }
         liveChartConfig.waitForRun = true;
 
-        javax.swing.SwingUtilities.invokeLater(() -> {
-            for (ChartIndicatorConfig indicatorConfig : liveChartConfig.indicatorConfigs) {
-                addIndicatorToChart(indicatorConfig, liveChartConfig.chart, liveChartConfig.series, true, liveChartConfig.maxAmountBars);
-            }
-            liveChartConfig.sw.repaintChart();
-            liveChartConfig.waitForRun = false;
-        });
+        javax.swing.SwingUtilities.invokeLater(
+                () -> {
+                    for (ChartIndicatorConfig indicatorConfig : liveChartConfig.indicatorConfigs) {
+                        addIndicatorToChart(
+                                indicatorConfig,
+                                liveChartConfig.chart,
+                                liveChartConfig.series,
+                                true,
+                                liveChartConfig.maxAmountBars);
+                    }
+                    liveChartConfig.sw.repaintChart();
+                    liveChartConfig.waitForRun = false;
+                });
     }
 
     private static class LiveChartConfig {
@@ -148,7 +202,12 @@ public class Ta4j2Chart {
         final Integer maxAmountBars;
         volatile boolean waitForRun;
 
-        LiveChartConfig(SwingWrapper<XYChart> sw, XYChart chart, BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
+        LiveChartConfig(
+                SwingWrapper<XYChart> sw,
+                XYChart chart,
+                BarSeries series,
+                Collection<ChartIndicatorConfig> indicatorConfigs,
+                Integer maxAmountBars) {
             this.sw = sw;
             this.chart = chart;
             this.series = series;
@@ -165,10 +224,10 @@ public class Ta4j2Chart {
 
         public ChartIndicatorConfig(Indicator<Num> indicator, String name, Color color) {
             this(indicator, name, color, null);
-
         }
 
-        public ChartIndicatorConfig(Indicator<Num> indicator, String name, Color color, YAxisGroupConfig yAxisGroup) {
+        public ChartIndicatorConfig(
+                Indicator<Num> indicator, String name, Color color, YAxisGroupConfig yAxisGroup) {
             this.indicator = indicator;
             this.name = name;
             this.color = color;
