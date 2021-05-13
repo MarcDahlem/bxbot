@@ -26,8 +26,8 @@ import java.text.DecimalFormat;
 import java.util.Collection;
 import java.util.LinkedList;
 
-@Component("intelligentTa4jStrategy") // used to load the strategy using Spring bean injection
-public class IntelligentTa4jStrategy extends AbstractIntelligentStrategy {
+@Component("intelligentEmaTa4jStrategy") // used to load the strategy using Spring bean injection
+public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     private static final DecimalFormat DECIMAL_FORMAT_PERCENTAGE = new DecimalFormat("#.#### %");
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");

@@ -25,11 +25,11 @@ markets:
     enabled: false
     tradingStrategyId: intelligent-trailing-stop-strategy
   - id: XRPEUR
-    name: XRP/EUR(ta4j)
+    name: XRP/EUR(ta4j-ema)
     baseCurrency: XXRP
     counterCurrency: ZEUR
     enabled: false
-    tradingStrategyId: intelligent-ta4j-strategy
+    tradingStrategyId: intelligent-ema-ta4j-strategy
   - id: XRPEUR
     name: XRP/EUR(trailing-ta4j)
     baseCurrency: XXRP
@@ -88,7 +88,7 @@ markets:
     name: BCH/EUR(trailing-ta4j)
     baseCurrency: BCH
     counterCurrency: ZEUR
-    enabled: false
+    enabled: true
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: DOTEUR
     name: DOT/EUR(trailing-ta4j)

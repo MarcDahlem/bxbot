@@ -35,14 +35,34 @@ strategies:
       show-live-chart: true
 
       persist-ticker-data: false
-  - id: intelligent-ta4j-strategy
+  - id: intelligent-ema-ta4j-strategy
 
-    name: Intelligent TA4J Strategy
+    name: Intelligent EMA TA4J Strategy
 
     description: >
-      Uses ta4j for entering and leaving the market
+      Uses ta4j ema indicataors for entering and leaving the market
 
-    beanName: intelligentTa4jStrategy
+    beanName: intelligentEmaTa4jStrategy
+
+    configItems:
+      percentage-of-counter-currency-balance-to-use: 50
+      configured-emergency-stop-balance: 50
+
+      sell-stop-limit-percentage-below-break-even: 0
+      sell-stop-limit-percentage-above-break-even: 0
+      sell-stop-limit-percentage-minimum-above-break-even: 0
+
+      show-live-chart: true
+
+      persist-ticker-data: true
+  - id: intelligent-ichimoku-ta4j-strategy
+
+    name: Intelligent Ichimoku TA4J Strategy
+
+    description: >
+      Uses Ichimoku for entering and fixed stop loss + take profit limits for leaving the market
+
+    beanName: intelligentIchimokuTa4jStrategy
 
     configItems:
       percentage-of-counter-currency-balance-to-use: 50
