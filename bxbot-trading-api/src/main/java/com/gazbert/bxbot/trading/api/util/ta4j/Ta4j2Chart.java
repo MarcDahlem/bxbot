@@ -93,7 +93,7 @@ public class Ta4j2Chart {
             startIndex = Math.max(startIndex, series.getEndIndex() - limit);
         }
 
-        Long marketCatureTicksInMillis = null;
+        Long marketCaptureTicksInMillis = null;
 
         for (int i = startIndex; i <= series.getEndIndex(); i++) {
             int indexWithPrintDelay = i - indicatorConfig.printDelay;
@@ -103,10 +103,10 @@ public class Ta4j2Chart {
                     dates.add(Date.from(delayedBar.getEndTime().toInstant()));
                     values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 } else {
-                    if (marketCatureTicksInMillis == null) {
-                        marketCatureTicksInMillis = computeApproximateMarketTicks(series);
+                    if (marketCaptureTicksInMillis == null) {
+                        marketCaptureTicksInMillis = computeApproximateMarketTicks(series);
                     }
-                    dates.add(Date.from(series.getBar(i).getEndTime().plus((indicatorConfig.printDelay * -1) * marketCatureTicksInMillis, ChronoUnit.MILLIS).toInstant()));
+                    dates.add(Date.from(series.getBar(i).getEndTime().plus((indicatorConfig.printDelay * -1) * marketCaptureTicksInMillis, ChronoUnit.MILLIS).toInstant()));
                     values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 }
             } else {
@@ -154,7 +154,7 @@ public class Ta4j2Chart {
                         .title(series.getName())
                         .xAxisTitle("Date")
                         .yAxisTitle("Price")
-                        .height(900 / 3)
+                        .height(900 / 4)
                         .width(1680 / 3)
                         .build();
         chart.getStyler().setZoomEnabled(true);
