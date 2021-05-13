@@ -9,7 +9,7 @@ public class DelayIndicator extends CachedIndicator<Num> {
     private final int delay;
     private final Indicator<Num> indicator;
 
-    public DelayIndicator(Indicator<Num> indicator, Integer delay) {
+    public DelayIndicator(Indicator<Num> indicator, int delay) {
         super(indicator);
         this.indicator = indicator;
         this.delay = delay;
