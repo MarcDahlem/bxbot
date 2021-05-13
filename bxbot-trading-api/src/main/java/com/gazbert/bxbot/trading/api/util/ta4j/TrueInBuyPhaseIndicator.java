@@ -1,4 +1,4 @@
-package com.gazbert.bxbot.strategies;
+package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import com.gazbert.bxbot.trading.api.util.ta4j.TradeBasedIndicator;
 import org.ta4j.core.BarSeries;
