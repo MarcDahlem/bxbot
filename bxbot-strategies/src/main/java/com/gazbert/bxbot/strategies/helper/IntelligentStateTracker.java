@@ -20,7 +20,7 @@ public class IntelligentStateTracker {
     private static final Logger LOG = LogManager.getLogger();
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat( "#.########");
 
-    private static final BigDecimal MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL = new BigDecimal("0.0000001");
+    private static final BigDecimal MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL = new BigDecimal("0.00005");
 
     private final TradingApi tradingApi;
     private final Market market;
