@@ -2,6 +2,9 @@ package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import static org.ta4j.core.num.NaN.NaN;
 
+import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import org.knowm.xchart.*;
 import org.knowm.xchart.internal.Utils;
 import org.knowm.xchart.style.Styler;
@@ -90,6 +93,8 @@ public class Ta4j2Chart {
             startIndex = Math.max(startIndex, series.getEndIndex() - limit);
         }
 
+        Long marketCatureTicksInMillis = null;
+
         for (int i = startIndex; i <= series.getEndIndex(); i++) {
             int indexWithPrintDelay = i - indicatorConfig.printDelay;
             if (indexWithPrintDelay >= startIndex) {
@@ -98,8 +103,10 @@ public class Ta4j2Chart {
                     dates.add(Date.from(delayedBar.getEndTime().toInstant()));
                     values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 } else {
-                    int marketCatureTicksInSecond = 3;
-                    dates.add(Date.from(series.getBar(i).getEndTime().plusSeconds((indicatorConfig.printDelay * -1) * marketCatureTicksInSecond).toInstant()));
+                    if (marketCatureTicksInMillis == null) {
+                        marketCatureTicksInMillis = computeApproximateMarketTicks(series);
+                    }
+                    dates.add(Date.from(series.getBar(i).getEndTime().plus((indicatorConfig.printDelay * -1) * marketCatureTicksInMillis, ChronoUnit.MILLIS).toInstant()));
                     values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 }
             } else {
@@ -126,6 +133,18 @@ public class Ta4j2Chart {
                 chartSeries.setFillColor(indicatorConfig.yAxisGroup.areaFillColor);
             }
         }
+    }
+
+    private static Long computeApproximateMarketTicks(BarSeries series) {
+        if(series.getBarCount()<1) {
+            return 3L;
+        }
+
+        ZonedDateTime firstBarTime = series.getFirstBar().getEndTime();
+        ZonedDateTime lastBarTime = series.getLastBar().getEndTime();
+
+        long ellapsedTime = ChronoUnit.MILLIS.between(firstBarTime, lastBarTime);
+        return ellapsedTime / series.getBarCount();
     }
 
     public static String createLiveChart(
