@@ -144,6 +144,9 @@ public class IntelligentPriceTracker {
     }
 
     private String formatWithCurrency(BigDecimal amount, String currency) {
+        if (amount == null) {
+            return "<NaN> " + currency;
+        }
         return DECIMAL_FORMAT.format(amount) + " " + currency;
     }
 

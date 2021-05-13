@@ -72,6 +72,10 @@ strategies:
       sell-stop-limit-percentage-above-break-even: 3
       sell-stop-limit-percentage-minimum-above-break-even: 1.25
 
+      initial-percentage-gain-needed-to-place-buy-order: 2
+      lowest-price-lookback-count: 120
+      times-above-lowest-price-needed: 20
+
       show-live-chart: true
 
       persist-ticker-data: true

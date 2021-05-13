@@ -187,22 +187,30 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
             @Override
             public void logStatistics() throws TradingApiException, ExchangeNetworkException, StrategyException {
+                initSellRules();
                 int currentIndex = priceTracker.getSeries().getEndIndex();
                 LOG.info(market.getName() +
                         "\n######### MOVED DOWN? #########\n" +
                         "* Current bid price: " + priceTracker.getFormattedBid() +
                         "\n Break even: " + priceTracker.formatWithCounterCurrency((BigDecimal) stateTracker.getBreakEvenIndicator().getValue(currentIndex).getDelegate()) +
-                        "\n market change (bid) to break even: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), stateTracker.getBreakEvenIndicator().getValue(currentIndex)).getDelegate()) +
+                        "\n market change (bid) to break even: " + formatAsPercentage((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), stateTracker.getBreakEvenIndicator().getValue(currentIndex)).getDelegate()) +
                         "\n Take profit: " + priceTracker.formatWithCounterCurrency((BigDecimal) gainSellPriceCalculator.getValue(currentIndex).getDelegate()) +
-                        "\n market change (bid) to take profit: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), gainSellPriceCalculator.getValue(currentIndex)).getDelegate()) +
+                        "\n market change (bid) to take profit: " + formatAsPercentage((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), gainSellPriceCalculator.getValue(currentIndex)).getDelegate()) +
                         "\n* lagging span (bid): " + priceTracker.formatWithCounterCurrency((BigDecimal) laggingSpanBid.getValue(currentIndex).getDelegate()) +
                         "\n* past bid (" +ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedBidPrice.getValue(currentIndex).getDelegate()) +
-                        "\n lagging span (bid) to past bid: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(laggingSpanBid.getValue(currentIndex), delayedBidPrice.getValue(currentIndex)).getDelegate()) +
+                        "\n lagging span (bid) to past bid: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpanBid.getValue(currentIndex), delayedBidPrice.getValue(currentIndex)).getDelegate()) +
                         "\n Stop loss: " + priceTracker.formatWithCounterCurrency((BigDecimal) cloudLowerLineAtBuyPrice.getValue(currentIndex).getDelegate()) +
-                        "\n market change (bid) to stop loss: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), cloudLowerLineAtBuyPrice.getValue(currentIndex)).getDelegate()) +
+                        "\n market change (bid) to stop loss: " + formatAsPercentage((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), cloudLowerLineAtBuyPrice.getValue(currentIndex)).getDelegate()) +
                         "\n###############################");
             }
         };
+    }
+
+    private static String formatAsPercentage(BigDecimal number) {
+        if (number == null) {
+            return "<NaN> %";
+        }
+        return DECIMAL_FORMAT_PERCENTAGE.format(number);
     }
 
     @Override
