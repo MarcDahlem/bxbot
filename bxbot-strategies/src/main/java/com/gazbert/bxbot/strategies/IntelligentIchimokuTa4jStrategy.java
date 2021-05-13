@@ -38,6 +38,7 @@ import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
 import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.divide;
 import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.multiply;
 import static org.ta4j.core.indicators.helpers.TransformIndicator.minus;
@@ -109,8 +110,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
         CombineIndicator sellPriceGainCal = multiply(plus(multiply(minus(divide(bidPriceIndicator, cloudLowerLineAtBuyPrice), 1), targetToRiskRatio), 1), buyPriceIndicator);
         gainSellPriceCalculator = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, sellPriceGainCal.getValue(buyIndex)));
-        Rule exitRule = new CrossedDownIndicatorRule(bidPriceIndicator, cloudLowerLineAtBuyPrice).or(new CrossedUpIndicatorRule(bidPriceIndicator, gainSellPriceCalculator))
-                .or(new CrossedDownIndicatorRule(laggingSpan, new UnstableIndicator(new DelayIndicator(askPriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN)))
+        Rule exitRule = new UnderIndicatorRule(bidPriceIndicator, cloudLowerLineAtBuyPrice).or(new OverIndicatorRule(bidPriceIndicator, gainSellPriceCalculator))
+                .or(new UnderIndicatorRule(laggingSpan, new UnstableIndicator(new DelayIndicator(askPriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN)))
                 ;
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j Ichimoku", entryRule, exitRule);
     }
