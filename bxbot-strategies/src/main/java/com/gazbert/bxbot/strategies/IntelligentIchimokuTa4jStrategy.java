@@ -98,20 +98,29 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
 
         CombineIndicator currentCloudUpperLine = CombineIndicator.max(lead1Current, lead2Current);
-        Rule crossTheCurrentCloudUp = new CrossedUpIndicatorRule(askPriceIndicator, currentCloudUpperLine);
-        Rule crossTheCurrentCloudDown = new CrossedDownIndicatorRule(askPriceIndicator, currentCloudUpperLine);
+        CombineIndicator currentCloudLowerLine = CombineIndicator.min(lead1Current, lead2Current);
+
+        Rule crossTheCurrentCloudUpperUp = new CrossedUpIndicatorRule(askPriceIndicator, currentCloudUpperLine);
+        Rule crossTheCurrentCloudUpperDown = new CrossedDownIndicatorRule(askPriceIndicator, currentCloudUpperLine);
+
+        Rule crossTheCurrentCloudLowerUp = new CrossedUpIndicatorRule(askPriceIndicator, currentCloudLowerLine);
+        Rule crossTheCurrentCloudLowerDown = new CrossedDownIndicatorRule(askPriceIndicator, currentCloudLowerLine);
 
         cloudGreenInFuture = new OverIndicatorRule(lead1Future, lead2Future);
         conversionLineAboveBaseLine = new OverIndicatorRule(conversionLine, baseLine);
         laggingSpanAbovePastCloud = new OverIndicatorRule(laggingSpanAsk, lead1Past).and(new OverIndicatorRule(laggingSpanAsk, lead2Past));
 
-        Indicator<Boolean> trueInBuyPhases = new TrueInBuyPhaseIndicator(series, stateTracker.getBreakEvenIndicator());
+        BooleanIndicatorRule trueInBuyPhases = new BooleanIndicatorRule(new TrueInBuyPhaseIndicator(series, stateTracker.getBreakEvenIndicator()));
 
-        Rule resetCrossUpOn = crossTheCurrentCloudDown.or(new BooleanIndicatorRule(trueInBuyPhases));
-        buyRule = new StrictBeforeRule(series, crossTheCurrentCloudUp, cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud), resetCrossUpOn);
+        Rule resetUpperCrossUpOn = crossTheCurrentCloudUpperDown.or(trueInBuyPhases);
+        Rule resetLowerCrossUpOn = crossTheCurrentCloudLowerDown.or(trueInBuyPhases);
+
+        Rule crossingIndipendentIchimokuSignals = cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud);
+        StrictBeforeRule crossUpperAndIchimokuSignals = new StrictBeforeRule(series, crossTheCurrentCloudUpperUp, crossingIndipendentIchimokuSignals, resetUpperCrossUpOn);
+
+        buyRule = new StrictBeforeRule(series, crossTheCurrentCloudLowerUp, crossUpperAndIchimokuSignals, resetLowerCrossUpOn);
 
 
-        CombineIndicator currentCloudLowerLine = CombineIndicator.min(lead1Current, lead2Current);
 
         cloudLowerLineAtBuyPrice = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, currentCloudLowerLine.getValue(buyIndex)));
         Number targetToRiskRatio = 2;
