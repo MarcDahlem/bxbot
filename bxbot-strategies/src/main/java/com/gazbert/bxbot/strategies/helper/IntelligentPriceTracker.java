@@ -25,7 +25,7 @@ public class IntelligentPriceTracker {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.########");
 
-    private static final int MAX_AMOUNT_LIVECHART_BARS = 500;
+    private static final int MAX_AMOUNT_LIVECHART_BARS = 1500;
 
     private final TradingApi tradingApi;
     private final Market market;

@@ -99,7 +99,7 @@ public class Ta4j2Chart {
                     values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 } else {
                     int marketCatureTicksInSecond = 3;
-                    dates.add(Date.from(series.getBar(i).getEndTime().plusSeconds((indexWithPrintDelay * -1) * marketCatureTicksInSecond).toInstant()));
+                    dates.add(Date.from(series.getBar(i).getEndTime().plusSeconds((indicatorConfig.printDelay * -1) * marketCatureTicksInSecond).toInstant()));
                     values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 }
             } else {
