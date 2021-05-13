@@ -76,20 +76,12 @@ public class IntelligentKeltnerTa4jTrailingStopStrategy extends AbstractIntellig
     }
 
     private void initSellIndicators() throws TradingApiException, ExchangeNetworkException {
-        belowBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageBelowBreakEven(), stateTracker.getBreakEvenIndicator());
-        aboveBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageAboveBreakEven(), stateTracker.getBreakEvenIndicator());
-        minAboveBreakEvenIndicator = createMinAboveBreakEvenIndicator();
-
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(priceTracker.getSeries());
-        intelligentTrailIndicator = new IntelligentTrailIndicator(belowBreakEvenIndicator, aboveBreakEvenIndicator, minAboveBreakEvenIndicator, stateTracker.getBreakEvenIndicator());
+        intelligentTrailIndicator = IntelligentTrailIndicator.createIntelligentTrailIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams, stateTracker.getBreakEvenIndicator());
+        belowBreakEvenIndicator = intelligentTrailIndicator.getBelowBreakEvenIndicator();
+        aboveBreakEvenIndicator = intelligentTrailIndicator.getAboveBreakEvenIndicator();
+        minAboveBreakEvenIndicator = intelligentTrailIndicator.getMinAboveBreakEvenIndicator();
         sellRule = new UnderIndicatorRule(bidPriceIndicator, intelligentTrailIndicator);
-    }
-
-    private Indicator<Num> createMinAboveBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
-        SellIndicator limitIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven(), stateTracker.getBreakEvenIndicator());
-        BigDecimal minimumAboveBreakEvenAsFactor = BigDecimal.ONE.subtract(intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven());
-        TransformIndicator minimalDistanceNeededToBreakEven = TransformIndicator.divide(stateTracker.getBreakEvenIndicator(), minimumAboveBreakEvenAsFactor);
-        return CombineIndicator.min(limitIndicator, minimalDistanceNeededToBreakEven);
     }
 
     @Override

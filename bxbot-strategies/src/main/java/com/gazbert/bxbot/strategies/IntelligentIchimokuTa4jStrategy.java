@@ -2,6 +2,7 @@ package com.gazbert.bxbot.strategies;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
@@ -71,6 +72,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     private HighPriceIndicator askPriceIndicator;
     private LowPriceIndicator bidPriceIndicator;
     private IchimokuLaggingSpanIndicator laggingSpanBid;
+    private IntelligentTrailingStopConfigParams intelligentTrailingStopConfigParams;
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
@@ -150,6 +152,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
 
         return new IntelligentStateTracker.OrderPriceCalculator() {
+            private IntelligentTrailIndicator intelligentTrailIndicator;
             private Indicator<Num> delayedBidPrice;
             private Rule laggingSpanEmergencyStopReached;
             private Rule takeProfitAndBreakEvenReached;
@@ -165,7 +168,11 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                     return (BigDecimal)  bidPriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
-                return (BigDecimal) cloudLowerLineAtBuyPrice.getValue(currentIndex).getDelegate();
+                BigDecimal stopLossPrice = (BigDecimal) cloudLowerLineAtBuyPrice.getValue(currentIndex).getDelegate();
+                if (stopLossPrice == null) { // no lower line available --> was a resume.
+                    return (BigDecimal) intelligentTrailIndicator.getValue(currentIndex).getDelegate();
+                }
+                return stopLossPrice;
             }
 
             private void initSellRules() throws TradingApiException, ExchangeNetworkException {
@@ -173,6 +180,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                     takeProfitAndBreakEvenReached = new OverIndicatorRule(bidPriceIndicator, gainSellPriceCalculator).and(new OverIndicatorRule(bidPriceIndicator, stateTracker.getBreakEvenIndicator()));
                     delayedBidPrice = new UnstableIndicator(new DelayIndicator(bidPriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
                     laggingSpanEmergencyStopReached = new UnderIndicatorRule(laggingSpanBid, delayedBidPrice);
+                    intelligentTrailIndicator = IntelligentTrailIndicator.createIntelligentTrailIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams, stateTracker.getBreakEvenIndicator());
                     initialized = true;
                 }
             }
@@ -205,7 +213,10 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
     @Override
     protected IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config) {
-        return new IntelligentTradeTracker();
+        if (intelligentTrailingStopConfigParams == null) {
+            intelligentTrailingStopConfigParams = new IntelligentTrailingStopConfigParams(config);
+        }
+        return intelligentTrailingStopConfigParams;
     }
 
     @Override
