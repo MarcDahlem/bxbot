@@ -82,8 +82,34 @@ strategies:
     description: >
       Trails a stop order and changes the limits dynamically/intelligently according to the last order (positive --> higher limit, negative --> lower limit).
       Uses Ta4j for the computations
+      Compute gain line according to a higher lookback (400)
 
     beanName: intelligentTa4jTrailingStopStrategy
+
+    configItems:
+      percentage-of-counter-currency-balance-to-use: 25
+      configured-emergency-stop-balance: 50
+
+      sell-stop-limit-percentage-below-break-even: 7
+      sell-stop-limit-percentage-above-break-even: 2
+      sell-stop-limit-percentage-minimum-above-break-even: 1
+
+      initial-percentage-gain-needed-to-place-buy-order: 2
+      lowest-price-lookback-count: 120
+      times-above-lowest-price-needed: 20
+
+      show-live-chart: true
+
+      persist-ticker-data: true
+  - id: intelligent-keltner-ta4j-trailing-stop-strategy
+
+    name: Intelligent TA4J Keltner Buy and Trailing Stop Sell Strategy
+
+    description: >
+      Uses Keltner channel breakouts for buy signals, and Trails stop orders for sell signals by  changeing the limits dynamically according to the current price (positive --> higher limit, positive but close to break even --> lower limit --> negative --> higher limit).
+      Uses Ta4j for the computations
+
+    beanName: intelligentKeltnerTa4jTrailingStopStrategy
 
     configItems:
       percentage-of-counter-currency-balance-to-use: 25

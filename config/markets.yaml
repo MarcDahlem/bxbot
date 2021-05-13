@@ -37,6 +37,12 @@ markets:
     enabled: false
     tradingStrategyId: intelligent-ta4j-trailing-stop-strategy
   - id: XRPEUR
+    name: XRP/EUR(keltner-trailing-ta4j)
+    baseCurrency: XXRP
+    counterCurrency: ZEUR
+    enabled: false
+    tradingStrategyId: intelligent-keltner-ta4j-trailing-stop-strategy
+  - id: XRPEUR
     name: XRP/EUR(ta4j-ichimoku)
     baseCurrency: XXRP
     counterCurrency: ZEUR
