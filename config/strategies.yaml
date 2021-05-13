@@ -68,9 +68,9 @@ strategies:
       percentage-of-counter-currency-balance-to-use: 25
       configured-emergency-stop-balance: 50
 
-      sell-stop-limit-percentage-below-break-even: 0
-      sell-stop-limit-percentage-above-break-even: 0
-      sell-stop-limit-percentage-minimum-above-break-even: 0
+      sell-stop-limit-percentage-below-break-even: 7
+      sell-stop-limit-percentage-above-break-even: 3
+      sell-stop-limit-percentage-minimum-above-break-even: 1.25
 
       show-live-chart: true
 
