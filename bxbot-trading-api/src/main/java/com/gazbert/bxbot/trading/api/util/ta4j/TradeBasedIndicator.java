@@ -33,13 +33,13 @@ public abstract class TradeBasedIndicator<T> extends CachedIndicator<T> {
 
     private final TreeSet<Integer> sortedBuyIndeces = new TreeSet<>();
     private final TreeSet<Integer> sortedSellIndeces = new TreeSet<>();
-    private final TradeBasedIndicator<T> tradeKnowingIndicator;
+    private final TradeBasedIndicator<?> tradeKnowingIndicator;
 
     public TradeBasedIndicator(BarSeries series) {
         this(series, null);
     }
 
-    public TradeBasedIndicator(BarSeries series, TradeBasedIndicator<T> tradeKnowingIndicator) {
+    public TradeBasedIndicator(BarSeries series, TradeBasedIndicator<?> tradeKnowingIndicator) {
         super(series);
         if (tradeKnowingIndicator != null) {
             this.tradeKnowingIndicator = tradeKnowingIndicator;

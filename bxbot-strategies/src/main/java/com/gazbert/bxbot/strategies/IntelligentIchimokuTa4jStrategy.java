@@ -16,6 +16,7 @@ import com.gazbert.bxbot.trading.api.util.ta4j.IchimokuLead2FutureIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.StrictBeforeRule;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
+import com.gazbert.bxbot.trading.api.util.ta4j.TradeBasedIndicator;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -35,6 +36,8 @@ import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.indicators.ichimoku.IchimokuKijunSenIndicator;
 import org.ta4j.core.indicators.ichimoku.IchimokuTenkanSenIndicator;
 import org.ta4j.core.num.Num;
+import org.ta4j.core.rules.BooleanIndicatorRule;
+import org.ta4j.core.rules.BooleanRule;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
@@ -99,7 +102,10 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         Rule conversionLineAboveBaseLine = new OverIndicatorRule(conversionLine, baseLine);
         Rule laggingSpanAbovePastCloud = new OverIndicatorRule(laggingSpan, lead1Past).and(new OverIndicatorRule(laggingSpan, lead2Past));
 
-        Rule entryRule = new StrictBeforeRule(series, crossTheCurrentCloudUp, cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud), crossTheCurrentCloudDown);
+        Indicator<Boolean> trueInBuyPhases = new TrueInBuyPhaseIndicator(series, stateTracker.getBreakEvenIndicator());
+
+        Rule resetCrossUpOn = crossTheCurrentCloudDown.or(new BooleanIndicatorRule(trueInBuyPhases));
+        Rule entryRule = new StrictBeforeRule(series, crossTheCurrentCloudUp, cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud), resetCrossUpOn);
 
 
         CombineIndicator currentCloudLowerLine = CombineIndicator.min(lead1Current, lead2Current);

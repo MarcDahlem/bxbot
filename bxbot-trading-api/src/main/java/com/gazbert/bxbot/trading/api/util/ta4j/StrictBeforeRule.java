@@ -33,10 +33,6 @@ public class StrictBeforeRule extends AbstractRule {
                 traceIsSatisfied(index, false);
                 return false;
             }
-            if (i<index && secondCondition.isSatisfied(i, tradingRecord)) {
-                traceIsSatisfied(index, false);
-                return false;
-            }
             if(firstCondition.isSatisfied(i, tradingRecord)) {
                 traceIsSatisfied(index, true);
                 return true;
