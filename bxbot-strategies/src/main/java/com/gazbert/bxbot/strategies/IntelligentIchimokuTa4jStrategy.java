@@ -52,8 +52,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
 
-    private static final int ICHIMOKU_SHORT_SPAN = 9*20;
-    private static final int ICHIMOKU_LONG_SPAN = 26*20;
+    private static final int ICHIMOKU_SHORT_SPAN = 9*15;
+    private static final int ICHIMOKU_LONG_SPAN = 26*15;
 
     private BaseStrategy ta4jStrategy;
     private BigDecimal buyFee;
@@ -110,7 +110,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         CombineIndicator sellPriceGainCal = multiply(plus(multiply(minus(divide(bidPriceIndicator, cloudLowerLineAtBuyPrice), 1), targetToRiskRatio), 1), buyPriceIndicator);
         gainSellPriceCalculator = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, sellPriceGainCal.getValue(buyIndex)));
         Rule exitRule = new CrossedDownIndicatorRule(bidPriceIndicator, cloudLowerLineAtBuyPrice).or(new CrossedUpIndicatorRule(bidPriceIndicator, gainSellPriceCalculator))
-                //.or(new CrossedDownIndicatorRule(laggingSpan, new UnstableIndicator(new DelayIndicator(askPriceIndicator, ichimokuLongSpan), ichimokuLongSpan)))
+                .or(new CrossedDownIndicatorRule(laggingSpan, new UnstableIndicator(new DelayIndicator(askPriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN)))
                 ;
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j Ichimoku", entryRule, exitRule);
     }
@@ -138,7 +138,6 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
         IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
-        result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
         return result;
     }
 
