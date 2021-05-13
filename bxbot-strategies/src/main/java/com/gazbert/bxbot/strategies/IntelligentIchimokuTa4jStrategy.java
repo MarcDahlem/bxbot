@@ -51,6 +51,10 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     private static final DecimalFormat DECIMAL_FORMAT_PERCENTAGE = new DecimalFormat("#.#### %");
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
+
+    private static final int ICHIMOKU_SHORT_SPAN = 9*20;
+    private static final int ICHIMOKU_LONG_SPAN = 26*20;
+
     private BaseStrategy ta4jStrategy;
     private BigDecimal buyFee;
     private BigDecimal sellFee;
@@ -73,21 +77,17 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
         HighPriceIndicator askPriceIndicator = new HighPriceIndicator(series);
 
-        int ichimokuShortSpan = 9;
-        int ichimokuLongSpan = 26;
-
-
-        conversionLine = new IchimokuTenkanSenIndicator(series, ichimokuShortSpan); //9
-        baseLine = new IchimokuKijunSenIndicator(series, ichimokuLongSpan); //26
+        conversionLine = new IchimokuTenkanSenIndicator(series, ICHIMOKU_SHORT_SPAN); //9
+        baseLine = new IchimokuKijunSenIndicator(series, ICHIMOKU_LONG_SPAN); //26
         laggingSpan = new IchimokuLaggingSpanIndicator(askPriceIndicator);
         lead1Future = new IchimokuLead1FutureIndicator(conversionLine, baseLine); //26
-        lead2Future = new IchimokuLead2FutureIndicator(series, 2 * ichimokuLongSpan); // 52
+        lead2Future = new IchimokuLead2FutureIndicator(series, 2 * ICHIMOKU_LONG_SPAN); // 52
 
-        UnstableIndicator lead1Current = new UnstableIndicator(new DelayIndicator(lead1Future, ichimokuLongSpan), ichimokuLongSpan);
-        UnstableIndicator lead2Current = new UnstableIndicator(new DelayIndicator(lead2Future, ichimokuLongSpan), ichimokuLongSpan);
+        UnstableIndicator lead1Current = new UnstableIndicator(new DelayIndicator(lead1Future, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
+        UnstableIndicator lead2Current = new UnstableIndicator(new DelayIndicator(lead2Future, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
 
-        Indicator<Num> lead1Past = new UnstableIndicator(new DelayIndicator(lead1Future, 2 * ichimokuLongSpan), 2 * ichimokuLongSpan);
-        Indicator<Num> lead2Past = new UnstableIndicator(new DelayIndicator(lead2Future, 2 * ichimokuLongSpan), 2 * ichimokuLongSpan);
+        Indicator<Num> lead1Past = new UnstableIndicator(new DelayIndicator(lead1Future, 2 * ICHIMOKU_LONG_SPAN), 2 * ICHIMOKU_LONG_SPAN);
+        Indicator<Num> lead2Past = new UnstableIndicator(new DelayIndicator(lead2Future, 2 * ICHIMOKU_LONG_SPAN), 2 * ICHIMOKU_LONG_SPAN);
 
 
         CombineIndicator currentCloudUpperLine = CombineIndicator.max(lead1Current, lead2Current);
@@ -120,11 +120,11 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         LinkedList<Ta4j2Chart.ChartIndicatorConfig> result = new LinkedList<>();
         result.add(new Ta4j2Chart.ChartIndicatorConfig(conversionLine, "conversion line", Ta4j2Chart.BUY_SHORT_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(baseLine, "base line", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(lead1Future, "kumo a future", Color.GREEN));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(lead2Future, "kumo b future", Color.RED));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(lead1Future, "kumo a future", Color.GREEN, ICHIMOKU_LONG_SPAN * -1));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(lead2Future, "kumo b future", Color.RED, ICHIMOKU_LONG_SPAN * -1));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(cloudLowerLineAtBuyPrice, "sell stop price", Ta4j2Chart.SELL_LIMIT_2_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(gainSellPriceCalculator, "sell gain price", Ta4j2Chart.SELL_LIMIT_1_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpan, "lagging span", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpan, "lagging span", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR, ICHIMOKU_LONG_SPAN));
         return result;
     }
 

@@ -91,31 +91,20 @@ public class Ta4j2Chart {
         }
 
         for (int i = startIndex; i <= series.getEndIndex(); i++) {
-            Bar bar = series.getBar(i);
-            if (indicatorConfig.indicator instanceof IchimokuLaggingSpanIndicator) {
-                if (i - 26 >= startIndex) {
-                    Bar oldBar = series.getBar(i - 26);
-                    dates.add(Date.from(oldBar.getEndTime().toInstant()));
+            int indexWithPrintDelay = i - indicatorConfig.printDelay;
+            if (indexWithPrintDelay >= startIndex) {
+                if (indexWithPrintDelay <= series.getEndIndex()) {
+                    Bar delayedBar = series.getBar(indexWithPrintDelay);
+                    dates.add(Date.from(delayedBar.getEndTime().toInstant()));
                     values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 } else {
-                    dates.add(Date.from(series.getBar(startIndex).getEndTime().toInstant()));
-                    values.add(NaN.getDelegate());
+                    int marketCatureTicksInSecond = 3;
+                    dates.add(Date.from(series.getBar(i).getEndTime().plusSeconds((indexWithPrintDelay * -1) * marketCatureTicksInSecond).toInstant()));
+                    values.add(indicatorConfig.indicator.getValue(i).getDelegate());
                 }
             } else {
-                if (indicatorConfig.indicator instanceof IchimokuLead1FutureIndicator || indicatorConfig.indicator instanceof IchimokuLead2FutureIndicator) {
-                    if (i + 26 <= series.getEndIndex()) {
-                        Bar futureBar = series.getBar(i + 26);
-                        dates.add(Date.from(futureBar.getEndTime().toInstant()));
-                        values.add(indicatorConfig.indicator.getValue(i).getDelegate());
-                    } else {
-                        dates.add(Date.from(series.getBar(i).getEndTime().plusSeconds(26*3).toInstant()));
-                        values.add(indicatorConfig.indicator.getValue(i).getDelegate());
-                    }
-                } else {
-
-                    dates.add(Date.from(bar.getEndTime().toInstant()));
-                    values.add(indicatorConfig.indicator.getValue(i).getDelegate());
-                }
+                dates.add(Date.from(series.getBar(startIndex).getEndTime().toInstant()));
+                values.add(NaN.getDelegate());
             }
         }
         if (update) {
@@ -221,16 +210,27 @@ public class Ta4j2Chart {
         final String name;
         final Color color;
         final YAxisGroupConfig yAxisGroup;
+        final int printDelay;
 
         public ChartIndicatorConfig(Indicator<Num> indicator, String name, Color color) {
-            this(indicator, name, color, null);
+            this(indicator, name, color, 0);
+        }
+
+        public ChartIndicatorConfig(Indicator<Num> indicator, String name, Color color, int printDelay) {
+            this(indicator, name, color, printDelay, null);
         }
 
         public ChartIndicatorConfig(
                 Indicator<Num> indicator, String name, Color color, YAxisGroupConfig yAxisGroup) {
+            this(indicator, name, color, 0, yAxisGroup);
+        }
+
+        public ChartIndicatorConfig(
+                Indicator<Num> indicator, String name, Color color, int printDelay, YAxisGroupConfig yAxisGroup) {
             this.indicator = indicator;
             this.name = name;
             this.color = color;
+            this.printDelay = printDelay;
             this.yAxisGroup = yAxisGroup;
         }
     }
