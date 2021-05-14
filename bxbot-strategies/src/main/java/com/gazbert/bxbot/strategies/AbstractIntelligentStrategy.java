@@ -48,7 +48,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         this.market = market;
         this.tradingApi = tradingApi;
         priceTracker = new IntelligentPriceTracker(tradingApi, market, config);
-        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker);
+        stateTracker = new IntelligentStateTracker(tradingApi, market, priceTracker, config);
         shouldPersistTickerData = StrategyConfigParser.readBoolean(config, "persist-ticker-data", false);
 
         try {

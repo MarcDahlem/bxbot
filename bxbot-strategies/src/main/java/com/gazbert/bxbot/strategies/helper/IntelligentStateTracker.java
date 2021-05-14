@@ -1,5 +1,7 @@
 package com.gazbert.bxbot.strategies.helper;
 
+import com.gazbert.bxbot.strategies.StrategyConfigParser;
+import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.*;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
@@ -23,6 +25,7 @@ public class IntelligentStateTracker {
     private final TradingApi tradingApi;
     private final Market market;
     private final IntelligentPriceTracker priceTracker;
+    private final BigDecimal configuredEmergencyStop;
 
     private IntelligentStrategyState strategyState;
     private PlacedOrder currentBuyOrder;
@@ -36,10 +39,11 @@ public class IntelligentStateTracker {
         }
     };
 
-    public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker) {
+    public IntelligentStateTracker(TradingApi tradingApi, Market market, IntelligentPriceTracker priceTracker, StrategyConfig config) {
         this.tradingApi = tradingApi;
         this.market = market;
         this.priceTracker = priceTracker;
+        configuredEmergencyStop = StrategyConfigParser.readAmount(config, "configured-emergency-stop-balance");
     }
 
     public IntelligentStrategyState getCurrentState() throws ExchangeNetworkException, TradingApiException, StrategyException {
@@ -291,15 +295,40 @@ public class IntelligentStateTracker {
             throw new StrategyException(errorMsg);
         }
 
-        final BigDecimal piecesToBuy = amountOfPiecesToBuyCalcualtor.calculate();
+        BigDecimal calculatedPiecesToBuy = amountOfPiecesToBuyCalcualtor.calculate();
+        BigDecimal sanitizedPiecesToBuy = sanitizeBuyAmount(calculatedPiecesToBuy);
 
-        LOG.info(() -> market.getName() + " BUY phase - Place a BUY order of '" + DECIMAL_FORMAT.format(piecesToBuy) + " * " + priceTracker.getFormattedAsk() + "'");
-        String orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, piecesToBuy, priceTracker.getAsk());
+        if (sanitizedPiecesToBuy != null) {
 
-        LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
+            LOG.info(() -> market.getName() + " BUY phase - Place a BUY order of '" + DECIMAL_FORMAT.format(sanitizedPiecesToBuy) + " * " + priceTracker.getFormattedAsk() + "'");
+            String orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, sanitizedPiecesToBuy, priceTracker.getAsk());
 
-        currentBuyOrder = new PlacedOrder(orderID, OrderType.BUY, piecesToBuy, priceTracker.getAsk());
-        updateStateTo(IntelligentStrategyState.WAIT_FOR_BUY);
+            LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
+
+            currentBuyOrder = new PlacedOrder(orderID, OrderType.BUY, sanitizedPiecesToBuy, priceTracker.getAsk());
+            updateStateTo(IntelligentStrategyState.WAIT_FOR_BUY);
+        }
+    }
+
+    private BigDecimal sanitizeBuyAmount(BigDecimal piecesToBuy) throws TradingApiException, ExchangeNetworkException {
+        BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
+        if(piecesToBuy.compareTo(minimumOrderVolume) < 0) {
+            LOG.warn(() -> market.getName() + " BUY phase - the minimum order volume of '" + DECIMAL_FORMAT.format(minimumOrderVolume) + "' was not reached by the calculated amount of pieces '" + piecesToBuy +"''");
+            BigDecimal buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
+            BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
+            BigDecimal totalOrderPriceWithMinimumOrderSize = minimumOrderVolume.multiply(priceTracker.getAsk()).multiply(buyFeeFactor);
+            BigDecimal estimatedBalanceAfterBuy = priceTracker.getAvailableCounterCurrencyBalance().subtract(totalOrderPriceWithMinimumOrderSize);
+            if (estimatedBalanceAfterBuy.compareTo(configuredEmergencyStop) > 0) {
+                LOG.warn(() -> market.getName() + " BUY phase - enough balance for minimum order volume available on balance. Replace order volume with the minimum order volume of '" + DECIMAL_FORMAT.format(minimumOrderVolume) + "'");
+                return minimumOrderVolume;
+            } else {
+                LOG.warn(() -> market.getName() + " BUY phase - the minimum order volume would lead to a balance '" + priceTracker.formatWithCounterCurrency(estimatedBalanceAfterBuy) + "' which is under the configured emergeny stop of '" + priceTracker.formatWithCounterCurrency(configuredEmergencyStop) +"''. Skip the BUY and wait until enough balance is available on the account.");
+                return null;
+            }
+        } else {
+            LOG.info(() -> market.getName() + " BUY phase - the calculated amount of pieces to buy '" + piecesToBuy + "' is above the minimum order volume of '" + DECIMAL_FORMAT.format(minimumOrderVolume) + "'. Place a buy order with the calculated amount.");
+            return piecesToBuy;
+        }
     }
 
     public void placeSellOrder(OrderPriceCalculator sellPriceCalculator) throws TradingApiException, ExchangeNetworkException, StrategyException {
