@@ -8,7 +8,6 @@ import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -139,7 +138,7 @@ public class IntelligentStateTracker {
                             + ", market ask price: " + priceTracker.getFormattedAsk() + ").");
                 }
                 currentBuyOrder.increaseOrderNotExecutedCounter();
-                if (currentBuyOrder.getOrderNotExecutedCounter() <= 3) {
+                if (currentBuyOrder.getOrderNotExecutedCounter() <= 3) { // TODO make configurable + TODO reset counter
                     LOG.warn(() -> market.getName() + " The BUY order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
                 } else {
                     LOG.warn(() -> market.getName() + " The BUY order execution failed '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Cancel the rest of the order and proceed with selling the partially filled BUY order.");
@@ -169,7 +168,7 @@ public class IntelligentStateTracker {
                                 + "' is above the current market ask-price ('" + priceTracker.getFormattedAsk() + "'). Cancel the order '" + currentBuyOrder.getId() + "'.");
                     } else {
                         currentBuyOrder.increaseOrderNotExecutedCounter();
-                        if (currentBuyOrder.getOrderNotExecutedCounter() <= 3) {
+                        if (currentBuyOrder.getOrderNotExecutedCounter() <= 3) { // TODO make configurable + TODO reset counter
                             LOG.warn(() -> market.getName() + " The BUY order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
                             return;
                         } else {
@@ -217,10 +216,32 @@ public class IntelligentStateTracker {
                 if (currentSellOrderPrice.compareTo(currentMarketBidPrice) > 0) {
                     LOG.warn(() -> market.getName() + " The current SELL order is above the current market bid price. It should soon be fulfilled.");
                     currentSellOrder.increaseOrderNotExecutedCounter();
-                    if (currentSellOrder.getOrderNotExecutedCounter() >= 1000) { // TODO make 10 configurable or another approach
-                        String errorMsg = market.getName() + " The current SELL order was "+currentSellOrder.getOrderNotExecutedCounter()+" times above the current market price. It should normally be fulfilled. Stop the bot.";
-                        LOG.error(() -> errorMsg);
-                        throw new StrategyException(errorMsg);
+                    if (currentSellOrder.getOrderNotExecutedCounter() >= 10) { // TODO make 10 configurable or another approach
+                        String msg = market.getName() + " The current SELL order was "+currentSellOrder.getOrderNotExecutedCounter()+" times above the current market price. It should normally be fulfilled. Cancel the order and place directly a sell order with the current markets bid price.";
+                        LOG.warn(() -> msg);
+
+                        boolean orderCanceled = tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
+
+                        if (orderCanceled) {
+                            LOG.warn(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' successfully canceled. Place a new SELL order with the current bid price to get rid of the open order.");
+                            currentSellOrder = null;
+                            updateStateTo(IntelligentStrategyState.NEED_SELL);
+                            placeSellOrder(new OrderPriceCalculator() {
+                                @Override
+                                public BigDecimal calculate() throws TradingApiException, ExchangeNetworkException, StrategyException {
+                                    return priceTracker.getBid();
+                                }
+
+                                @Override
+                                public void logStatistics() throws TradingApiException, ExchangeNetworkException, StrategyException {
+
+                                }
+                            });
+                        } else {
+                            LOG.warn(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
+                        }
+                    } else {
+                        LOG.warn(() -> market.getName() + " The SELL order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
                     }
                 } else {
                     LOG.info(() -> market.getName() + " The current SELL order's price '" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice)
@@ -239,7 +260,7 @@ public class IntelligentStateTracker {
                             updateStateTo(IntelligentStrategyState.NEED_SELL);
                             stateChangedListener.onStrategyChanged(NEED_SELL);
                         } else {
-                            LOG.warn(() -> market.getName() + " Order '" + currentBuyOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
+                            LOG.warn(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
                         }
                     } else {
                         LOG.info(() -> market.getName() + " The new SELL order's price '" + priceTracker.formatWithCounterCurrency(sellPrice)
