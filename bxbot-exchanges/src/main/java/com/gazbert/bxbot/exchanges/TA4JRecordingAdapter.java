@@ -200,6 +200,11 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         }
     }
 
+    @Override
+    public BigDecimal getMinimumOrderVolume(String marketId) throws TradingApiException, ExchangeNetworkException {
+        return BigDecimal.ZERO;
+    }
+
     private void checkOpenSellOrderExecution(String marketId) {
         BigDecimal currentBidPrice = (BigDecimal) tradingSeries.getBar(currentTick).getLowPrice().getDelegate(); // assumes that the stored series json contains the bid price in the low price property
         if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
