@@ -249,9 +249,12 @@ public class IntelligentStateTracker {
                 break;
             case UNAVAILABLE:
                 LOG.info(() -> market.getName() + " SELL order '" + currentSellOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Restart gaining money in the buy phase...");
-                BigDecimal totalBuyPrice = getCurrentBuyOrderPrice().add(getCurrentBuyOrderPrice().multiply(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId())));
-                BigDecimal totalSellPrice = currentSellOrderPrice.subtract(currentSellOrderPrice.multiply(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId())));
-                BigDecimal totalGain = totalSellPrice.subtract(totalBuyPrice).multiply(currentSellOrder.getAmount());
+                BigDecimal buyPricePerPiece = getCurrentBuyOrderPrice().add(getCurrentBuyOrderPrice().multiply(tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId())));
+                BigDecimal sellPricePerPiece = currentSellOrderPrice.subtract(currentSellOrderPrice.multiply(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId())));
+
+                BigDecimal totalBuyPrice = buyPricePerPiece.multiply(currentBuyOrder.getAmount());
+                BigDecimal totalSellPrice = sellPricePerPiece.multiply(currentSellOrder.getAmount();
+                BigDecimal totalGain = totalSellPrice.subtract(totalBuyPrice);
                 LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + priceTracker.formatWithCounterCurrency(totalGain) + "'. (sell order price: '" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice) + "', sell order amount: '" + DECIMAL_FORMAT.format(currentSellOrder.getAmount()) + "')");
                 tradeClosedListener.onTradeCloseSuccess(totalGain);
                 currentBuyOrder = null;
@@ -344,13 +347,21 @@ public class IntelligentStateTracker {
         }
 
         BigDecimal sellPrice = sellPriceCalculator.calculate();
-        LOG.info(() -> market.getName() + " SELL phase - Place a SELL order of '" + DECIMAL_FORMAT.format(currentBuyOrder.getAmount()) + " * " + priceTracker.formatWithCounterCurrency(sellPrice) + "'");
+        BigDecimal sellOrderAmount = priceTracker.getAvailableBaseCurrencyBalance();
+        BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
 
-        String orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
+        if (sellOrderAmount.compareTo(minimumOrderVolume)<0) {
+            String errorMsg = "Tried to place a sell order of '" + sellOrderAmount + "' pieces. But the minimum order volume on market is '" + minimumOrderVolume + "'. This should hopyfully never happen.";
+            throw new StrategyException(errorMsg);
+        }
+
+        LOG.info(() -> market.getName() + " SELL phase - Place a SELL order of '" + DECIMAL_FORMAT.format(sellOrderAmount) + " * " + priceTracker.formatWithCounterCurrency(sellPrice) + "'");
+
+        String orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, sellOrderAmount, sellPrice);
 
         LOG.info(() -> market.getName() + " SELL Order sent successfully to exchange. ID: " + orderId);
 
-        currentSellOrder = new PlacedOrder(orderId, OrderType.SELL, currentBuyOrder.getAmount(), sellPrice);
+        currentSellOrder = new PlacedOrder(orderId, OrderType.SELL, sellOrderAmount, sellPrice);
         updateStateTo(IntelligentStrategyState.WAIT_FOR_SELL);
     }
 
