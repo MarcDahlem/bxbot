@@ -253,7 +253,7 @@ public class IntelligentStateTracker {
                 BigDecimal sellPricePerPiece = currentSellOrderPrice.subtract(currentSellOrderPrice.multiply(tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId())));
 
                 BigDecimal totalBuyPrice = buyPricePerPiece.multiply(currentBuyOrder.getAmount());
-                BigDecimal totalSellPrice = sellPricePerPiece.multiply(currentSellOrder.getAmount();
+                BigDecimal totalSellPrice = sellPricePerPiece.multiply(currentSellOrder.getAmount());
                 BigDecimal totalGain = totalSellPrice.subtract(totalBuyPrice);
                 LOG.info(() -> market.getName() + " SELL order executed with a gain/loss of '" + priceTracker.formatWithCounterCurrency(totalGain) + "'. (sell order price: '" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice) + "', sell order amount: '" + DECIMAL_FORMAT.format(currentSellOrder.getAmount()) + "')");
                 tradeClosedListener.onTradeCloseSuccess(totalGain);
