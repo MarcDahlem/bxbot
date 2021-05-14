@@ -133,6 +133,12 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
         return delegateExchange.getTicker(marketId);
     }
 
+    @Override
+    public BigDecimal getMinimumOrderVolume(String marketId) throws TradingApiException, ExchangeNetworkException {
+        LOG.info(() -> "Delegate 'getMinimumOrderVolume' to the configured delegation exchange adapter.");
+        return delegateExchange.getMinimumOrderVolume(marketId);
+    }
+
     private void setOtherConfig(ExchangeConfig exchangeConfig) {
         LOG.info(() -> "Load try-mode adapter config...");
         final OtherConfig otherConfig = getOtherConfig(exchangeConfig);
