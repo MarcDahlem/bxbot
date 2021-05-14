@@ -20,8 +20,6 @@ public class IntelligentStateTracker {
     private static final Logger LOG = LogManager.getLogger();
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat( "#.########");
 
-    private static final BigDecimal MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL = new BigDecimal("0.00005");
-
     private final TradingApi tradingApi;
     private final Market market;
     private final IntelligentPriceTracker priceTracker;
@@ -58,7 +56,7 @@ public class IntelligentStateTracker {
         if (myOrders.isEmpty()) {
             LOG.info(() -> market.getName() + " No open orders found. Check available balance for the base currency, to know if a new sell order should be created.");
             final BigDecimal currentBaseCurrencyBalance = priceTracker.getAvailableBaseCurrencyBalance();
-            if (currentBaseCurrencyBalance.compareTo(MINIMAL_ACCOUNT_BALANCE_FOR_RESUME_SELL) > 0) {
+            if (currentBaseCurrencyBalance.compareTo(tradingApi.getMinimumOrderVolume(market.getId())) > 0) {
                 LOG.info(() -> market.getName() + " Open balance in base currency found. Resume needed. Set current phase to SELL and use as BUY price the current market ask price");
                 currentBuyOrder = new PlacedOrder("DUMMY_STRATEGY_RESUMED_BUY_ORDER_DUE_TO_OPEN_BALANCE", OrderType.BUY, currentBaseCurrencyBalance, priceTracker.getAsk());
                 strategyState = IntelligentStrategyState.NEED_SELL;
