@@ -95,6 +95,8 @@ public class Ta4j2Chart {
 
         Long marketCaptureTicksInMillis = null;
 
+        appendLeadingBarsForBarsPrintedInFuture(indicatorConfig, series, dates, values, startIndex);
+
         for (int i = startIndex; i <= series.getEndIndex(); i++) {
             int indexWithPrintDelay = i - indicatorConfig.printDelay;
             if (indexWithPrintDelay >= startIndex) {
@@ -135,8 +137,24 @@ public class Ta4j2Chart {
         }
     }
 
+    private static void appendLeadingBarsForBarsPrintedInFuture(ChartIndicatorConfig indicatorConfig, BarSeries series, List<Date> dates, List<Number> values, int startIndex) {
+        for (int i = startIndex; i < startIndex - indicatorConfig.printDelay; i++) {
+            int indexInPast = i + indicatorConfig.printDelay;
+            if (indexInPast >= series.getBeginIndex()) {
+                if (i <= series.getEndIndex()) {
+                    Bar currentBar = series.getBar(i);
+                    dates.add(Date.from(currentBar.getEndTime().toInstant()));
+                } else {
+                    Long marketCaptureTicksInMillis = computeApproximateMarketTicks(series);
+                    dates.add(Date.from(series.getBar(indexInPast).getEndTime().plus((indicatorConfig.printDelay * -1) * marketCaptureTicksInMillis, ChronoUnit.MILLIS).toInstant()));
+                }
+                values.add(indicatorConfig.indicator.getValue(indexInPast).getDelegate());
+            }
+        }
+    }
+
     private static Long computeApproximateMarketTicks(BarSeries series) {
-        if(series.getBarCount()<1) {
+        if (series.getBarCount() < 1) {
             return 3L;
         }
 
