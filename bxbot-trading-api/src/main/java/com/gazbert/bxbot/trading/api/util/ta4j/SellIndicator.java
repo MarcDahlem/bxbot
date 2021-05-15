@@ -48,10 +48,14 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
     }
 
     public static SellIndicator createBreakEvenIndicator(BarSeries series, BigDecimal buyFee, BigDecimal sellFee) {
+        return createBreakEvenIndicator(series, null, buyFee, sellFee);
+    }
+
+    public static SellIndicator createBreakEvenIndicator(BarSeries series, SellIndicator tradeKnowingIndicator, BigDecimal buyFee, BigDecimal sellFee) {
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
         TransformIndicator breakEvenCalculator = TransformIndicator.divide(TransformIndicator.multiply(new HighPriceIndicator(series), buyFeeFactor), sellFeeFactor);
-        return new SellIndicator(series, (buyIndex, index) -> new ConstantIndicator<>(series, breakEvenCalculator.getValue(buyIndex)));
+        return new SellIndicator(series, tradeKnowingIndicator, (buyIndex, index) -> new ConstantIndicator<>(series, breakEvenCalculator.getValue(buyIndex)));
     }
 
     public static SellIndicator createSellLimitIndicator(BarSeries series, BigDecimal limitPercentageUnderCurrentBid, SellIndicator tradeKnowingIndicator) {

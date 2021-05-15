@@ -132,7 +132,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected Collection<Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() {
+    protected Collection<Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
+        SellIndicator binanceBreakEvenIndicator = SellIndicator.createBreakEvenIndicator(priceTracker.getSeries(), stateTracker.getBreakEvenIndicator(), new BigDecimal("0.00075"), new BigDecimal("0.00075"));
         LinkedList<Ta4j2Chart.ChartIndicatorConfig> result = new LinkedList<>();
         result.add(new Ta4j2Chart.ChartIndicatorConfig(conversionLine, "conversion line", Ta4j2Chart.BUY_SHORT_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(baseLine, "base line", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
@@ -141,6 +142,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         result.add(new Ta4j2Chart.ChartIndicatorConfig(cloudLowerLineAtBuyPrice, "sell stop price", Ta4j2Chart.SELL_LIMIT_2_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(gainSellPriceCalculator, "sell gain price", Ta4j2Chart.SELL_LIMIT_1_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpanBid, "lagging span (bid)", Ta4j2Chart.SELL_LIMIT_3_COLOR, ICHIMOKU_LONG_SPAN));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(binanceBreakEvenIndicator, "binanceBreakEvenIndicator", Ta4j2Chart.BUY_TRIGGER_COLOR));
         return result;
     }
 
@@ -150,6 +152,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
 
         return new IntelligentStateTracker.OrderPriceCalculator() {
+            private UnstableIndicator delayedBaseline;
             private IntelligentTrailIndicator intelligentTrailIndicator;
             private Indicator<Num> delayedBidPrice;
             private Rule laggingSpanEmergencyStopReached;
@@ -162,7 +165,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
 
-                if(takeProfitAndBreakEvenReached.isSatisfied(currentIndex) || laggingSpanEmergencyStopReached.isSatisfied(currentIndex)) {
+                if(/*takeProfitAndBreakEvenReached.isSatisfied(currentIndex) || */laggingSpanEmergencyStopReached.isSatisfied(currentIndex)) {
                     return (BigDecimal)  bidPriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
@@ -177,7 +180,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                 if (!initialized) {
                     takeProfitAndBreakEvenReached = new OverIndicatorRule(bidPriceIndicator, gainSellPriceCalculator).and(new OverIndicatorRule(bidPriceIndicator, stateTracker.getBreakEvenIndicator()));
                     delayedBidPrice = new UnstableIndicator(new DelayIndicator(bidPriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
-                    laggingSpanEmergencyStopReached = new UnderIndicatorRule(laggingSpanBid, delayedBidPrice);
+                    delayedBaseline = new UnstableIndicator(new DelayIndicator(baseLine, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
+                    laggingSpanEmergencyStopReached = new UnderIndicatorRule(laggingSpanBid, delayedBaseline);
                     intelligentTrailIndicator = IntelligentTrailIndicator.createIntelligentTrailIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams, stateTracker.getBreakEvenIndicator());
                     initialized = true;
                 }
@@ -196,7 +200,9 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                         "\n market change (bid) to take profit: " + formatAsPercentage((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), gainSellPriceCalculator.getValue(currentIndex)).getDelegate()) +
                         "\n* lagging span (bid): " + priceTracker.formatWithCounterCurrency((BigDecimal) laggingSpanBid.getValue(currentIndex).getDelegate()) +
                         "\n* past bid (" +ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedBidPrice.getValue(currentIndex).getDelegate()) +
+                        "\n* past baseline (" +ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedBaseline.getValue(currentIndex).getDelegate()) +
                         "\n lagging span (bid) to past bid: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpanBid.getValue(currentIndex), delayedBidPrice.getValue(currentIndex)).getDelegate()) +
+                        "\n lagging span (bid) to past baseline: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpanBid.getValue(currentIndex), delayedBaseline.getValue(currentIndex)).getDelegate()) +
                         "\n Stop loss: " + priceTracker.formatWithCounterCurrency((BigDecimal) cloudLowerLineAtBuyPrice.getValue(currentIndex).getDelegate()) +
                         "\n market change (bid) to stop loss: " + formatAsPercentage((BigDecimal) getPercentageChange(bidPriceIndicator.getValue(currentIndex), cloudLowerLineAtBuyPrice.getValue(currentIndex)).getDelegate()) +
                         "\n###############################");
