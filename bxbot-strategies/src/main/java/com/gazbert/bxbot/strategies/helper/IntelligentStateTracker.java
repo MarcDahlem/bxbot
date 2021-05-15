@@ -219,6 +219,13 @@ public class IntelligentStateTracker {
                     if (currentSellOrder.getOrderNotExecutedCounter() >= 10) { // TODO make 10 configurable or another approach
                         String msg = market.getName() + " The current SELL order was "+currentSellOrder.getOrderNotExecutedCounter()+" times above the current market price. It should normally be fulfilled. Cancel the order and place directly a sell order with the current markets bid price.";
                         LOG.warn(() -> msg);
+                        BigDecimal availableBaseCurrencyBalance = priceTracker.getAvailableBaseCurrencyBalance();
+                        BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
+                        if (minimumOrderVolume.compareTo(availableBaseCurrencyBalance) > 0 ) {
+                            String minMsg = market.getName() + " The current SELL order was partially filled. The remaining volume '"+priceTracker.getFormattedBaseCurrencyBalance()+"' cannot be placed as new SELL order as it is below the minimal order volume of '" +minimumOrderVolume+"'. Let the order as it is and wait until it is fulfilled.";
+                            LOG.warn(() -> minMsg);
+                            return;
+                        }
 
                         boolean orderCanceled = tradingApi.cancelOrder(currentSellOrder.getId(), market.getId());
 
