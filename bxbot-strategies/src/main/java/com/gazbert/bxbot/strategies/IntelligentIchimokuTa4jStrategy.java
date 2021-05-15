@@ -60,7 +60,6 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     private BigDecimal sellFee;
     private IchimokuKijunSenIndicator baseLine;
     private IchimokuTenkanSenIndicator conversionLine;
-    private IchimokuLaggingSpanIndicator laggingSpanAsk;
     private SellIndicator cloudLowerLineAtBuyPrice;
     private Indicator<Num> gainSellPriceCalculator;
     private IchimokuLead1FutureIndicator lead1Future;
@@ -87,7 +86,6 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
         conversionLine = new IchimokuTenkanSenIndicator(series, ICHIMOKU_SHORT_SPAN); //9
         baseLine = new IchimokuKijunSenIndicator(series, ICHIMOKU_LONG_SPAN); //26
-        laggingSpanAsk = new IchimokuLaggingSpanIndicator(askPriceIndicator);
         laggingSpanBid = new IchimokuLaggingSpanIndicator(bidPriceIndicator);
         lead1Future = new IchimokuLead1FutureIndicator(conversionLine, baseLine); //26
         lead2Future = new IchimokuLead2FutureIndicator(series, 2 * ICHIMOKU_LONG_SPAN); // 52
@@ -102,22 +100,23 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         CombineIndicator currentCloudUpperLine = CombineIndicator.max(lead1Current, lead2Current);
         CombineIndicator currentCloudLowerLine = CombineIndicator.min(lead1Current, lead2Current);
 
-        Rule crossTheCurrentCloudUpperUp = new CrossedUpIndicatorRule(askPriceIndicator, currentCloudUpperLine);
-        Rule crossTheCurrentCloudUpperDown = new CrossedDownIndicatorRule(askPriceIndicator, currentCloudUpperLine);
+        Rule crossTheCurrentCloudUpperUp = new CrossedUpIndicatorRule(bidPriceIndicator, currentCloudUpperLine);
+        Rule crossTheCurrentCloudUpperDown = new CrossedDownIndicatorRule(bidPriceIndicator, currentCloudUpperLine);
 
-        Rule crossTheCurrentCloudLowerUp = new CrossedUpIndicatorRule(askPriceIndicator, currentCloudLowerLine);
-        Rule crossTheCurrentCloudLowerDown = new CrossedDownIndicatorRule(askPriceIndicator, currentCloudLowerLine);
+        Rule crossTheCurrentCloudLowerUp = new CrossedUpIndicatorRule(bidPriceIndicator, currentCloudLowerLine);
+        Rule crossTheCurrentCloudLowerDown = new CrossedDownIndicatorRule(bidPriceIndicator, currentCloudLowerLine);
 
         cloudGreenInFuture = new OverIndicatorRule(lead1Future, lead2Future);
         conversionLineAboveBaseLine = new OverIndicatorRule(conversionLine, baseLine);
-        laggingSpanAbovePastCloud = new OverIndicatorRule(laggingSpanAsk, lead1Past).and(new OverIndicatorRule(laggingSpanAsk, lead2Past));
+        laggingSpanAbovePastCloud = new OverIndicatorRule(laggingSpanBid, lead1Past).and(new OverIndicatorRule(laggingSpanBid, lead2Past));
+        Rule priceAboveTheCloud = new OverIndicatorRule(bidPriceIndicator, currentCloudUpperLine);
 
         BooleanIndicatorRule trueInBuyPhases = new BooleanIndicatorRule(new TrueInBuyPhaseIndicator(series, stateTracker.getBreakEvenIndicator()));
 
         Rule resetUpperCrossUpOn = crossTheCurrentCloudUpperDown.or(trueInBuyPhases);
         Rule resetLowerCrossUpOn = crossTheCurrentCloudLowerDown.or(trueInBuyPhases);
 
-        Rule crossingIndipendentIchimokuSignals = cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud);
+        Rule crossingIndipendentIchimokuSignals = priceAboveTheCloud.and(cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud));
         StrictBeforeRule crossUpperAndIchimokuSignals = new StrictBeforeRule(series, crossTheCurrentCloudUpperUp, crossingIndipendentIchimokuSignals, resetUpperCrossUpOn);
 
         buyRule = new StrictBeforeRule(series, crossTheCurrentCloudLowerUp, crossUpperAndIchimokuSignals, resetLowerCrossUpOn);
@@ -141,7 +140,6 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         result.add(new Ta4j2Chart.ChartIndicatorConfig(lead2Future, "kumo b future", Color.RED, ICHIMOKU_LONG_SPAN * -1));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(cloudLowerLineAtBuyPrice, "sell stop price", Ta4j2Chart.SELL_LIMIT_2_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(gainSellPriceCalculator, "sell gain price", Ta4j2Chart.SELL_LIMIT_1_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpanAsk, "lagging span (ask)", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR, ICHIMOKU_LONG_SPAN));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpanBid, "lagging span (bid)", Ta4j2Chart.SELL_LIMIT_3_COLOR, ICHIMOKU_LONG_SPAN));
         return result;
     }
