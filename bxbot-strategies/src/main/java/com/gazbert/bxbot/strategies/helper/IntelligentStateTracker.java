@@ -248,7 +248,7 @@ public class IntelligentStateTracker {
                             LOG.warn(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
                         }
                     } else {
-                        LOG.warn(() -> market.getName() + " The SELL order execution failed just '" + currentBuyOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
+                        LOG.warn(() -> market.getName() + " The SELL order execution failed just '" + currentSellOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
                     }
                 } else {
                     LOG.info(() -> market.getName() + " The current SELL order's price '" + priceTracker.formatWithCounterCurrency(currentSellOrderPrice)
