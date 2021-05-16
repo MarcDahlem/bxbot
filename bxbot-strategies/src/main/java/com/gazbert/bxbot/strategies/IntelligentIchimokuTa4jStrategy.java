@@ -27,10 +27,7 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.UnstableIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.ConstantIndicator;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.indicators.helpers.LowPriceIndicator;
+import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.indicators.ichimoku.IchimokuKijunSenIndicator;
 import org.ta4j.core.indicators.ichimoku.IchimokuTenkanSenIndicator;
 import org.ta4j.core.num.Num;
@@ -116,10 +113,18 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         Rule resetUpperCrossUpOn = crossTheCurrentCloudUpperDown.or(trueInBuyPhases);
         Rule resetLowerCrossUpOn = crossTheCurrentCloudLowerDown.or(trueInBuyPhases);
 
+
+        CombineIndicator pastCloudUpperLine = CombineIndicator.max(lead1Past, lead2Past);
+        Rule crossThePastCloudUpperUp = new CrossedUpIndicatorRule(laggingSpanBid, pastCloudUpperLine);
+        Rule crossThePastCloudUpperDown = new CrossedDownIndicatorRule(laggingSpanBid, pastCloudUpperLine);
+        Rule resetPastUpperCrossUpOn = crossThePastCloudUpperDown.or(trueInBuyPhases);
+
+        StrictBeforeRule laggingSpanCrossedUpper = new StrictBeforeRule(series, crossThePastCloudUpperUp, laggingSpanAbovePastCloud, resetPastUpperCrossUpOn);
+
         Rule crossingIndipendentIchimokuSignals = priceAboveTheCloud.and(cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud));
         StrictBeforeRule crossUpperAndIchimokuSignals = new StrictBeforeRule(series, crossTheCurrentCloudUpperUp, crossingIndipendentIchimokuSignals, resetUpperCrossUpOn);
 
-        buyRule = new StrictBeforeRule(series, crossTheCurrentCloudLowerUp, crossUpperAndIchimokuSignals, resetLowerCrossUpOn);
+        buyRule = new StrictBeforeRule(series, crossTheCurrentCloudLowerUp, crossUpperAndIchimokuSignals, resetLowerCrossUpOn).and(laggingSpanCrossedUpper);
 
 
 
@@ -165,7 +170,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
 
-                if(/*takeProfitAndBreakEvenReached.isSatisfied(currentIndex) || */laggingSpanEmergencyStopReached.isSatisfied(currentIndex)) {
+                if(takeProfitAndBreakEvenReached.isSatisfied(currentIndex) || laggingSpanEmergencyStopReached.isSatisfied(currentIndex)) {
                     return (BigDecimal)  bidPriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
