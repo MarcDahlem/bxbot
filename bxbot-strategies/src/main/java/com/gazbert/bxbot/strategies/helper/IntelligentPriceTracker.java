@@ -98,6 +98,8 @@ public class IntelligentPriceTracker {
         if(currentTick > OVERALL_HIGHEST_TICK) {
             if (currentTick -1 == OVERALL_HIGHEST_TICK) {
                 OVERALL_HIGHEST_TICK++;
+            } else {
+                throw new IllegalStateException("The current strategy tick '" + currentTick + "' is far beyond the overall highest tick '" + OVERALL_HIGHEST_TICK + "'.");
             }
         }
 
