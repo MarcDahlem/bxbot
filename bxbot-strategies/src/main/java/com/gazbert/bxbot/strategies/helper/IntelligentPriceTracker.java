@@ -35,6 +35,7 @@ public class IntelligentPriceTracker {
 
     private static final int MAX_AMOUNT_LIVECHART_BARS = 100;
 
+
     private final TradingApi tradingApi;
     private final Market market;
     private final BarSeries series;
@@ -52,6 +53,7 @@ public class IntelligentPriceTracker {
             new LinkedList<>();
     private Integer resumeID = null;
     private long currentTick;
+    private static long OVERALL_HIGHEST_TICK = 0;
 
     public IntelligentPriceTracker(TradingApi tradingApi, Market market, StrategyConfig config) {
         this.tradingApi = tradingApi;
@@ -64,7 +66,7 @@ public class IntelligentPriceTracker {
     }
 
     public void updateMarketPrices() throws ExchangeNetworkException, TradingApiException, StrategyException {
-        currentTick++;
+        saveUpdateCurrenTick();
         Ohlc ohlcData = tradingApi.getOhlc(market.getId(), OhlcInterval.OneMinute, resumeID);
         LOG.info(() -> market.getName() + " Updated latest market info: " + ohlcData);
 
@@ -89,6 +91,20 @@ public class IntelligentPriceTracker {
 
         resumeID = ohlcData.getResumeID();
         this.updateLiveGraph();
+    }
+
+    private void saveUpdateCurrentTick() {
+        currentTick++;
+        if(currentTick > OVERALL_HIGHEST_TICK) {
+            if (currentTick -1 == OVERALL_HIGHEST_TICK) {
+                OVERALL_HIGHEST_TICK++;
+            }
+        }
+
+        if(currentTick<OVERALL_HIGHEST_TICK) {
+            // one of the executed strategies crashed so that this Stratetgy instace did not get executed. Catch up with the counter to get valid balance and order results
+            currentTick = OVERALL_HIGHEST_TICK;
+        }
     }
 
     public BigDecimal getAsk() {
