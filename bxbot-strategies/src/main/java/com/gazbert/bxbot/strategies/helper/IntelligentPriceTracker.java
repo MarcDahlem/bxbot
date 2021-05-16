@@ -66,7 +66,7 @@ public class IntelligentPriceTracker {
     }
 
     public void updateMarketPrices() throws ExchangeNetworkException, TradingApiException, StrategyException {
-        saveUpdateCurrenTick();
+        saveUpdateCurrentTick();
         Ohlc ohlcData = tradingApi.getOhlc(market.getId(), OhlcInterval.OneMinute, resumeID);
         LOG.info(() -> market.getName() + " Updated latest market info: " + ohlcData);
 
