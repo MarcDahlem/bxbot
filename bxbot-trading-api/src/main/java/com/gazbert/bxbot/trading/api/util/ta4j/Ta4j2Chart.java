@@ -7,6 +7,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import org.knowm.xchart.*;
 import org.knowm.xchart.internal.Utils;
+import org.knowm.xchart.internal.chartpart.Chart;
 import org.knowm.xchart.style.Styler;
 import org.knowm.xchart.style.markers.SeriesMarkers;
 import org.ta4j.core.*;
@@ -42,14 +43,13 @@ public class Ta4j2Chart {
 
     public static void printSeries(
             BarSeries series, Strategy strategy, Collection<ChartIndicatorConfig> indicators) {
-        XYChart chart =
-                new XYChartBuilder()
+        OHLCChart chart =
+                new OHLCChartBuilder()
                         .title(strategy.getName())
                         .xAxisTitle("Date")
                         .yAxisTitle("Price")
                         .build();
-        chart.getStyler().setZoomEnabled(true);
-        chart.getStyler().setCursorEnabled(true);
+        chart.getStyler().setToolTipsEnabled(true);
 
         for (ChartIndicatorConfig indicatorConfig : indicators) {
             addIndicatorToChart(indicatorConfig, chart, series, false, null);
@@ -59,7 +59,7 @@ public class Ta4j2Chart {
         new SwingWrapper<>(chart).displayChart();
     }
 
-    private static void addPositionMarkerToChart(XYChart chart, Strategy strategy, BarSeries series) {
+    private static void addPositionMarkerToChart(OHLCChart chart, Strategy strategy, BarSeries series) {
         BarSeriesManager seriesManager = new BarSeriesManager(series);
         List<Position> positions = seriesManager.run(strategy).getPositions();
         for (Position position : positions) {
@@ -82,7 +82,7 @@ public class Ta4j2Chart {
 
     private static void addIndicatorToChart(
             ChartIndicatorConfig indicatorConfig,
-            XYChart chart,
+            OHLCChart chart,
             BarSeries series,
             boolean update,
             Integer limit) {
@@ -117,10 +117,9 @@ public class Ta4j2Chart {
             }
         }
         if (update) {
-            chart.updateXYSeries(indicatorConfig.name, dates, values, null);
+            chart.updateOHLCSeries(indicatorConfig.name, dates, values);
         } else {
-            XYSeries chartSeries = chart.addSeries(indicatorConfig.name, dates, values);
-            chartSeries.setSmooth(false);
+            OHLCSeries chartSeries = chart.addSeries(indicatorConfig.name, dates, values);
             chartSeries.setMarker(SeriesMarkers.NONE);
 
             if (indicatorConfig.color != null) {
@@ -131,9 +130,38 @@ public class Ta4j2Chart {
                 chartSeries.setYAxisGroup(indicatorConfig.yAxisGroup.yAxisGroupIndex);
                 chart.setYAxisGroupTitle(
                         indicatorConfig.yAxisGroup.yAxisGroupIndex, indicatorConfig.yAxisGroup.yAxisGroupLabel);
-                chartSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
                 chartSeries.setFillColor(indicatorConfig.yAxisGroup.areaFillColor);
             }
+        }
+    }
+
+    private static void addOhlcToChart(
+            OHLCChart chart,
+            BarSeries series,
+            boolean update,
+            Integer limit) {
+        List<Date> dates = new LinkedList<>();
+        List<Number> opens = new LinkedList<>();
+        List<Number> highs = new LinkedList<>();
+        List<Number> lows = new LinkedList<>();
+        List<Number> closes = new LinkedList<>();
+        int startIndex = series.getBeginIndex();
+        if (limit != null) {
+            startIndex = Math.max(startIndex, series.getEndIndex() - limit);
+        }
+
+        for (int i = startIndex; i <= series.getEndIndex(); i++) {
+                Bar bar = series.getBar(i);
+                dates.add(Date.from(bar.getEndTime().toInstant()));
+                opens.add(bar.getOpenPrice().getDelegate());
+                highs.add(bar.getHighPrice().getDelegate());
+                lows.add(bar.getLowPrice().getDelegate());
+                closes.add(bar.getClosePrice().getDelegate());
+        }
+        if (update) {
+            chart.updateOHLCSeries("ohlc", dates, opens, highs, lows, closes);
+        } else {
+            chart.addSeries("ohlc", dates, opens, highs, lows, closes);
         }
     }
 
@@ -167,15 +195,14 @@ public class Ta4j2Chart {
 
     public static String createLiveChart(
             BarSeries series, Collection<ChartIndicatorConfig> indicatorConfigs, Integer maxAmountBars) {
-        XYChart chart =
-                new XYChartBuilder()
+        OHLCChart chart =
+                new OHLCChartBuilder()
                         .title(series.getName())
                         .xAxisTitle("Date")
                         .yAxisTitle("Price")
                         .height(900 / 4)
                         .width(1680 / 3)
                         .build();
-        chart.getStyler().setZoomEnabled(true);
         chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNW);
         // chart.getStyler().setCursorEnabled(true); //disable cursor, as it has memory leaks in live
         // charts. Check https://github.com/knowm/XChart/issues/593
@@ -184,7 +211,9 @@ public class Ta4j2Chart {
             addIndicatorToChart(indicator, chart, series, false, maxAmountBars);
         }
 
-        SwingWrapper<XYChart> sw = new SwingWrapper<>(chart);
+        addOhlcToChart(chart, series, false, maxAmountBars);
+
+        SwingWrapper<OHLCChart> sw = new SwingWrapper<>(chart);
         sw.isCentered(false);
 
         String liveChartID = UUID.randomUUID().toString();
@@ -215,22 +244,23 @@ public class Ta4j2Chart {
                                 true,
                                 liveChartConfig.maxAmountBars);
                     }
+                    addOhlcToChart(liveChartConfig.chart, liveChartConfig.series, true, liveChartConfig.maxAmountBars);
                     liveChartConfig.sw.repaintChart();
                     liveChartConfig.waitForRun = false;
                 });
     }
 
     private static class LiveChartConfig {
-        final SwingWrapper<XYChart> sw;
-        final XYChart chart;
+        final SwingWrapper<OHLCChart> sw;
+        final OHLCChart chart;
         final BarSeries series;
         final Collection<ChartIndicatorConfig> indicatorConfigs;
         final Integer maxAmountBars;
         volatile boolean waitForRun;
 
         LiveChartConfig(
-                SwingWrapper<XYChart> sw,
-                XYChart chart,
+                SwingWrapper<OHLCChart> sw,
+                OHLCChart chart,
                 BarSeries series,
                 Collection<ChartIndicatorConfig> indicatorConfigs,
                 Integer maxAmountBars) {
