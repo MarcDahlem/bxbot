@@ -52,8 +52,6 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
-        LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
-        HighPriceIndicator askPriceIndicator = new HighPriceIndicator(series);
 
         stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 140);
         macd = new MACDIndicator(closePriceIndicator, 90, 260);
@@ -62,11 +60,11 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
-        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 26);
-        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 16), sellFeeFactor);
+        buyIndicatorLong = new EMAIndicator(closePriceIndicator, 26);
+        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 16), sellFeeFactor);
 
-        sellIndicatorLong = new EMAIndicator(askPriceIndicator, 104);
-        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 9), buyFeeFactor);
+        sellIndicatorLong = new EMAIndicator(closePriceIndicator, 104);
+        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 9), buyFeeFactor);
 
         Rule entryRule = new CrossedUpIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
                 /*.and(new UnderIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1*/;/*.and(new OverIndicatorRule(macd, emaMacd)); // Signal 2*/
@@ -113,7 +111,7 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
             Num currentShortEma = buyIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
             return market.getName() +
                     "\n######### MOVED UP? #########\n" +
-                    "* Current ask price: " + priceTracker.getFormattedAsk() +
+                    "* Current market price: " + priceTracker.getFormattedLast() +
                     "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
                     "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
                     "\n* Percentage EMA gain needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +
@@ -135,9 +133,9 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
         Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
         LOG.info(market.getName() +
                 "\n######### MOVED DOWN? #########\n" +
-                "* Current bid price: " + priceTracker.getFormattedBid() +
+                "* Current market price: " + priceTracker.getFormattedLast() +
                 "\n Break even: " + priceTracker.formatWithCounterCurrency((BigDecimal) stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex()).getDelegate()) +
-                "\n market change (bid) to break even: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(priceTracker.getSeries().numOf(priceTracker.getBid()), stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex())).getDelegate()) +
+                "\n market change (last) to break even: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(priceTracker.getSeries().numOf(priceTracker.getLast()), stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex())).getDelegate()) +
                 "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
                 "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
                 "\n* Percentage EMA loss needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +

@@ -22,6 +22,6 @@ public class StaticBuyPriceCalculator extends AbstractBuyPriceCalculator {
 
     @Override
     protected BigDecimal getBalanceToUseForBuyOrder() {
-        return priceTracker.getAsk().multiply(fixedPrice);
+        return priceTracker.getLast().multiply(fixedPrice);
     }
 }

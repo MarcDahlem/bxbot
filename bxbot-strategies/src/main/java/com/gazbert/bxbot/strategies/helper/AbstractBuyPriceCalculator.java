@@ -30,7 +30,7 @@ public abstract class AbstractBuyPriceCalculator implements IntelligentStateTrac
          * Most exchanges (if not all) use 8 decimal places and typically round in favour of the
          * exchange. It's usually safest to round down the order quantity in your calculations.
          */
-        final BigDecimal amountOfPiecesInBaseCurrencyToBuy = balanceToUseForBuyOrder.divide(priceTracker.getAsk(), 8, RoundingMode.HALF_DOWN);
+        final BigDecimal amountOfPiecesInBaseCurrencyToBuy = balanceToUseForBuyOrder.divide(priceTracker.getLast(), 8, RoundingMode.HALF_DOWN);
 
         LOG.info(() ->market.getName()+ " Amount of base currency ("+ market.getBaseCurrency()+ ") to BUY for "  + priceTracker.formatWithCounterCurrency(balanceToUseForBuyOrder)
                 + " based on last market trade price: "+ amountOfPiecesInBaseCurrencyToBuy);
@@ -49,7 +49,7 @@ public abstract class AbstractBuyPriceCalculator implements IntelligentStateTrac
                 "######### BUY PRICE STATISTICS #########\n" +
                 "current amount used for buy orders: " + priceTracker.formatWithCounterCurrency(getBalanceToUseForBuyOrder())+ "\n" +
                 "current amount of pieces to buy: " + DECIMAL_FORMAT.format(getAmountOfPiecesToBuy())+ "\n" +
-                "current ask price: " + priceTracker.getFormattedAsk()+ "\n" +
+                "current market price: " + priceTracker.getLast()+ "\n" +
                 "#########################################"
         );
     }

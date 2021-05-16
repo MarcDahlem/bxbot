@@ -66,7 +66,7 @@ public class IntelligentPriceTracker {
     }
 
     public void updateMarketPrices() throws ExchangeNetworkException, TradingApiException, StrategyException {
-        saveUpdateCurrentTick();
+        safelyeUpdateCurrentTick();
         Ohlc ohlcData = tradingApi.getOhlc(market.getId(), OhlcInterval.OneMinute, resumeID);
         LOG.info(() -> market.getName() + " Updated latest market info: " + ohlcData);
 
@@ -93,7 +93,7 @@ public class IntelligentPriceTracker {
         this.updateLiveGraph();
     }
 
-    private void saveUpdateCurrentTick() {
+    private void safelyeUpdateCurrentTick() {
         currentTick++;
         if(currentTick > OVERALL_HIGHEST_TICK) {
             if (currentTick -1 == OVERALL_HIGHEST_TICK) {
@@ -107,22 +107,6 @@ public class IntelligentPriceTracker {
             // one of the executed strategies crashed so that this Stratetgy instace did not get executed. Catch up with the counter to get valid balance and order results
             currentTick = OVERALL_HIGHEST_TICK;
         }
-    }
-
-    public BigDecimal getAsk() {
-        return (BigDecimal) series.getLastBar().getHighPrice().getDelegate();
-    }
-
-    public String getFormattedAsk() {
-        return formatWithCounterCurrency(getAsk());
-    }
-
-    public BigDecimal getBid() {
-        return (BigDecimal) series.getLastBar().getLowPrice().getDelegate();
-    }
-
-    public String getFormattedBid() {
-        return formatWithCounterCurrency(getBid());
     }
 
     public BigDecimal getLast() {

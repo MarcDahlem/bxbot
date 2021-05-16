@@ -163,10 +163,10 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         stateTracker.trackRunningBuyOrder(newState -> {
             switch (newState) {
                 case NEED_SELL:
-                    //executeSellPhase();
+                    executeSellPhase();
                     break;
                 case NEED_BUY:
-                    //executeBuyPhase();
+                    executeBuyPhase();
                     break;
                 default:
                     throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
@@ -180,10 +180,10 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         stateTracker.trackRunningSellOrder(sellPriceCalculator, newState -> {
             switch (newState) {
                 case NEED_SELL:
-                    //executeSellPhase();
+                    executeSellPhase();
                     break;
                 case NEED_BUY:
-                    //executeBuyPhase();
+                    executeBuyPhase();
                     break;
                 default:
                     throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");

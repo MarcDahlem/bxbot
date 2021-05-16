@@ -66,12 +66,12 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
         BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(currentTimesAboveLowestPriceNeeded);
         BigDecimal amountToMoveUp = lowestAskPrice.multiply(currentPercentageGainNeededForBuy);
         BigDecimal goalToReach = lowestAskPrice.add(amountToMoveUp);
-        BigDecimal percentageChangeMarketToMinimum = getPercentageChange(priceTracker.getAsk(), lowestAskPrice);
+        BigDecimal percentageChangeMarketToMinimum = getPercentageChange(priceTracker.getLast(), lowestAskPrice);
         BigDecimal percentageChangeCleanedMarketToMinimum = getPercentageChange(cleanedMarketPrice, lowestAskPrice);
         LOG.info(() -> market.getName() + "\n" +
                 "######### BUY ORDER STATISTICS #########\n" +
                 " * Price needed: " + priceTracker.formatWithCounterCurrency(goalToReach) +
-                "\n * Current ask price: " + priceTracker.getFormattedAsk() +
+                "\n * Current market price: " + priceTracker.getFormattedLast() +
                 "\n * Current cleaned ask price (in " + currentTimesAboveLowestPriceNeeded + " ticks): " + priceTracker.formatWithCounterCurrency(cleanedMarketPrice) +
                 "\n * Minimum seen ask price (in " + currentLowestPriceLookbackCount + " ticks): " + priceTracker.formatWithCounterCurrency(lowestAskPrice) +
                 "\n * Gain needed from this minimum price: " + DECIMAL_FORMAT.format(currentPercentageGainNeededForBuy.multiply(oneHundred)) +
