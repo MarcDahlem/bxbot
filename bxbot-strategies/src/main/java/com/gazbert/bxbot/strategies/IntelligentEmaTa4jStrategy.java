@@ -105,7 +105,7 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedUp() {
-        boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex());
+        boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex()-1);
         LOG.info(() -> {
             Num currentLongEma = buyIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
             Num currentShortEma = buyIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
@@ -128,7 +128,7 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
-        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
+        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex()-1);
         Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
         Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
         LOG.info(market.getName() +

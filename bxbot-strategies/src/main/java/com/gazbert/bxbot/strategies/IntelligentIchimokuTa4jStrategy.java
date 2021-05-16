@@ -237,7 +237,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     @Override
     protected boolean marketMovedUp() {
         int currentIndex = priceTracker.getSeries().getEndIndex();
-        boolean result = buyRule.isSatisfied(currentIndex);
+        boolean result = buyRule.isSatisfied(currentIndex-1);
         LOG.info(() -> {
             return market.getName() +
                     "\n######### MOVED UP? #########\n" +

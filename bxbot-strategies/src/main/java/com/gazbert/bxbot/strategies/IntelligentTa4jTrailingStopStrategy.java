@@ -117,7 +117,7 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     @Override
     protected boolean marketMovedUp() {
-        return buyRule.isSatisfied(priceTracker.getSeries().getEndIndex());
+        return buyRule.isSatisfied(priceTracker.getSeries().getEndIndex()-1);
     }
 
     @Override

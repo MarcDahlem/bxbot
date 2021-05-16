@@ -172,7 +172,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
     private BigDecimal calulateLowestMarketPriceIn(int ticks) throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
-        int currentEndIndex = series.getEndIndex();
+        int currentEndIndex = series.getEndIndex()-1;
         Num result = series.getBar(currentEndIndex).getClosePrice();
         int currentBeginIndex = series.getBeginIndex();
 

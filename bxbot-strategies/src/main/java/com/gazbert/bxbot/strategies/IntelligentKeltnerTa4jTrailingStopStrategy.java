@@ -126,7 +126,7 @@ public class IntelligentKeltnerTa4jTrailingStopStrategy extends AbstractIntellig
 
     @Override
     protected boolean marketMovedUp() {
-        return buyRule.isSatisfied(priceTracker.getSeries().getEndIndex());
+        return buyRule.isSatisfied(priceTracker.getSeries().getEndIndex()-1);
     }
 
     @Override
