@@ -141,12 +141,14 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
 
     @Override
     public Ohlc getOhlc(String marketId, OhlcInterval interval) throws TradingApiException, ExchangeNetworkException {
+        checkOpenOrderExecution(marketId);
         LOG.info(() -> "Delegate 'getOhlc (initial)' to the configured delegation exchange adapter.");
         return delegateExchange.getOhlc(marketId, interval);
     }
 
     @Override
     public Ohlc getOhlc(String marketId, OhlcInterval interval, Integer resumeID) throws TradingApiException, ExchangeNetworkException {
+        checkOpenOrderExecution(marketId);
         LOG.info(() -> "Delegate 'getOhlc (resume)' to the configured delegation exchange adapter.");
         return delegateExchange.getOhlc(marketId, interval, resumeID);
     }
