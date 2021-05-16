@@ -1,16 +1,9 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import org.ta4j.core.BaseStrategy;
-import org.ta4j.core.Indicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.indicators.helpers.LowPriceIndicator;
-import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.FixedRule;
-
-import java.awt.*;
 import java.util.Collection;
 import java.util.LinkedList;
+import org.ta4j.core.BaseStrategy;
+import org.ta4j.core.rules.FixedRule;
 
 public class RecordedStrategy extends BaseStrategy {
     private final SellIndicator breakEvenIndicator;

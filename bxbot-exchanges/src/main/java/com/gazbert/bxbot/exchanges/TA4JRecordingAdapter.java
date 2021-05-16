@@ -7,24 +7,35 @@ import com.gazbert.bxbot.exchanges.ta4jhelper.TradePriceRespectingBacktestExecut
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
-import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.trading.api.BalanceInfo;
+import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
+import com.gazbert.bxbot.trading.api.MarketOrderBook;
+import com.gazbert.bxbot.trading.api.OpenOrder;
+import com.gazbert.bxbot.trading.api.OrderType;
+import com.gazbert.bxbot.trading.api.Ticker;
+import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
+import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
-import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4jOptimalTradingStrategy;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ta4j.core.*;
+import org.ta4j.core.Bar;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.Strategy;
+import org.ta4j.core.Trade;
 import org.ta4j.core.cost.LinearTransactionCostModel;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.reports.PerformanceReport;
 import org.ta4j.core.reports.PositionStatsReport;
 import org.ta4j.core.reports.TradingStatement;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.*;
 
 public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements ExchangeAdapter {
     private static final Logger LOG = LogManager.getLogger();

@@ -1,16 +1,17 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.Indicator;
-import org.ta4j.core.indicators.helpers.*;
-import org.ta4j.core.num.Num;
+import static org.ta4j.core.num.NaN.NaN;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.BiFunction;
-
-import static org.ta4j.core.num.NaN.NaN;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.Indicator;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.helpers.ConstantIndicator;
+import org.ta4j.core.indicators.helpers.HighestValueIndicator;
+import org.ta4j.core.indicators.helpers.LowestValueIndicator;
+import org.ta4j.core.indicators.helpers.TransformIndicator;
+import org.ta4j.core.num.Num;
 
 /* This indicator is only active in a sell phase and when the last trade is still open. */
 public class SellIndicator extends TradeBasedIndicator<Num> {
@@ -54,14 +55,15 @@ public class SellIndicator extends TradeBasedIndicator<Num> {
     public static SellIndicator createBreakEvenIndicator(BarSeries series, SellIndicator tradeKnowingIndicator, BigDecimal buyFee, BigDecimal sellFee) {
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
-        TransformIndicator breakEvenCalculator = TransformIndicator.divide(TransformIndicator.multiply(new HighPriceIndicator(series), buyFeeFactor), sellFeeFactor);
+        ClosePriceIndicator marketPriceIndicator = new ClosePriceIndicator(series);
+        TransformIndicator breakEvenCalculator = TransformIndicator.divide(TransformIndicator.multiply(marketPriceIndicator, buyFeeFactor), sellFeeFactor);
         return new SellIndicator(series, tradeKnowingIndicator, (buyIndex, index) -> new ConstantIndicator<>(series, breakEvenCalculator.getValue(buyIndex)));
     }
 
-    public static SellIndicator createSellLimitIndicator(BarSeries series, BigDecimal limitPercentageUnderCurrentBid, SellIndicator tradeKnowingIndicator) {
-        LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
-        BigDecimal limitScaleFactor = BigDecimal.ONE.subtract(limitPercentageUnderCurrentBid);
-        TransformIndicator sellLimitCalculator = TransformIndicator.multiply(bidPriceIndicator, limitScaleFactor);
+    public static SellIndicator createSellLimitIndicator(BarSeries series, BigDecimal limitPercentageUnderCurrentMarket, SellIndicator tradeKnowingIndicator) {
+        ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
+        BigDecimal limitScaleFactor = BigDecimal.ONE.subtract(limitPercentageUnderCurrentMarket);
+        TransformIndicator sellLimitCalculator = TransformIndicator.multiply(closePriceIndicator, limitScaleFactor);
         return new SellIndicator(series, tradeKnowingIndicator, (buyIndex, index) -> new HighestValueIndicator(sellLimitCalculator, index - buyIndex + 1));
     }
 

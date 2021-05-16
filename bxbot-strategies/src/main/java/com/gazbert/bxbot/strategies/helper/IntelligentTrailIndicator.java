@@ -5,15 +5,12 @@ import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
+import java.math.BigDecimal;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.CachedIndicator;
-import org.ta4j.core.indicators.helpers.BooleanTransformIndicator;
-import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
-
-import java.math.BigDecimal;
 
 public class IntelligentTrailIndicator extends CachedIndicator<Num> {
     private final SellIndicator aboveBreakEvenIndicator;

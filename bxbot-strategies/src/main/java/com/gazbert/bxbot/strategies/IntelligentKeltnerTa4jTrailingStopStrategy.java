@@ -19,9 +19,7 @@ import org.springframework.stereotype.Component;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.UnstableIndicator;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.indicators.helpers.LowPriceIndicator;
-import org.ta4j.core.indicators.helpers.TransformIndicator;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelLowerIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelMiddleIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelUpperIndicator;
@@ -42,7 +40,7 @@ public class IntelligentKeltnerTa4jTrailingStopStrategy extends AbstractIntellig
     private SellIndicator aboveBreakEvenIndicator;
     private Indicator<Num> minAboveBreakEvenIndicator;
     private SellIndicator belowBreakEvenIndicator;
-    private Indicator<Num> buyLongIndicator;
+    private KeltnerChannelMiddleIndicator buyLongIndicator;
     private Indicator<Num> buyShortIndicator;
     private Indicator<Num> buyGainLine;
 
@@ -57,31 +55,28 @@ public class IntelligentKeltnerTa4jTrailingStopStrategy extends AbstractIntellig
     }
 
     private void initBuyRule() throws TradingApiException, ExchangeNetworkException {
-        HighPriceIndicator askPriceIndicator = new HighPriceIndicator(priceTracker.getSeries());
-        Indicator<Num> bidPriceIndicator = new LowPriceIndicator(priceTracker.getSeries());
-
         int keltnerBarCount = 119;
         int keltnerRatio = 7;
 
-        //buyLongIndicator = new KeltnerChannelMiddleIndicator(askPriceIndicator, keltnerBarCount);;
-        buyLongIndicator = new TripleKeltnerChannelMiddleIndicator(askPriceIndicator, keltnerBarCount);;
-        //KeltnerChannelMiddleIndicator keltnerBidMiddleIndicator = new KeltnerChannelMiddleIndicator(bidPriceIndicator, keltnerBarCount);
-        KeltnerChannelMiddleIndicator keltnerBidMiddleIndicator = new TripleKeltnerChannelMiddleIndicator(bidPriceIndicator, keltnerBarCount);
+        ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(priceTracker.getSeries());
 
-        buyShortIndicator = new UnstableIndicator(new KeltnerChannelUpperIndicator(keltnerBidMiddleIndicator, keltnerRatio, keltnerBarCount), keltnerBarCount);
-        buyGainLine = new UnstableIndicator(new KeltnerChannelLowerIndicator((KeltnerChannelMiddleIndicator)buyLongIndicator, keltnerRatio, keltnerBarCount), keltnerBarCount);
+        //buyLongIndicator = new KeltnerChannelMiddleIndicator(closePriceIndicator, keltnerBarCount);;
+        buyLongIndicator = new TripleKeltnerChannelMiddleIndicator(closePriceIndicator, keltnerBarCount);;
+
+        buyShortIndicator = new UnstableIndicator(new KeltnerChannelUpperIndicator(buyLongIndicator, keltnerRatio, keltnerBarCount), keltnerBarCount);
+        buyGainLine = new UnstableIndicator(new KeltnerChannelLowerIndicator(buyLongIndicator, keltnerRatio, keltnerBarCount), keltnerBarCount);
         //buyGainLine = TransformIndicator.multiply(buyLongIndicator, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
-        buyRule = (new UnderIndicatorRule(askPriceIndicator, buyGainLine)).or(new OverIndicatorRule(askPriceIndicator, buyShortIndicator));
+        buyRule = (new UnderIndicatorRule(closePriceIndicator, buyGainLine)).or(new OverIndicatorRule(closePriceIndicator, buyShortIndicator));
         //buyRule = new OverIndicatorRule(buyShortIndicator, buyGainLine);
     }
 
     private void initSellIndicators() throws TradingApiException, ExchangeNetworkException {
-        LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(priceTracker.getSeries());
+
         intelligentTrailIndicator = IntelligentTrailIndicator.createIntelligentTrailIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams, stateTracker.getBreakEvenIndicator());
         belowBreakEvenIndicator = intelligentTrailIndicator.getBelowBreakEvenIndicator();
         aboveBreakEvenIndicator = intelligentTrailIndicator.getAboveBreakEvenIndicator();
         minAboveBreakEvenIndicator = intelligentTrailIndicator.getMinAboveBreakEvenIndicator();
-        sellRule = new UnderIndicatorRule(bidPriceIndicator, intelligentTrailIndicator);
+        sellRule = new UnderIndicatorRule(new ClosePriceIndicator(priceTracker.getSeries()), intelligentTrailIndicator);
     }
 
     @Override
