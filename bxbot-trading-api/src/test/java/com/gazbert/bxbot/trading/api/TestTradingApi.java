@@ -26,10 +26,12 @@ package com.gazbert.bxbot.trading.api;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.Test;
+
 
 /**
  * Tests default impl methods of TradingApi interface.
@@ -66,6 +68,26 @@ public class TestTradingApi {
     final MyApiImpl myApi = new MyApiImpl();
     final BigDecimal minimumOrderVolume = myApi.getMinimumOrderVolume("market-123");
     assertNull(minimumOrderVolume);
+  }
+
+  @Test
+  public void testGetOhlcHasDefaultImpl() throws Exception {
+    final MyApiImpl myApi = new MyApiImpl();
+    final Ohlc ohlc = myApi.getOhlc("market-123", OhlcInterval.OneWeek);
+
+    assertNotNull(ohlc);
+    assertNull(ohlc.getResumeID());
+    assertTrue(ohlc.getFrames().isEmpty());
+  }
+
+  @Test
+  public void testGetOhlcResumeHasDefaultImpl() throws Exception {
+    final MyApiImpl myApi = new MyApiImpl();
+    final Ohlc ohlc = myApi.getOhlc("market-123", OhlcInterval.OneWeek, 5);
+
+    assertNotNull(ohlc);
+    assertNull(ohlc.getResumeID());
+    assertTrue(ohlc.getFrames().isEmpty());
   }
 
   /** Test class. */
