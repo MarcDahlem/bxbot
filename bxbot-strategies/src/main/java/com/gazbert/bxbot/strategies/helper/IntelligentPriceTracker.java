@@ -2,22 +2,30 @@ package com.gazbert.bxbot.strategies.helper;
 
 import com.gazbert.bxbot.strategies.StrategyConfigParser;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
-import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.strategy.api.StrategyException;
+import com.gazbert.bxbot.trading.api.BalanceInfo;
+import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
+import com.gazbert.bxbot.trading.api.Market;
+import com.gazbert.bxbot.trading.api.Ohlc;
+import com.gazbert.bxbot.trading.api.OhlcFrame;
+import com.gazbert.bxbot.trading.api.OhlcInterval;
+import com.gazbert.bxbot.trading.api.TradingApi;
+import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBarSeriesBuilder;
-import org.ta4j.core.Indicator;
-import org.ta4j.core.num.Num;
-
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.ta4j.core.Bar;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.BaseBar;
+import org.ta4j.core.BaseBarSeriesBuilder;
 
 public class IntelligentPriceTracker {
 
@@ -30,7 +38,7 @@ public class IntelligentPriceTracker {
     private final TradingApi tradingApi;
     private final Market market;
     private final BarSeries series;
-    private static final Map<Integer, Map<String, BigDecimal>> balances =
+    private static final Map<Long, Map<String, BigDecimal>> balances =
             new LinkedHashMap<>() {
                 @Override
                 protected boolean removeEldestEntry(final Map.Entry eldest) {
@@ -43,6 +51,7 @@ public class IntelligentPriceTracker {
     private final Collection<Ta4j2Chart.ChartIndicatorConfig> registeredLiveChartIndicatorConfigs =
             new LinkedList<>();
     private Integer resumeID = null;
+    private long currentTick;
 
     public IntelligentPriceTracker(TradingApi tradingApi, Market market, StrategyConfig config) {
         this.tradingApi = tradingApi;
@@ -54,31 +63,32 @@ public class IntelligentPriceTracker {
         this.shouldShowLiveChart = StrategyConfigParser.readBoolean(config, "show-live-chart", false);
     }
 
-    public void updateMarketPrices() throws ExchangeNetworkException, TradingApiException {
+    public void updateMarketPrices() throws ExchangeNetworkException, TradingApiException, StrategyException {
+        currentTick++;
         Ohlc ohlcData = tradingApi.getOhlc(market.getId(), OhlcInterval.OneMinute, resumeID);
         LOG.info(() -> market.getName() + " Updated latest market info: " + ohlcData);
-        resumeID = ohlcData.getResumeID();
-        for (OhlcFrame frame : ohlcData.getFrames()) {
-            if (isCompleted(frame)) {
-                ZonedDateTime startTime = frame.getTime();
-                ZonedDateTime endTime = startTime.plusMinutes(1);
 
-                series.addBar(
-                        Duration.between(startTime, endTime),
-                        endTime,
-                        frame.getOpen(),
-                        frame.getHigh(),
-                        frame.getLow(),
-                        frame.getClose(),
-                        frame.getVolume());
-            }
+        for (int i = 0; i < ohlcData.getFrames().size(); i++) {
+            OhlcFrame frame = ohlcData.getFrames().get(i);
+            ZonedDateTime startTime = frame.getTime();
+            ZonedDateTime endTime = startTime.plusMinutes(1);
+            Duration between = Duration.between(frame.getTime(), endTime);
+
+            Bar newBar = new BaseBar(
+                    between,
+                    endTime,
+                    frame.getOpen(),
+                    frame.getHigh(),
+                    frame.getLow(),
+                    frame.getClose(),
+                    frame.getVolume());
+
+            boolean replaceLastBar = resumeID != null && i == 0;
+            series.addBar(newBar, replaceLastBar);
         }
 
+        resumeID = ohlcData.getResumeID();
         this.updateLiveGraph();
-    }
-
-    private boolean isCompleted(OhlcFrame frame) {
-        return frame.getTime().toEpochSecond() <= resumeID;
     }
 
     public BigDecimal getAsk() {
@@ -117,10 +127,10 @@ public class IntelligentPriceTracker {
 
     private BigDecimal getBalance(String currency)
             throws ExchangeNetworkException, TradingApiException {
-        if (!balances.containsKey(getCurrentTick())) {
+        if (!balances.containsKey(currentTick)) {
             loadAvailableBalancesFromServer();
         }
-        Map<String, BigDecimal> currentAccountBalances = balances.get(getCurrentTick());
+        Map<String, BigDecimal> currentAccountBalances = balances.get(currentTick);
         final BigDecimal currentBalance = currentAccountBalances.get(currency);
         if (currentBalance == null) {
             final String errorMsg =
@@ -150,11 +160,11 @@ public class IntelligentPriceTracker {
                         market.getName()
                                 + " Loaded the following account balances from the exchange: "
                                 + loadedBalances);
-        balances.put(getCurrentTick(), loadedBalances);
+        balances.put(currentTick, loadedBalances);
     }
 
-    public int getCurrentTick() {
-        return series.getEndIndex();
+    public long getCurrentStrategyTick() {
+        return currentTick;
     }
 
     public String getFormattedBaseCurrencyBalance()

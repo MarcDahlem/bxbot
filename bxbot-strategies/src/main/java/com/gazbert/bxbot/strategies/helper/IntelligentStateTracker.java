@@ -31,7 +31,7 @@ public class IntelligentStateTracker {
     private PlacedOrder currentSellOrder;
     private SellIndicator breakEvenIndicator;
 
-    private final static Map<Integer, List<OpenOrder>> allOpenOrders = new LinkedHashMap<>() {
+    private final static Map<Long, List<OpenOrder>> allOpenOrders = new LinkedHashMap<>() {
         @Override
         protected boolean removeEldestEntry(final Map.Entry eldest) {
             return size() > 10;
@@ -94,12 +94,13 @@ public class IntelligentStateTracker {
     }
 
     private List<OpenOrder> getAllOpenOrdersForMarket(String id) throws ExchangeNetworkException, TradingApiException {
-        if(!allOpenOrders.containsKey(priceTracker.getCurrentTick())) {
+        long currentStrategyTick = priceTracker.getCurrentStrategyTick();
+        if(!allOpenOrders.containsKey(currentStrategyTick)) {
             List<OpenOrder> allLoadedOrders = tradingApi.getYourOpenOrders(market.getId());
-            allOpenOrders.put(priceTracker.getCurrentTick(), allLoadedOrders);
+            allOpenOrders.put(currentStrategyTick, allLoadedOrders);
         }
 
-        List<OpenOrder> currentOpenOrders = allOpenOrders.get(priceTracker.getCurrentTick());
+        List<OpenOrder> currentOpenOrders = allOpenOrders.get(currentStrategyTick);
         return currentOpenOrders.stream().filter(openOrder -> market.getId().equalsIgnoreCase(openOrder.getMarketId())).collect(Collectors.toList());
     }
 
