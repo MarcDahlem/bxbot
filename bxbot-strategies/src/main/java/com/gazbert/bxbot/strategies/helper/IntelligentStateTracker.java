@@ -334,6 +334,7 @@ public class IntelligentStateTracker {
 
             LOG.info(() -> market.getName() + " BUY phase - Place a BUY order of '" + DECIMAL_FORMAT.format(sanitizedPiecesToBuy) + " * " + priceTracker.getFormattedLast() + "'");
             String orderID = tradingApi.createOrder(market.getId(), OrderType.BUY, sanitizedPiecesToBuy, priceTracker.getLast());
+            priceTracker.adaptBalanceDueToBuyEvent(sanitizedPiecesToBuy, priceTracker.getLast());
 
             LOG.info(() -> market.getName() + " BUY Order sent successfully to exchange. ID: " + orderID);
 

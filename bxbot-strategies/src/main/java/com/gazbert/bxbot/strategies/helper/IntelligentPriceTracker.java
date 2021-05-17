@@ -219,4 +219,14 @@ public class IntelligentPriceTracker {
     private Collection<Ta4j2Chart.ChartIndicatorConfig> getLivechartIndicatorConfigs() {
         return new LinkedList<>(this.registeredLiveChartIndicatorConfigs);
     }
+
+    public void adaptBalanceDueToBuyEvent(BigDecimal amount, BigDecimal price) throws TradingApiException, ExchangeNetworkException {
+        Map<String, BigDecimal> currentAccountBalances = balances.get(currentTick);
+        BigDecimal availableBalanceBeforeBuy = currentAccountBalances.get(market.getCounterCurrency());
+        BigDecimal orderPrice = amount.multiply(price);
+        BigDecimal buyFees = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId()).multiply(orderPrice);
+        BigDecimal netOrderPrice = orderPrice.add(buyFees);
+        BigDecimal availableBalancesAfterBuy = availableBalanceBeforeBuy.subtract(netOrderPrice);
+        currentAccountBalances.put(market.getCounterCurrency(), availableBalancesAfterBuy);
+    }
 }
