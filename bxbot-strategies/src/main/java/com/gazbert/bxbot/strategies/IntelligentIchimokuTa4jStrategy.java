@@ -50,8 +50,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
 
-    private static final int ICHIMOKU_SHORT_SPAN = 18;
-    private static final int ICHIMOKU_LONG_SPAN = 52;
+    private static final int ICHIMOKU_SHORT_SPAN = 9;
+    private static final int ICHIMOKU_LONG_SPAN = 26;
 
     private BigDecimal buyFee;
     private BigDecimal sellFee;

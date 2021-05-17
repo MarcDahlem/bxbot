@@ -67,13 +67,13 @@ public class IntelligentPriceTracker {
 
     public void updateMarketPrices() throws ExchangeNetworkException, TradingApiException, StrategyException {
         safelyeUpdateCurrentTick();
-        Ohlc ohlcData = tradingApi.getOhlc(market.getId(), OhlcInterval.OneMinute, resumeID);
+        Ohlc ohlcData = tradingApi.getOhlc(market.getId(), OhlcInterval.FiveMinutes, resumeID);
         LOG.info(() -> market.getName() + " Updated latest market info: " + ohlcData);
 
         for (int i = 0; i < ohlcData.getFrames().size(); i++) {
             OhlcFrame frame = ohlcData.getFrames().get(i);
             ZonedDateTime startTime = frame.getTime();
-            ZonedDateTime endTime = startTime.plusMinutes(1);
+            ZonedDateTime endTime = startTime.plusMinutes(5);
             Duration between = Duration.between(frame.getTime(), endTime);
 
             Bar newBar = new BaseBar(
