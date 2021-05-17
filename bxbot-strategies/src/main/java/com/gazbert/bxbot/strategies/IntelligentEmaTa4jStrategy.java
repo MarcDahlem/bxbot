@@ -25,6 +25,8 @@ import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
 
 @Component("intelligentEmaTa4jStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
@@ -53,24 +55,30 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
         BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
 
-        stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 140);
-        macd = new MACDIndicator(closePriceIndicator, 90, 260);
-        EMAIndicator emaMacd = new EMAIndicator(macd, 180);
+        stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
+        macd = new MACDIndicator(closePriceIndicator, 9, 26);
+        EMAIndicator emaMacd = new EMAIndicator(macd, 18);
 
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
         buyIndicatorLong = new EMAIndicator(closePriceIndicator, 26);
-        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 16), sellFeeFactor);
+        //buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 9), sellFeeFactor);
+        buyIndicatorShort = new EMAIndicator(closePriceIndicator, 9);
 
-        sellIndicatorLong = new EMAIndicator(closePriceIndicator, 104);
-        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 9), buyFeeFactor);
+        sellIndicatorLong = new EMAIndicator(closePriceIndicator, 26);
+        //sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 9), buyFeeFactor);
+        sellIndicatorShort = new EMAIndicator(closePriceIndicator, 9);
 
-        Rule entryRule = new CrossedUpIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
-                /*.and(new UnderIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1*/;/*.and(new OverIndicatorRule(macd, emaMacd)); // Signal 2*/
+        Rule entryRule = new OverIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
+                .and(new CrossedDownIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1
+                .and(new OverIndicatorRule(macd, emaMacd)) // Signal 2
+                ;
 
-        Rule exitRule = new CrossedDownIndicatorRule(sellIndicatorShort, sellIndicatorLong) // Trend
-                /*.and(new OverIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1*/;/*.and(new UnderIndicatorRule(macd, emaMacd)); // Signal 2*/
+        Rule exitRule = new UnderIndicatorRule(sellIndicatorShort, sellIndicatorLong) // Trend
+                .and(new CrossedUpIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1
+                .and(new UnderIndicatorRule(macd, emaMacd)) // Signal 2
+                ;
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j", entryRule, exitRule);
     }
 
