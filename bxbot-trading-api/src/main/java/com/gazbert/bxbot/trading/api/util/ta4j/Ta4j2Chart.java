@@ -51,6 +51,8 @@ public class Ta4j2Chart {
                         .build();
         chart.getStyler().setToolTipsEnabled(true);
 
+        addOhlcToChart(chart, series, false, null);
+
         for (ChartIndicatorConfig indicatorConfig : indicators) {
             addIndicatorToChart(indicatorConfig, chart, series, false, null);
         }
@@ -145,6 +147,7 @@ public class Ta4j2Chart {
         List<Number> highs = new LinkedList<>();
         List<Number> lows = new LinkedList<>();
         List<Number> closes = new LinkedList<>();
+        List<Number> volumes = new LinkedList<>();
         int startIndex = series.getBeginIndex();
         if (limit != null) {
             startIndex = Math.max(startIndex, series.getEndIndex() - limit);
@@ -157,11 +160,15 @@ public class Ta4j2Chart {
                 highs.add(bar.getHighPrice().getDelegate());
                 lows.add(bar.getLowPrice().getDelegate());
                 closes.add(bar.getClosePrice().getDelegate());
+                volumes.add(bar.getVolume().getDelegate());
         }
         if (update) {
             chart.updateOHLCSeries("ohlc", dates, opens, highs, lows, closes);
         } else {
-            chart.addSeries("ohlc", dates, opens, highs, lows, closes);
+            OHLCSeries chartSeries = chart.addSeries("ohlc", dates, opens, highs, lows, closes, volumes);
+            // fix https://github.com/knowm/XChart/issues/567 not yet released
+            chartSeries.setDownColor(new Color(242, 39, 42));
+            chartSeries.setUpColor(new Color(19, 179, 70));
         }
     }
 
@@ -207,11 +214,13 @@ public class Ta4j2Chart {
         // chart.getStyler().setCursorEnabled(true); //disable cursor, as it has memory leaks in live
         // charts. Check https://github.com/knowm/XChart/issues/593
 
+        addOhlcToChart(chart, series, false, maxAmountBars);
+
         for (ChartIndicatorConfig indicator : indicatorConfigs) {
             addIndicatorToChart(indicator, chart, series, false, maxAmountBars);
         }
 
-        addOhlcToChart(chart, series, false, maxAmountBars);
+
 
         SwingWrapper<OHLCChart> sw = new SwingWrapper<>(chart);
         sw.isCentered(false);
@@ -236,6 +245,7 @@ public class Ta4j2Chart {
 
         javax.swing.SwingUtilities.invokeLater(
                 () -> {
+                    addOhlcToChart(liveChartConfig.chart, liveChartConfig.series, true, liveChartConfig.maxAmountBars);
                     for (ChartIndicatorConfig indicatorConfig : liveChartConfig.indicatorConfigs) {
                         addIndicatorToChart(
                                 indicatorConfig,
@@ -244,7 +254,6 @@ public class Ta4j2Chart {
                                 true,
                                 liveChartConfig.maxAmountBars);
                     }
-                    addOhlcToChart(liveChartConfig.chart, liveChartConfig.series, true, liveChartConfig.maxAmountBars);
                     liveChartConfig.sw.repaintChart();
                     liveChartConfig.waitForRun = false;
                 });
