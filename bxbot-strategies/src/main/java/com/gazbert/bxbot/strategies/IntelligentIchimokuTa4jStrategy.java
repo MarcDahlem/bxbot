@@ -58,16 +58,17 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     private IchimokuKijunSenIndicator baseLine;
     private IchimokuTenkanSenIndicator conversionLine;
     private SellIndicator cloudLowerLineAtBuyPrice;
-    private Indicator<Num> gainSellPriceCalculator;
     private IchimokuLead1FutureIndicator lead1Future;
     private IchimokuLead2FutureIndicator lead2Future;
     private Rule buyRule;
     private Rule cloudGreenInFuture;
-    private Rule conversionLineAboveBaseLine;
-    private Rule laggingSpanAbovePastCloud;
+
     private IchimokuLaggingSpanIndicator laggingSpan;
     private IntelligentTrailingStopConfigParams intelligentTrailingStopConfigParams;
     private ClosePriceIndicator closePriceIndicator;
+    private Rule laggingSpanAbovePastPrice;
+    private UnstableIndicator delayedConversionLine;
+
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
@@ -95,43 +96,25 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         CombineIndicator currentCloudUpperLine = CombineIndicator.max(lead1Current, lead2Current);
         CombineIndicator currentCloudLowerLine = CombineIndicator.min(lead1Current, lead2Current);
 
-        Rule crossTheCurrentCloudUpperUp = new CrossedUpIndicatorRule(closePriceIndicator, currentCloudUpperLine);
-        Rule crossTheCurrentCloudUpperDown = new CrossedDownIndicatorRule(closePriceIndicator, currentCloudUpperLine);
-
-        Rule crossTheCurrentCloudLowerUp = new CrossedUpIndicatorRule(closePriceIndicator, currentCloudLowerLine);
-        Rule crossTheCurrentCloudLowerDown = new CrossedDownIndicatorRule(closePriceIndicator, currentCloudLowerLine);
+        UnstableIndicator delayedMarketPrice = new UnstableIndicator(new DelayIndicator(closePriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
 
         cloudGreenInFuture = new OverIndicatorRule(lead1Future, lead2Future);
-        conversionLineAboveBaseLine = new OverIndicatorRule(conversionLine, baseLine);
-        laggingSpanAbovePastCloud = new OverIndicatorRule(laggingSpan, lead1Past).and(new OverIndicatorRule(laggingSpan, lead2Past));
+        Rule conversionLineCrossesBaseLine = new CrossedUpIndicatorRule(conversionLine, baseLine);
+        Rule conversionLineCrossOverCloud = new OverIndicatorRule(baseLine, currentCloudUpperLine).and(conversionLineCrossesBaseLine);
+        laggingSpanAbovePastPrice = new OverIndicatorRule(laggingSpan, delayedMarketPrice);
         Rule priceAboveTheCloud = new OverIndicatorRule(closePriceIndicator, currentCloudUpperLine);
+        Rule priceAboveConversionLine = new OverIndicatorRule(closePriceIndicator, conversionLine);
 
-        BooleanIndicatorRule trueInBuyPhases = new BooleanIndicatorRule(new TrueInBuyPhaseIndicator(series, stateTracker.getBreakEvenIndicator()));
-
-        Rule resetUpperCrossUpOn = crossTheCurrentCloudUpperDown.or(trueInBuyPhases);
-        Rule resetLowerCrossUpOn = crossTheCurrentCloudLowerDown.or(trueInBuyPhases);
-
-
-        CombineIndicator pastCloudUpperLine = CombineIndicator.max(lead1Past, lead2Past);
-        Rule crossThePastCloudUpperUp = new CrossedUpIndicatorRule(laggingSpan, pastCloudUpperLine);
-        Rule crossThePastCloudUpperDown = new CrossedDownIndicatorRule(laggingSpan, pastCloudUpperLine);
-        Rule resetPastUpperCrossUpOn = crossThePastCloudUpperDown.or(trueInBuyPhases);
-
-        StrictBeforeRule laggingSpanCrossedUpper = new StrictBeforeRule(series, crossThePastCloudUpperUp, laggingSpanAbovePastCloud, resetPastUpperCrossUpOn);
-
-        Rule crossingIndipendentIchimokuSignals = priceAboveTheCloud.and(cloudGreenInFuture.and(conversionLineAboveBaseLine).and(laggingSpanAbovePastCloud));
-        StrictBeforeRule crossUpperAndIchimokuSignals = new StrictBeforeRule(series, crossTheCurrentCloudUpperUp, crossingIndipendentIchimokuSignals, resetUpperCrossUpOn);
-
-        buyRule = new StrictBeforeRule(series, crossTheCurrentCloudLowerUp, crossUpperAndIchimokuSignals, resetLowerCrossUpOn).and(laggingSpanCrossedUpper);
+        buyRule = priceAboveTheCloud
+                .and(cloudGreenInFuture)
+                .and(conversionLineCrossOverCloud)
+                .and(laggingSpanAbovePastPrice)
+                .and(priceAboveConversionLine);
 
 
 
         cloudLowerLineAtBuyPrice = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, currentCloudLowerLine.getValue(buyIndex)));
-        Number targetToRiskRatio = 2;
-        Indicator<Num> buyPriceIndicator = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, closePriceIndicator.getValue(buyIndex)));
-
-        CombineIndicator sellPriceGainCal = multiply(plus(multiply(minus(divide(closePriceIndicator, cloudLowerLineAtBuyPrice), 1), targetToRiskRatio), 1), buyPriceIndicator);
-        gainSellPriceCalculator = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, sellPriceGainCal.getValue(buyIndex)));
+        delayedConversionLine = new UnstableIndicator(new DelayIndicator(conversionLine, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
     }
 
     @Override
@@ -143,7 +126,6 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         result.add(new Ta4j2Chart.ChartIndicatorConfig(lead1Future, "kumo a future", Color.GREEN, ICHIMOKU_LONG_SPAN * -1));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(lead2Future, "kumo b future", Color.RED, ICHIMOKU_LONG_SPAN * -1));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(cloudLowerLineAtBuyPrice, "sell stop price", Ta4j2Chart.SELL_LIMIT_2_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(gainSellPriceCalculator, "sell gain price", Ta4j2Chart.SELL_LIMIT_1_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpan, "lagging span", Ta4j2Chart.SELL_LIMIT_3_COLOR, ICHIMOKU_LONG_SPAN));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(binanceBreakEvenIndicator, "binanceBreakEvenIndicator", Ta4j2Chart.BUY_TRIGGER_COLOR));
         return result;
@@ -155,11 +137,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
 
         return new IntelligentStateTracker.OrderPriceCalculator() {
-            private UnstableIndicator delayedBaseline;
             private IntelligentTrailIndicator intelligentTrailIndicator;
-            private Indicator<Num> delayedMarketPrice;
             private Rule laggingSpanEmergencyStopReached;
-            private Rule takeProfitAndBreakEvenReached;
             private boolean initialized = false;
 
             @Override
@@ -168,7 +147,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
 
-                if(takeProfitAndBreakEvenReached.isSatisfied(currentIndex) || laggingSpanEmergencyStopReached.isSatisfied(currentIndex)) {
+                if(laggingSpanEmergencyStopReached.isSatisfied(currentIndex-1)) {
                     return (BigDecimal)  closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
@@ -181,10 +160,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
             private void initSellRules() throws TradingApiException, ExchangeNetworkException {
                 if (!initialized) {
-                    takeProfitAndBreakEvenReached = new OverIndicatorRule(closePriceIndicator, gainSellPriceCalculator).and(new OverIndicatorRule(closePriceIndicator, stateTracker.getBreakEvenIndicator()));
-                    delayedMarketPrice = new UnstableIndicator(new DelayIndicator(closePriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
-                    delayedBaseline = new UnstableIndicator(new DelayIndicator(baseLine, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
-                    laggingSpanEmergencyStopReached = new UnderIndicatorRule(laggingSpan, delayedBaseline);
+                    laggingSpanEmergencyStopReached = new UnderIndicatorRule(laggingSpan, delayedConversionLine);
+
                     intelligentTrailIndicator = IntelligentTrailIndicator.createIntelligentTrailIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams, stateTracker.getBreakEvenIndicator());
                     initialized = true;
                 }
@@ -199,13 +176,9 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                         "* Current market price: " + priceTracker.getFormattedLast() +
                         "\n Break even: " + priceTracker.formatWithCounterCurrency((BigDecimal) stateTracker.getBreakEvenIndicator().getValue(currentIndex).getDelegate()) +
                         "\n market change to break even: " + formatAsPercentage((BigDecimal) getPercentageChange(closePriceIndicator.getValue(currentIndex), stateTracker.getBreakEvenIndicator().getValue(currentIndex)).getDelegate()) +
-                        "\n Take profit: " + priceTracker.formatWithCounterCurrency((BigDecimal) gainSellPriceCalculator.getValue(currentIndex).getDelegate()) +
-                        "\n market change to take profit: " + formatAsPercentage((BigDecimal) getPercentageChange(closePriceIndicator.getValue(currentIndex), gainSellPriceCalculator.getValue(currentIndex)).getDelegate()) +
                         "\n* lagging span: " + priceTracker.formatWithCounterCurrency((BigDecimal) laggingSpan.getValue(currentIndex).getDelegate()) +
-                        "\n* past market (" +ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedMarketPrice.getValue(currentIndex).getDelegate()) +
-                        "\n* past baseline (" +ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedBaseline.getValue(currentIndex).getDelegate()) +
-                        "\n lagging span to past market: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpan.getValue(currentIndex), delayedMarketPrice.getValue(currentIndex)).getDelegate()) +
-                        "\n lagging span to past baseline: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpan.getValue(currentIndex), delayedBaseline.getValue(currentIndex)).getDelegate()) +
+                        "\n* past conversionline (" +ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedConversionLine.getValue(currentIndex).getDelegate()) +
+                        "\n lagging span to past conversionline: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpan.getValue(currentIndex), delayedConversionLine.getValue(currentIndex)).getDelegate()) +
                         "\n Stop loss: " + priceTracker.formatWithCounterCurrency((BigDecimal) cloudLowerLineAtBuyPrice.getValue(currentIndex).getDelegate()) +
                         "\n market change to stop loss: " + formatAsPercentage((BigDecimal) getPercentageChange(closePriceIndicator.getValue(currentIndex), cloudLowerLineAtBuyPrice.getValue(currentIndex)).getDelegate()) +
                         "\n###############################");
@@ -243,8 +216,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                     "\n######### MOVED UP? #########\n" +
                     "* Current market price: " + priceTracker.getFormattedLast() +
                     "\n* cloud green In future: " + cloudGreenInFuture.isSatisfied(currentIndex) +
-                    "\n* conversion line above base line: " + this.conversionLineAboveBaseLine.isSatisfied(currentIndex) +
-                    "\n* lagging span above past cloud: " + this.laggingSpanAbovePastCloud.isSatisfied(currentIndex) +
+                    "\n* lagging span above past price: " + this.laggingSpanAbovePastPrice.isSatisfied(currentIndex) +
                     "\n* Place a BUY order?: " + result +
                     "\n#############################";
         });
