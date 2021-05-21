@@ -128,7 +128,7 @@ public class IntelligentStateTracker {
             LOG.error(() -> market.getName() + " " + errorMsg);
             throw new StrategyException(errorMsg);
         }
-        OpenOrderState marketState = retrievOrderStateFromMarket(currentEnterOrder);
+        OpenOrderState marketState = retrieveOrderStateFromMarket(currentEnterOrder);
 
         switch (marketState) {
             case PARTIAL_AVAILABLE:
@@ -239,7 +239,7 @@ public class IntelligentStateTracker {
         }
         BigDecimal currentMarketPrice = priceTracker.getLast();
         BigDecimal currentSellOrderPrice = getCurrentSellOrderPrice();
-        OpenOrderState marketState = retrievOrderStateFromMarket(currentExitOrder);
+        OpenOrderState marketState = retrieveOrderStateFromMarket(currentExitOrder);
 
         switch (marketState) {
             case PARTIAL_AVAILABLE:
@@ -331,7 +331,7 @@ public class IntelligentStateTracker {
 
     }
 
-    private OpenOrderState retrievOrderStateFromMarket(PlacedOrder order) throws ExchangeNetworkException, TradingApiException {
+    private OpenOrderState retrieveOrderStateFromMarket(PlacedOrder order) throws ExchangeNetworkException, TradingApiException {
         final List<OpenOrder> myOrders = getAllOpenOrdersForMarket(market.getId());
         for (final OpenOrder myOrder : myOrders) {
             if (myOrder.getId().equals(order.getId())) {
@@ -410,22 +410,33 @@ public class IntelligentStateTracker {
         }
 
         BigDecimal exitPrice = exitPriceCalculator.calculate(currentEnterOrder.getMarketEnterType());
-        BigDecimal sellOrderAmount = priceTracker.getAvailableBaseCurrencyBalance();
-        BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
+        BigDecimal exitOrderAmount = calculateAmountToUseForExitOrder();
 
-        if (sellOrderAmount.compareTo(minimumOrderVolume) < 0) {
-            String errorMsg = "Tried to place a sell order of '" + sellOrderAmount + "' pieces. But the minimum order volume on market is '" + minimumOrderVolume + "'. This should hopyfully never happen.";
-            throw new StrategyException(errorMsg);
-        }
+        LOG.info(() -> market.getName() + " EXIT phase - Place a EXIT order of type "+ currentEnterOrder.getMarketEnterType()+" with '" + DECIMAL_FORMAT.format(exitOrderAmount) + " * " + priceTracker.formatWithCounterCurrency(exitPrice) + "'");
 
-        LOG.info(() -> market.getName() + " SELL phase - Place a SELL order of '" + DECIMAL_FORMAT.format(sellOrderAmount) + " * " + priceTracker.formatWithCounterCurrency(exitPrice) + "'");
+        OrderType orderType = currentEnterOrder.getMarketEnterType().equals(MarketEnterType.SHORT_POSITION) ? OrderType.BUY : OrderType.SELL;
+        String orderId = tradingApi.createOrder(market.getId(), orderType, exitOrderAmount, exitPrice);
 
-        String orderId = tradingApi.createOrder(market.getId(), OrderType.SELL, sellOrderAmount, exitPrice);
+        LOG.info(() -> market.getName() + " EXIT Order sent successfully to exchange. ID: " + orderId + ". Type: " + orderType);
 
-        LOG.info(() -> market.getName() + " SELL Order sent successfully to exchange. ID: " + orderId);
-
-        currentExitOrder = new PlacedOrder(orderId, OrderType.SELL, sellOrderAmount, exitPrice);
+        currentExitOrder = new PlacedOrder(orderId, orderType, exitOrderAmount, exitPrice);
         updateStateTo(IntelligentStrategyState.WAIT_FOR_EXIT);
+    }
+
+    private BigDecimal calculateAmountToUseForExitOrder() throws ExchangeNetworkException, TradingApiException, StrategyException {
+        switch (currentEnterOrder.getMarketEnterType()) {
+            case LONG_POSITION:
+                BigDecimal exitOrderAmount = priceTracker.getAvailableBaseCurrencyBalance();
+                BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
+
+                if (exitOrderAmount.compareTo(minimumOrderVolume) < 0) {
+                    String errorMsg = "Tried to place a sell order of '" + exitOrderAmount + "' pieces. But the minimum order volume on market is '" + minimumOrderVolume + "'. This should hopyfully never happen.";
+                    throw new StrategyException(errorMsg);
+                }
+                return exitOrderAmount;
+            case SHORT_POSITION:
+                return BigDecimal.ZERO; //can return zero, as Kraken buys as much as needed to close the position
+        }
     }
 
     public RecordedStrategy getRecordedStrategy() throws TradingApiException, ExchangeNetworkException {
