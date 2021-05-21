@@ -122,7 +122,7 @@ public class IntelligentStateTracker {
         return currentSellOrder.getPrice();
     }
 
-    public void trackRunningEnterOrder(OnStrategyStateChangeListener listener) throws TradingApiException, ExchangeNetworkException, StrategyException {
+    public void trackRunningEnterOrder(OrderPriceCalculator amountOfPiecesToEnterCalcualtor, OnStrategyStateChangeListener listener) throws TradingApiException, ExchangeNetworkException, StrategyException {
         if (strategyState != WAIT_FOR_ENTER) {
             String errorMsg = "Invalid state encountered: " + strategyState + " while ask to track a running ENTER order. State needed: " + WAIT_FOR_ENTER;
             LOG.error(() -> market.getName() + " " + errorMsg);
@@ -180,7 +180,6 @@ public class IntelligentStateTracker {
                             if (getCurrentEnterOrderPrice().compareTo(priceTracker.getLast()) > 0) {
                                 LOG.info(() -> market.getName() + " The current BUY order's price '" + getFormattedBuyOrderPrice()
                                         + "' is above the current market price ('" + priceTracker.getFormattedLast() + "'). Cancel the order '" + currentEnterOrder.getId() + "'.");
-                                // TODO check if that works with ta4j crossing rules
                             } else {
                                 currentEnterOrder.increaseOrderNotExecutedCounter();
                                 if (currentEnterOrder.getOrderNotExecutedCounter() <= 3) { // TODO make configurable + TODO reset counter
@@ -195,7 +194,6 @@ public class IntelligentStateTracker {
                             if (getCurrentEnterOrderPrice().compareTo(priceTracker.getLast()) < 0) {
                                 LOG.info(() -> market.getName() + " The current SHORT ENTER order's price '" + getFormattedBuyOrderPrice()
                                         + "' is below the current market price ('" + priceTracker.getFormattedLast() + "'). Cancel the order '" + currentEnterOrder.getId() + "'.");
-                                // TODO check if that works with ta4j crossing rules
                             } else {
                                 currentEnterOrder.increaseOrderNotExecutedCounter();
                                 if (currentEnterOrder.getOrderNotExecutedCounter() <= 3) { // TODO make configurable + TODO reset counter
@@ -213,9 +211,10 @@ public class IntelligentStateTracker {
 
                     if (orderCanceled) {
                         LOG.info(() -> market.getName() + " Order '" + currentEnterOrder.getId() + "' successfully canceled. Reset the strategy to the ENTER phase...");
+                        MarketEnterType currentMarketEnterType = currentEnterOrder.getMarketEnterType();
                         currentEnterOrder = null;
                         updateStateTo(NEED_ENTER);
-                        listener.onStrategyChanged(NEED_ENTER);
+                        placeEnterOrder(amountOfPiecesToEnterCalcualtor, currentMarketEnterType);
                     } else {
                         LOG.warn(() -> market.getName() + " Order '" + currentEnterOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
                     }
