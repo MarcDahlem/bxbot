@@ -177,9 +177,6 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         exitPriceCalculator.logStatistics();
         stateTracker.trackRunningExitOrder(exitPriceCalculator, newState -> {
             switch (newState) {
-                case NEED_EXIT:
-                    executeExitPhase();
-                    break;
                 case NEED_ENTER:
                     executeEnterPhase();
                     break;

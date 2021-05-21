@@ -298,7 +298,7 @@ public class IntelligentStateTracker {
                             LOG.info(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' successfully canceled. Reset the strategy to the sell phase...");
                             currentSellOrder = null;
                             updateStateTo(IntelligentStrategyState.NEED_EXIT);
-                            stateChangedListener.onStrategyChanged(NEED_EXIT);
+                            placeSellOrder(sellOrderPriceCalcuclator);
                         } else {
                             LOG.warn(() -> market.getName() + " Order '" + currentSellOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
                         }
