@@ -141,7 +141,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         LOG.info(() -> market.getName() + " ENTER phase - check if the market moved up.");
         if (shouldEnterMarket().isPresent()) {
             LOG.info(() -> market.getName() + " ENTER phase - The market did move. Place a ENTER order on the exchange -->");
-            enterPriceCalculator.logStatistics();
+            enterPriceCalculator.logStatistics(shouldEnterMarket().get());
             stateTracker.placeEnterOrder(enterPriceCalculator, shouldEnterMarket().get());
         } else {
             LOG.info(() -> market.getName() + " ENTER phase - The market movement needed to place an ENTER order was not reached. Wait for the next trading strategy tick.");
@@ -152,7 +152,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         LOG.info(() -> market.getName() + " EXIT phase - check if the market moved.");
         if (shouldExitMarket()) {
             LOG.info(() -> market.getName() + " EXIT phase - The market did move. Place a EXIT order on the exchange -->");
-            stateTracker.placeSellOrder(exitPriceCalculator);
+            stateTracker.placeExitOrder(exitPriceCalculator);
         } else {
             LOG.info(() -> market.getName() + " EXIT phase - The market movevement needed to place an EXIT order was not reached. Wait for the next trading strategy tick.");
         }
@@ -173,8 +173,8 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     }
 
     private void executeCheckOfTheExitOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        LOG.info(() -> market.getName() + " State: Wait for SELL order to fulfill.");
-        exitPriceCalculator.logStatistics();
+        LOG.info(() -> market.getName() + " State: Wait for EXIT order to fulfill.");
+        exitPriceCalculator.logStatistics(stateTracker.getCurrentMarketEntry());
         stateTracker.trackRunningExitOrder(exitPriceCalculator, newState -> {
             switch (newState) {
                 case NEED_ENTER:

@@ -3,6 +3,7 @@ package com.gazbert.bxbot.strategies.helper;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -26,11 +27,14 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
     }
 
     @Override
-    public BigDecimal calculate() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        return computeCurrentSellPrice();
+    public BigDecimal calculate(MarketEnterType type) throws TradingApiException, ExchangeNetworkException, StrategyException {
+        return computeCurrentSellPrice(type);
     }
 
-    private BigDecimal computeCurrentSellPrice() throws TradingApiException, ExchangeNetworkException {
+    private BigDecimal computeCurrentSellPrice(MarketEnterType type) throws TradingApiException, ExchangeNetworkException, StrategyException {
+        if (!type.equals(MarketEnterType.LONG_POSITION)) {
+            throw new StrategyException("Short intelligent sell price calculations are not implemented so far");
+        }
         BigDecimal breakEven = calculateBreakEven();
         LOG.info(() -> "The calculated break even for selling would be '" + priceTracker.formatWithCounterCurrency(breakEven) + "'");
         BigDecimal maximalPriceLimitAboveBreakEven = calculateMaximalPriceLimitAboveBreakEven(breakEven);
@@ -78,7 +82,8 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
 
     }
 
-    public void logStatistics() throws TradingApiException, ExchangeNetworkException {
+    @Override
+    public void logStatistics(MarketEnterType type) throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentMarketPrice = priceTracker.getLast();
         BigDecimal currentSellOrderPrice = stateTracker.getCurrentSellOrderPrice();
         BigDecimal breakEven = calculateBreakEven();

@@ -2,7 +2,7 @@ package com.gazbert.bxbot.strategies;
 
 import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 
-import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
@@ -104,7 +104,7 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createEnterPriceCalculator(StrategyConfig config) {
-        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
+        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentEnterPriceCalculator(market, priceTracker, config);
         //result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
         return result;
     }

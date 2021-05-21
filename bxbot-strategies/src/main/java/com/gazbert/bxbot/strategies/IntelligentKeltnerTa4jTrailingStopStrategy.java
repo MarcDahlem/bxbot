@@ -2,7 +2,7 @@ package com.gazbert.bxbot.strategies;
 
 import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 
-import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
@@ -101,12 +101,18 @@ public class IntelligentKeltnerTa4jTrailingStopStrategy extends AbstractIntellig
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
         return new IntelligentStateTracker.OrderPriceCalculator() {
             @Override
-            public BigDecimal calculate() throws TradingApiException, ExchangeNetworkException, StrategyException {
+            public BigDecimal calculate(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
+                if (!marketEnterType.equals(MarketEnterType.LONG_POSITION)) {
+                    throw new StrategyException("Short sell price calculations are not implemented so far");
+                }
                 return (BigDecimal) intelligentTrailIndicator.getValue(priceTracker.getSeries().getEndIndex()).getDelegate();
             }
 
             @Override
-            public void logStatistics() throws TradingApiException, ExchangeNetworkException, StrategyException {
+            public void logStatistics(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
+                if (!marketEnterType.equals(MarketEnterType.LONG_POSITION)) {
+                    throw new StrategyException("Short sell price calculations are not implemented so far");
+                }
 
             }
         };
@@ -114,7 +120,7 @@ public class IntelligentKeltnerTa4jTrailingStopStrategy extends AbstractIntellig
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createEnterPriceCalculator(StrategyConfig config) {
-        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
+        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentEnterPriceCalculator(market, priceTracker, config);
         //result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
         return result;
     }

@@ -2,7 +2,7 @@ package com.gazbert.bxbot.strategies;
 
 import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 
-import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
@@ -137,7 +137,10 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
             private boolean initialized = false;
 
             @Override
-            public BigDecimal calculate() throws TradingApiException, ExchangeNetworkException, StrategyException {
+            public BigDecimal calculate(MarketEnterType type) throws TradingApiException, ExchangeNetworkException, StrategyException {
+                if (!type.equals(MarketEnterType.LONG_POSITION)) {
+                    throw new StrategyException("Short sell price calculations are not implemented so far");
+                }
                 initSellRules();
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
@@ -163,7 +166,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
             }
 
             @Override
-            public void logStatistics() throws TradingApiException, ExchangeNetworkException, StrategyException {
+            public void logStatistics(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
                 initSellRules();
                 int currentIndex = priceTracker.getSeries().getEndIndex();
                 LOG.info(market.getName() +
@@ -190,7 +193,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createEnterPriceCalculator(StrategyConfig config) {
-        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
+        IntelligentStateTracker.OrderPriceCalculator result = new IntelligentEnterPriceCalculator(market, priceTracker, config);
         return result;
     }
 
