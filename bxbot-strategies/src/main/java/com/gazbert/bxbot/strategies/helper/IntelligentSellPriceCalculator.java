@@ -56,8 +56,8 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
     }
 
     private BigDecimal calculateBelowBreakEvenPriceLimit() {
-        BigDecimal distanceToCurrentMarketPrice = priceTracker.getBid().multiply(params.getCurrentSellStopLimitPercentageBelowBreakEven());
-        return priceTracker.getBid().subtract(distanceToCurrentMarketPrice);
+        BigDecimal distanceToCurrentMarketPrice = priceTracker.getLast().multiply(params.getCurrentSellStopLimitPercentageBelowBreakEven());
+        return priceTracker.getLast().subtract(distanceToCurrentMarketPrice);
     }
 
     private BigDecimal calculateMaximalPriceLimitAboveBreakEven(BigDecimal breakEven) {
@@ -67,12 +67,12 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
     }
 
     private BigDecimal calculateAboveBreakEvenPriceLimit() {
-        return priceTracker.getBid().subtract(priceTracker.getBid().multiply(params.getCurrentSellStopLimitPercentageAboveBreakEven()));
+        return priceTracker.getLast().subtract(priceTracker.getLast().multiply(params.getCurrentSellStopLimitPercentageAboveBreakEven()));
     }
 
     private BigDecimal calculateMinimumAboveBreakEvenPriceLimit(BigDecimal breakEven) {
         BigDecimal currentSellStopLimitPercentageMinimumAboveBreakEven = params.getCurrentSellStopLimitPercentageMinimumAboveBreakEven();
-        BigDecimal minimalDistanceToCurrentMarketPrice = priceTracker.getBid().subtract(priceTracker.getBid().multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
+        BigDecimal minimalDistanceToCurrentMarketPrice = priceTracker.getLast().subtract(priceTracker.getLast().multiply(currentSellStopLimitPercentageMinimumAboveBreakEven));
         BigDecimal minimumAboveBreakEvenAsFactor = BigDecimal.ONE.subtract(currentSellStopLimitPercentageMinimumAboveBreakEven);
         BigDecimal minimalDistanceNeededToBreakEven = breakEven.divide(minimumAboveBreakEvenAsFactor,8, RoundingMode.HALF_UP);
         return minimalDistanceNeededToBreakEven.min(minimalDistanceToCurrentMarketPrice);
@@ -80,7 +80,7 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
     }
 
     public void logStatistics() throws TradingApiException, ExchangeNetworkException {
-        BigDecimal currentMarketBidPrice = priceTracker.getBid();
+        BigDecimal currentMarketPrice = priceTracker.getLast();
         BigDecimal currentSellOrderPrice = stateTracker.getCurrentSellOrderPrice();
         BigDecimal breakEven = calculateBreakEven();
 
@@ -88,25 +88,23 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
         BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
         BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
         BigDecimal currentBuyOrderPrice = stateTracker.getCurrentBuyOrderPrice();
-        BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketBidPrice, currentBuyOrderPrice);
-        BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketBidPrice, breakEven);
-        BigDecimal percentageChangeCurrentSellToMarket = getPercentageChange(currentSellOrderPrice, currentMarketBidPrice);
+        BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketPrice, currentBuyOrderPrice);
+        BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketPrice, breakEven);
+        BigDecimal percentageChangeCurrentSellToMarket = getPercentageChange(currentSellOrderPrice, currentMarketPrice);
         BigDecimal percentageChangeCurrentSellToBreakEven = getPercentageChange(currentSellOrderPrice, breakEven);
         BigDecimal percentageChangeCurrentSellToBuy = getPercentageChange(currentSellOrderPrice, currentBuyOrderPrice);
 
         LOG.info(() -> "Current sell statistics: \n" +
                 "######### SELL ORDER STATISTICS #########\n" +
                 "current market price (last): " + priceTracker.getFormattedLast() + "\n" +
-                "current market price (bid): " + priceTracker.getFormattedBid() + "\n" +
-                "current market price (ask): " + priceTracker.getFormattedAsk() + "\n" +
                 "current BUY order price: " + priceTracker.formatWithCounterCurrency(currentBuyOrderPrice) + "\n" +
                 "current SELL order price: " + priceTracker.formatWithCounterCurrency(currentSellOrderPrice) + "\n" +
                 "break even: " + priceTracker.formatWithCounterCurrency(breakEven) + "\n" +
                 "-----------------------------------------\n" +
-                "market change (bid) to buy price: " + DECIMAL_FORMAT.format(percentageChangeToBuyOrder) + "%\n" +
-                "market change (bid) to break even: " + DECIMAL_FORMAT.format(percentageChangeToBreakEven) + "%\n" +
+                "market change (last) to buy price: " + DECIMAL_FORMAT.format(percentageChangeToBuyOrder) + "%\n" +
+                "market change (last) to break even: " + DECIMAL_FORMAT.format(percentageChangeToBreakEven) + "%\n" +
                 "current sell price to buy price: " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToBuy) + "%\n" +
-                "current sell price to market (bid): " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToMarket) + "%\n" +
+                "current sell price to market (last): " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToMarket) + "%\n" +
                 "current sell price to break even: " + DECIMAL_FORMAT.format(percentageChangeCurrentSellToBreakEven) + "%\n" +
                 "-----------------------------------------\n" +
                 "limit above break even: " + priceTracker.formatWithCounterCurrency(aboveBreakEvenPriceLimit) + "\n" +

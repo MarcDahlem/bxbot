@@ -1,10 +1,17 @@
 package com.gazbert.bxbot.strategies;
 
-import com.gazbert.bxbot.strategies.helper.*;
+import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
+import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.StaticSellPriceParams;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.util.Collection;
+import java.util.LinkedList;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
@@ -14,17 +21,12 @@ import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
-
-import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.util.Collection;
-import java.util.LinkedList;
+import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
 
 @Component("intelligentEmaTa4jStrategy") // used to load the strategy using Spring bean injection
 public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
@@ -52,27 +54,31 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
-        LowPriceIndicator bidPriceIndicator = new LowPriceIndicator(series);
-        HighPriceIndicator askPriceIndicator = new HighPriceIndicator(series);
 
-        stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 140);
-        macd = new MACDIndicator(closePriceIndicator, 90, 260);
-        EMAIndicator emaMacd = new EMAIndicator(macd, 180);
+        stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, 14);
+        macd = new MACDIndicator(closePriceIndicator, 9, 26);
+        EMAIndicator emaMacd = new EMAIndicator(macd, 18);
 
         BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
         BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
-        buyIndicatorLong = new EMAIndicator(bidPriceIndicator, 26);
-        buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(bidPriceIndicator, 16), sellFeeFactor);
+        buyIndicatorLong = new EMAIndicator(closePriceIndicator, 26);
+        //buyIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 9), sellFeeFactor);
+        buyIndicatorShort = new EMAIndicator(closePriceIndicator, 9);
 
-        sellIndicatorLong = new EMAIndicator(askPriceIndicator, 104);
-        sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(askPriceIndicator, 9), buyFeeFactor);
+        sellIndicatorLong = new EMAIndicator(closePriceIndicator, 26);
+        //sellIndicatorShort = TransformIndicator.multiply(new EMAIndicator(closePriceIndicator, 9), buyFeeFactor);
+        sellIndicatorShort = new EMAIndicator(closePriceIndicator, 9);
 
-        Rule entryRule = new CrossedUpIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
-                /*.and(new UnderIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1*/;/*.and(new OverIndicatorRule(macd, emaMacd)); // Signal 2*/
+        Rule entryRule = new OverIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
+                .and(new CrossedDownIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1
+                .and(new OverIndicatorRule(macd, emaMacd)) // Signal 2
+                ;
 
-        Rule exitRule = new CrossedDownIndicatorRule(sellIndicatorShort, sellIndicatorLong) // Trend
-                /*.and(new OverIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1*/;/*.and(new UnderIndicatorRule(macd, emaMacd)); // Signal 2*/
+        Rule exitRule = new UnderIndicatorRule(sellIndicatorShort, sellIndicatorLong) // Trend
+                .and(new CrossedUpIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1
+                .and(new UnderIndicatorRule(macd, emaMacd)) // Signal 2
+                ;
         ta4jStrategy = new BaseStrategy("Intelligent Ta4j", entryRule, exitRule);
     }
 
@@ -107,13 +113,13 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedUp() {
-        boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex());
+        boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex()-1);
         LOG.info(() -> {
             Num currentLongEma = buyIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
             Num currentShortEma = buyIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
             return market.getName() +
                     "\n######### MOVED UP? #########\n" +
-                    "* Current ask price: " + priceTracker.getFormattedAsk() +
+                    "* Current market price: " + priceTracker.getFormattedLast() +
                     "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
                     "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
                     "\n* Percentage EMA gain needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +
@@ -130,14 +136,14 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
-        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex());
+        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex()-1);
         Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
         Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
         LOG.info(market.getName() +
                 "\n######### MOVED DOWN? #########\n" +
-                "* Current bid price: " + priceTracker.getFormattedBid() +
+                "* Current market price: " + priceTracker.getFormattedLast() +
                 "\n Break even: " + priceTracker.formatWithCounterCurrency((BigDecimal) stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex()).getDelegate()) +
-                "\n market change (bid) to break even: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(priceTracker.getSeries().numOf(priceTracker.getBid()), stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex())).getDelegate()) +
+                "\n market change (last) to break even: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(priceTracker.getSeries().numOf(priceTracker.getLast()), stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex())).getDelegate()) +
                 "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
                 "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
                 "\n* Percentage EMA loss needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +

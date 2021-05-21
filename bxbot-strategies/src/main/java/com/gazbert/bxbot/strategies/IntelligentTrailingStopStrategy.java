@@ -26,7 +26,6 @@ package com.gazbert.bxbot.strategies;
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
-import com.gazbert.bxbot.strategies.helper.StaticBuyPriceCalculator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
@@ -38,7 +37,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.LowestValueIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
@@ -61,19 +60,19 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     protected boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentPercentageGainNeededForBuy = intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy();
         int currentLowestPriceLookbackCount = intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount();
-        BigDecimal lowestAskPrice = calulateLowestAskPriceIn(currentLowestPriceLookbackCount);
+        BigDecimal lowestMarketPrice = calulateLowestMarketPriceIn(currentLowestPriceLookbackCount);
         int currentTimesAboveLowestPriceNeeded = intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded();
-        BigDecimal cleanedMarketPrice = calulateLowestAskPriceIn(currentTimesAboveLowestPriceNeeded);
-        BigDecimal amountToMoveUp = lowestAskPrice.multiply(currentPercentageGainNeededForBuy);
-        BigDecimal goalToReach = lowestAskPrice.add(amountToMoveUp);
-        BigDecimal percentageChangeMarketToMinimum = getPercentageChange(priceTracker.getAsk(), lowestAskPrice);
-        BigDecimal percentageChangeCleanedMarketToMinimum = getPercentageChange(cleanedMarketPrice, lowestAskPrice);
+        BigDecimal cleanedMarketPrice = calulateLowestMarketPriceIn(currentTimesAboveLowestPriceNeeded);
+        BigDecimal amountToMoveUp = lowestMarketPrice.multiply(currentPercentageGainNeededForBuy);
+        BigDecimal goalToReach = lowestMarketPrice.add(amountToMoveUp);
+        BigDecimal percentageChangeMarketToMinimum = getPercentageChange(priceTracker.getLast(), lowestMarketPrice);
+        BigDecimal percentageChangeCleanedMarketToMinimum = getPercentageChange(cleanedMarketPrice, lowestMarketPrice);
         LOG.info(() -> market.getName() + "\n" +
                 "######### BUY ORDER STATISTICS #########\n" +
                 " * Price needed: " + priceTracker.formatWithCounterCurrency(goalToReach) +
-                "\n * Current ask price: " + priceTracker.getFormattedAsk() +
-                "\n * Current cleaned ask price (in " + currentTimesAboveLowestPriceNeeded + " ticks): " + priceTracker.formatWithCounterCurrency(cleanedMarketPrice) +
-                "\n * Minimum seen ask price (in " + currentLowestPriceLookbackCount + " ticks): " + priceTracker.formatWithCounterCurrency(lowestAskPrice) +
+                "\n * Current market price: " + priceTracker.getFormattedLast() +
+                "\n * Current cleaned market price (in " + currentTimesAboveLowestPriceNeeded + " ticks): " + priceTracker.formatWithCounterCurrency(cleanedMarketPrice) +
+                "\n * Minimum seen market price (in " + currentLowestPriceLookbackCount + " ticks): " + priceTracker.formatWithCounterCurrency(lowestMarketPrice) +
                 "\n * Gain needed from this minimum price: " + DECIMAL_FORMAT.format(currentPercentageGainNeededForBuy.multiply(oneHundred)) +
                 "% = " + priceTracker.formatWithCounterCurrency(amountToMoveUp) +
                 "\n * Current market above minimum: " + DECIMAL_FORMAT.format(percentageChangeMarketToMinimum) + "%" +
@@ -102,8 +101,8 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
         SellIndicator belowBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageBelowBreakEven(), stateTracker.getBreakEvenIndicator());
         SellIndicator aboveBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageAboveBreakEven(), stateTracker.getBreakEvenIndicator());
         Indicator<Num> minAboveBreakEvenIndicator = createMinAboveBreakEvenIndicator();
-        Indicator<Num> longBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() +1);
-        Indicator<Num> shortBuyLowPrice = new LowestValueIndicator(new HighPriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() +1);
+        Indicator<Num> longBuyLowPrice = new LowestValueIndicator(new ClosePriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() +1);
+        Indicator<Num> shortBuyLowPrice = new LowestValueIndicator(new ClosePriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() +1);
         Indicator<Num> gainLine = TransformIndicator.multiply(longBuyLowPrice, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
         LinkedList<Ta4j2Chart.ChartIndicatorConfig> result = new LinkedList<>();
         result.add(new Ta4j2Chart.ChartIndicatorConfig(aboveBreakEvenIndicator, "limit above BE", Ta4j2Chart.SELL_LIMIT_2_COLOR));
@@ -171,10 +170,10 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
         return newPrice.subtract(priceToCompareAgainst).divide(priceToCompareAgainst, 10, RoundingMode.HALF_UP).multiply(oneHundred);
     }
 
-    private BigDecimal calulateLowestAskPriceIn(int ticks) throws TradingApiException, ExchangeNetworkException {
+    private BigDecimal calulateLowestMarketPriceIn(int ticks) throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
-        int currentEndIndex = series.getEndIndex();
-        Num result = series.getBar(currentEndIndex).getHighPrice();
+        int currentEndIndex = series.getEndIndex()-1;
+        Num result = series.getBar(currentEndIndex).getClosePrice();
         int currentBeginIndex = series.getBeginIndex();
 
         int spanStartIndex = currentEndIndex - ticks+1;
@@ -186,7 +185,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
             startIndexRegardingSells = Math.max(availableStartIndex, lastRecordedSellIndex);
         }
         for (int i = startIndexRegardingSells; i <= currentEndIndex; i++) {
-            result = series.getBar(i).getHighPrice().min(result);
+            result = series.getBar(i).getClosePrice().min(result);
         }
         return (BigDecimal) result.getDelegate();
     }

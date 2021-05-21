@@ -436,6 +436,9 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
           return adaptKrakenCancelOrderResult(krakenResponse);
 
         } else {
+          if (errors.size() == 1 && errors.contains("EOrder:Unknown order")) {
+            return false;
+          }
           if (isExchangeUndergoingMaintenance(response) && keepAliveDuringMaintenance) {
             LOG.warn(() -> UNDER_MAINTENANCE_WARNING_MESSAGE);
             throw new ExchangeNetworkException(UNDER_MAINTENANCE_WARNING_MESSAGE);

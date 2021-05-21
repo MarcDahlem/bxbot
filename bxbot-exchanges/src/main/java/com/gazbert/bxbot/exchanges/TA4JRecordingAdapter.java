@@ -5,26 +5,44 @@ import com.gazbert.bxbot.exchange.api.ExchangeConfig;
 import com.gazbert.bxbot.exchange.api.OtherConfig;
 import com.gazbert.bxbot.exchanges.ta4jhelper.TradePriceRespectingBacktestExecutor;
 import com.gazbert.bxbot.exchanges.trading.api.impl.BalanceInfoImpl;
+import com.gazbert.bxbot.exchanges.trading.api.impl.OhlcFrameImpl;
+import com.gazbert.bxbot.exchanges.trading.api.impl.OhlcImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.OpenOrderImpl;
 import com.gazbert.bxbot.exchanges.trading.api.impl.TickerImpl;
-import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.trading.api.BalanceInfo;
+import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
+import com.gazbert.bxbot.trading.api.MarketOrderBook;
+import com.gazbert.bxbot.trading.api.Ohlc;
+import com.gazbert.bxbot.trading.api.OhlcFrame;
+import com.gazbert.bxbot.trading.api.OhlcInterval;
+import com.gazbert.bxbot.trading.api.OpenOrder;
+import com.gazbert.bxbot.trading.api.OrderType;
+import com.gazbert.bxbot.trading.api.Ticker;
+import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
+import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
-import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4jOptimalTradingStrategy;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.sql.Array;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.ta4j.core.*;
+import org.ta4j.core.Bar;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.Strategy;
+import org.ta4j.core.Trade;
 import org.ta4j.core.cost.LinearTransactionCostModel;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.reports.PerformanceReport;
 import org.ta4j.core.reports.PositionStatsReport;
 import org.ta4j.core.reports.TradingStatement;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.*;
 
 public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements ExchangeAdapter {
     private static final Logger LOG = LogManager.getLogger();
@@ -126,7 +144,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     @Override
     public Ticker getTicker(String marketId) throws TradingApiException, ExchangeNetworkException {
         currentTick++;
-        LOG.info("Tick increased to '" + currentTick + "'");
+        LOG.info("Tick increased to '" + currentTick + "' (ticker call)");
         if (currentTick > tradingSeries.getEndIndex()) {
             finishRecording(marketId);
             return null;
@@ -145,6 +163,55 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         BigDecimal vwap = BigDecimal.ZERO;
         Long timestamp = currentBar.getEndTime().toInstant().toEpochMilli();
         return new TickerImpl(last, bid, ask, low, high, open, volume, vwap, timestamp);
+    }
+
+    @Override
+    public Ohlc getOhlc(String marketId, OhlcInterval interval) throws TradingApiException, ExchangeNetworkException {
+        return getOhlc(marketId, interval, null);
+    }
+
+    @Override
+    public Ohlc getOhlc(String marketId, OhlcInterval interval, Integer resumeID) throws TradingApiException, ExchangeNetworkException {
+        currentTick++;
+        LOG.info("Tick increased to '" + currentTick + "' (ticker call)");
+        if (currentTick > tradingSeries.getEndIndex()) {
+            finishRecording(marketId);
+            return null;
+        }
+
+
+        checkOpenOrderExecution(marketId);
+
+        ArrayList<OhlcFrame> frames = new ArrayList<OhlcFrame>();
+        tradingSeries.getBar(currentTick);
+        Bar currentBar = tradingSeries.getBar(currentTick);
+        OhlcFrameImpl currentFrame = new OhlcFrameImpl(
+                currentBar.getEndTime(),
+        (BigDecimal) currentBar.getOpenPrice().getDelegate(),
+                (BigDecimal) currentBar.getHighPrice().getDelegate(),
+                (BigDecimal) currentBar.getLowPrice().getDelegate(),
+                (BigDecimal) currentBar.getClosePrice().getDelegate(),
+                BigDecimal.ZERO,
+                (BigDecimal) currentBar.getVolume().getDelegate(),
+                0
+        );
+        int lastTick = currentTick - 1;
+        if (lastTick >= tradingSeries.getBeginIndex()) {
+            currentBar = tradingSeries.getBar(lastTick);
+            OhlcFrameImpl lastFrame = new OhlcFrameImpl(
+                    currentBar.getEndTime(),
+                    (BigDecimal) currentBar.getOpenPrice().getDelegate(),
+                    (BigDecimal) currentBar.getHighPrice().getDelegate(),
+                    (BigDecimal) currentBar.getLowPrice().getDelegate(),
+                    (BigDecimal) currentBar.getClosePrice().getDelegate(),
+                    BigDecimal.ZERO,
+                    (BigDecimal) currentBar.getVolume().getDelegate(),
+                    0
+            );
+            frames.add(lastFrame);
+        }
+        frames.add(currentFrame);
+        return new OhlcImpl(currentTick, frames);
     }
 
     private void loadRecodingSeriesFromJson() {
@@ -206,11 +273,11 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     }
 
     private void checkOpenSellOrderExecution(String marketId) {
-        BigDecimal currentBidPrice = (BigDecimal) tradingSeries.getBar(currentTick).getLowPrice().getDelegate(); // assumes that the stored series json contains the bid price in the low price property
-        if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
-            LOG.info("SELL: the market's bid price moved below the stop-limit price --> record sell order execution with the current bid price");
+        BigDecimal currentMarketPrice = (BigDecimal) tradingSeries.getBar(currentTick).getClosePrice().getDelegate();
+        if (currentMarketPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
+            LOG.info("SELL: the market's price moved below the stop-limit price --> record sell order execution with the current market price");
             getRecordingIndicator(marketId).registerSellOrderExecution(currentTick);
-            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
+            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
             BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
             counterCurrencyBalance = counterCurrencyBalance.add(netOrderPrice);
@@ -220,11 +287,11 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     }
 
     private void checkOpenBuyOrderExecution(String marketId) {
-        BigDecimal currentAskPrice = (BigDecimal) tradingSeries.getBar(currentTick).getHighPrice().getDelegate(); // assumes that the stored series json contains the ask price in the high price property
-        if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
-            LOG.info("BUY: the market's current ask price moved below the limit price --> record buy order execution with the current ask price");
+        BigDecimal currentMarketPrice = (BigDecimal) tradingSeries.getBar(currentTick).getClosePrice().getDelegate();
+        if (currentMarketPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
+            LOG.info("BUY: the market's current market price moved below the limit price --> record buy order execution with the current market price");
             getRecordingIndicator(marketId).registerBuyOrderExecution(currentTick);
-            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
+            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
             BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.add(buyFees);
             counterCurrencyBalance = counterCurrencyBalance.subtract(netOrderPrice);

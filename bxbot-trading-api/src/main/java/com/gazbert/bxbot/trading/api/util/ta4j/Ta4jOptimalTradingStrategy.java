@@ -1,17 +1,10 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.google.common.primitives.Ints;
-import org.ta4j.core.*;
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.FixedRule;
-
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import org.ta4j.core.Bar;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.num.Num;
 
 public class Ta4jOptimalTradingStrategy extends RecordedStrategy {
 
@@ -30,41 +23,40 @@ public class Ta4jOptimalTradingStrategy extends RecordedStrategy {
 
         for(int index = series.getBeginIndex(); index <= series.getEndIndex(); index++) {
             Bar bar = series.getBar(index);
-            Num askPrice = bar.getHighPrice();
-            Num bidPrice = bar.getLowPrice();
+            Num closePrice = bar.getClosePrice();
             if (lastSeenMinimum == null) {
-                lastSeenMinimum = askPrice;
+                lastSeenMinimum = closePrice;
                 lastSeenMinimumIndex = index;
             } else {
-                if (lastSeenMinimum.isGreaterThan(askPrice)) {
+                if (lastSeenMinimum.isGreaterThan(closePrice)) {
                     createTrade(lastSeenMinimumIndex, lastSeenMinimum, lastSeenMaximumIndex, lastSeenMaximum, beIndicator);
                     lastSeenMaximum = null;
                     lastSeenMaximumIndex = -1;
-                    lastSeenMinimum = askPrice;
+                    lastSeenMinimum = closePrice;
                     lastSeenMinimumIndex = index;
                 } else {
                     Num buyFees = lastSeenMinimum.multipliedBy(series.numOf(buyFee));
                     Num minimumPlusFees = lastSeenMinimum.plus(buyFees);
-                    Num currentPriceSellFees = bidPrice.multipliedBy(series.numOf(sellFee));
-                    Num currentPriceMinusFees = bidPrice.minus(currentPriceSellFees);
+                    Num currentPriceSellFees = closePrice.multipliedBy(series.numOf(sellFee));
+                    Num currentPriceMinusFees = closePrice.minus(currentPriceSellFees);
                     if(lastSeenMaximum == null) {
                         if(currentPriceMinusFees.isGreaterThan(minimumPlusFees)) {
-                            lastSeenMaximum = bidPrice;
+                            lastSeenMaximum = closePrice;
                             lastSeenMaximumIndex = index;
                         }
                     } else {
-                        if(bidPrice.isGreaterThanOrEqual(lastSeenMaximum)) {
-                            lastSeenMaximum = bidPrice;
+                        if(closePrice.isGreaterThanOrEqual(lastSeenMaximum)) {
+                            lastSeenMaximum = closePrice;
                             lastSeenMaximumIndex = index;
                         } else {
                             Num lastMaxPriceSellFees = lastSeenMaximum.multipliedBy(series.numOf(sellFee));
                             Num lastMaxPriceMinusFees = lastSeenMaximum.minus(lastMaxPriceSellFees);
-                            Num currentPricePlusBuyFees = bidPrice.plus(bidPrice.multipliedBy(series.numOf(buyFee)));
+                            Num currentPricePlusBuyFees = closePrice.plus(closePrice.multipliedBy(series.numOf(buyFee)));
                             if (currentPricePlusBuyFees.isLessThan(lastMaxPriceMinusFees)) {
                                 createTrade(lastSeenMinimumIndex, lastSeenMinimum, lastSeenMaximumIndex, lastSeenMaximum, beIndicator);
                                 lastSeenMaximum = null;
                                 lastSeenMaximumIndex = -1;
-                                lastSeenMinimum = askPrice;
+                                lastSeenMinimum = closePrice;
                                 lastSeenMinimumIndex = index;
                             }
                         }
