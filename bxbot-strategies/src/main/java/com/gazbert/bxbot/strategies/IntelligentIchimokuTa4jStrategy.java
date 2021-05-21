@@ -7,40 +7,27 @@ import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.DelayIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.IchimokuLaggingSpanIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.IchimokuLead1FutureIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.IchimokuLead2FutureIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.StrictBeforeRule;
-import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
-import com.gazbert.bxbot.trading.api.util.ta4j.TrueInBuyPhaseIndicator;
-import java.awt.*;
-import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.util.Collection;
-import java.util.LinkedList;
+import com.gazbert.bxbot.trading.api.util.ta4j.*;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.UnstableIndicator;
-import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.helpers.ConstantIndicator;
 import org.ta4j.core.indicators.ichimoku.IchimokuKijunSenIndicator;
 import org.ta4j.core.indicators.ichimoku.IchimokuTenkanSenIndicator;
 import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.BooleanIndicatorRule;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
-import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.divide;
-import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.multiply;
-import static org.ta4j.core.indicators.helpers.TransformIndicator.minus;
-import static org.ta4j.core.indicators.helpers.TransformIndicator.multiply;
-import static org.ta4j.core.indicators.helpers.TransformIndicator.plus;
+
+import java.awt.*;
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.util.Collection;
+import java.util.LinkedList;
 
 @Component("intelligentIchimokuTa4jStrategy") // used to load the strategy using Spring bean injection
 @Scope("prototype") // create always a new instance if it is injected
@@ -105,16 +92,19 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         Rule priceAboveTheCloud = new OverIndicatorRule(closePriceIndicator, currentCloudUpperLine);
         Rule priceAboveConversionLine = new OverIndicatorRule(closePriceIndicator, conversionLine);
 
+        delayedConversionLine = new UnstableIndicator(new DelayIndicator(conversionLine, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
+        UnderIndicatorRule laggingSpanAbovePastConversionLine = new UnderIndicatorRule(laggingSpan, delayedConversionLine);
+
         buyRule = priceAboveTheCloud
                 .and(cloudGreenInFuture)
                 .and(conversionLineCrossOverCloud)
                 .and(laggingSpanAbovePastPrice)
-                .and(priceAboveConversionLine);
-
+                .and(priceAboveConversionLine)
+                .and(laggingSpanAbovePastConversionLine)
+                ;
 
 
         cloudLowerLineAtBuyPrice = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, currentCloudLowerLine.getValue(buyIndex)));
-        delayedConversionLine = new UnstableIndicator(new DelayIndicator(conversionLine, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
     }
 
     @Override
@@ -147,8 +137,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
 
-                if(laggingSpanEmergencyStopReached.isSatisfied(currentIndex-1)) {
-                    return (BigDecimal)  closePriceIndicator.getValue(currentIndex).getDelegate();
+                if (laggingSpanEmergencyStopReached.isSatisfied(currentIndex - 1)) {
+                    return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
                 BigDecimal stopLossPrice = (BigDecimal) cloudLowerLineAtBuyPrice.getValue(currentIndex).getDelegate();
@@ -177,7 +167,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                         "\n Break even: " + priceTracker.formatWithCounterCurrency((BigDecimal) stateTracker.getBreakEvenIndicator().getValue(currentIndex).getDelegate()) +
                         "\n market change to break even: " + formatAsPercentage((BigDecimal) getPercentageChange(closePriceIndicator.getValue(currentIndex), stateTracker.getBreakEvenIndicator().getValue(currentIndex)).getDelegate()) +
                         "\n* lagging span: " + priceTracker.formatWithCounterCurrency((BigDecimal) laggingSpan.getValue(currentIndex).getDelegate()) +
-                        "\n* past conversionline (" +ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedConversionLine.getValue(currentIndex).getDelegate()) +
+                        "\n* past conversionline (" + ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedConversionLine.getValue(currentIndex).getDelegate()) +
                         "\n lagging span to past conversionline: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpan.getValue(currentIndex), delayedConversionLine.getValue(currentIndex)).getDelegate()) +
                         "\n Stop loss: " + priceTracker.formatWithCounterCurrency((BigDecimal) cloudLowerLineAtBuyPrice.getValue(currentIndex).getDelegate()) +
                         "\n market change to stop loss: " + formatAsPercentage((BigDecimal) getPercentageChange(closePriceIndicator.getValue(currentIndex), cloudLowerLineAtBuyPrice.getValue(currentIndex)).getDelegate()) +
@@ -210,7 +200,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     @Override
     protected boolean marketMovedUp() {
         int currentIndex = priceTracker.getSeries().getEndIndex();
-        boolean result = buyRule.isSatisfied(currentIndex-1);
+        boolean result = buyRule.isSatisfied(currentIndex - 1);
         LOG.info(() -> {
             return market.getName() +
                     "\n######### MOVED UP? #########\n" +
