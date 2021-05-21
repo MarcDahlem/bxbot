@@ -127,7 +127,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
+    protected IntelligentStateTracker.OrderPriceCalculator createExitPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
         buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
 
@@ -189,7 +189,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
+    protected IntelligentStateTracker.OrderPriceCalculator createEnterPriceCalculator(StrategyConfig config) {
         IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
         return result;
     }

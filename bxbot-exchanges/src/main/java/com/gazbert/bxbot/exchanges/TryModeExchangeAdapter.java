@@ -224,8 +224,8 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
         if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("SELL: the market's bid price moved below the limit price --> record sell order execution with the current bid price");
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
-            BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
-            BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
+            BigDecimal enterFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
+            BigDecimal netOrderPrice = orderPrice.subtract(enterFees);
             counterCurrencyBalance = counterCurrencyBalance.add(netOrderPrice);
             baseCurrencyBalance = baseCurrencyBalance.subtract(currentOpenOrder.getOriginalQuantity());
             currentOpenOrder = null;
@@ -237,8 +237,8 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
         if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("BUY: the market's current ask price moved below the limit price --> record buy order execution with the current ask price");
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
-            BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
-            BigDecimal netOrderPrice = orderPrice.add(buyFees);
+            BigDecimal enterFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
+            BigDecimal netOrderPrice = orderPrice.add(enterFees);
             counterCurrencyBalance = counterCurrencyBalance.subtract(netOrderPrice);
             baseCurrencyBalance = baseCurrencyBalance.add(currentOpenOrder.getOriginalQuantity());
             currentOpenOrder = null;

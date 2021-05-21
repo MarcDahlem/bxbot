@@ -220,7 +220,10 @@ public class IntelligentPriceTracker {
         return new LinkedList<>(this.registeredLiveChartIndicatorConfigs);
     }
 
-    public void adaptBalanceDueToBuyEvent(BigDecimal amount, BigDecimal price) throws TradingApiException, ExchangeNetworkException {
+    public void adaptBalanceDueToBuyEvent(BigDecimal amount, BigDecimal price, MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException {
+        if (marketEnterType == MarketEnterType.SHORT_POSITION) {
+            return;
+        }
         Map<String, BigDecimal> currentAccountBalances = balances.get(currentTick);
         BigDecimal availableBalanceBeforeBuy = currentAccountBalances.get(market.getCounterCurrency());
         BigDecimal orderPrice = amount.multiply(price);

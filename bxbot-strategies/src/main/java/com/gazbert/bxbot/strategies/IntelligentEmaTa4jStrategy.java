@@ -96,14 +96,14 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
+    protected IntelligentStateTracker.OrderPriceCalculator createExitPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
         buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
         sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
         return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new StaticSellPriceParams(buyFee, sellFee, config));
     }
 
     @Override
-    protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
+    protected IntelligentStateTracker.OrderPriceCalculator createEnterPriceCalculator(StrategyConfig config) {
         IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
         //result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
         return result;

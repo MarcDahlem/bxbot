@@ -1,8 +1,8 @@
 package com.gazbert.bxbot.strategies.helper;
 
 public enum IntelligentStrategyState {
-    NEED_BUY,
-    NEED_SELL,
-    WAIT_FOR_BUY,
-    WAIT_FOR_SELL
+    NEED_ENTER,
+    NEED_EXIT,
+    WAIT_FOR_ENTER,
+    WAIT_FOR_EXIT
 }

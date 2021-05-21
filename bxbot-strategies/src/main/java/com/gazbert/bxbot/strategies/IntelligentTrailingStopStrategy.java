@@ -126,7 +126,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) {
+    protected IntelligentStateTracker.OrderPriceCalculator createExitPriceCalculator(StrategyConfig config) {
         return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new IntelligentSellPriceCalculator.IntelligentSellPriceParameters() {
             @Override
             public BigDecimal getBuyFee() throws TradingApiException, ExchangeNetworkException {
@@ -156,7 +156,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config) {
+    protected IntelligentStateTracker.OrderPriceCalculator createEnterPriceCalculator(StrategyConfig config) {
         IntelligentStateTracker.OrderPriceCalculator result = new IntelligentBuyPriceCalculator(market, priceTracker, config);
         //result = new StaticBuyPriceCalculator(market, priceTracker, new BigDecimal("25")); // TODO remove
         return result;

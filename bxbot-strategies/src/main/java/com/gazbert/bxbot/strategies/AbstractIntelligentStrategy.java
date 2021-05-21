@@ -28,8 +28,8 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     protected IntelligentPriceTracker priceTracker;
     protected IntelligentStateTracker stateTracker;
 
-    private IntelligentStateTracker.OrderPriceCalculator buyPriceCalculator;
-    private IntelligentStateTracker.OrderPriceCalculator sellPriceCalculator;
+    private IntelligentStateTracker.OrderPriceCalculator enterPriceCalculator;
+    private IntelligentStateTracker.OrderPriceCalculator exitPriceCalculator;
     private IntelligentStateTracker.OnTradeSuccessfullyClosedListener tradesObserver;
     private boolean shouldPersistTickerData;
 
@@ -53,8 +53,8 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         shouldPersistTickerData = StrategyConfigParser.readBoolean(config, "persist-ticker-data", false);
 
         try {
-            buyPriceCalculator = createBuyPriceCalculator(config);
-            sellPriceCalculator = createSellPriceCalculator(config);
+            enterPriceCalculator = createEnterPriceCalculator(config);
+            exitPriceCalculator = createExitPriceCalculator(config);
             tradesObserver = createTradesObserver(config);
             botWillStartup(config);
             initLiveChartIndicators();
@@ -95,17 +95,17 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
             IntelligentStrategyState strategyState = stateTracker.getCurrentState();
 
             switch (strategyState) {
-                case NEED_BUY:
-                    executeBuyPhase();
+                case NEED_ENTER:
+                    executeEnterPhase();
                     break;
-                case NEED_SELL:
-                    executeSellPhase();
+                case NEED_EXIT:
+                    executeExitPhase();
                     break;
-                case WAIT_FOR_BUY:
-                    executeCheckOfTheBuyOrder();
+                case WAIT_FOR_ENTER:
+                    executeCheckOfTheEnterOrder();
                     break;
-                case WAIT_FOR_SELL:
-                    executeCheckOfTheSellOrder();
+                case WAIT_FOR_EXIT:
+                    executeCheckOfTheExitOrder();
                     break;
                 default:
                     throw new StrategyException("Unknown strategy state encounted: " + strategyState);
@@ -137,37 +137,37 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         Ta4j2Chart.printSeries(priceTracker.getSeries(), recordedStrategy, indicatorConfigs);
     }
 
-    private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
+    private void executeEnterPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
+        LOG.info(() -> market.getName() + " ENTER phase - check if the market moved up.");
         if (shouldEnterMarket().isPresent()) {
-            LOG.info(() -> market.getName() + " BUY phase - The market moved up. Place a BUY order on the exchange -->");
-            buyPriceCalculator.logStatistics();
-            stateTracker.placeBuyOrder(buyPriceCalculator);
+            LOG.info(() -> market.getName() + " ENTER phase - The market did move. Place a ENTER order on the exchange -->");
+            enterPriceCalculator.logStatistics();
+            stateTracker.placeEnterOrder(enterPriceCalculator, shouldEnterMarket().get());
         } else {
-            LOG.info(() -> market.getName() + " BUY phase - The market gain needed to place a BUY order was not reached. Wait for the next trading strategy tick.");
+            LOG.info(() -> market.getName() + " ENTER phase - The market movement needed to place an ENTER order was not reached. Wait for the next trading strategy tick.");
         }
     }
 
-    private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        LOG.info(() -> market.getName() + " SELL phase - check if the market moved down.");
+    private void executeExitPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
+        LOG.info(() -> market.getName() + " EXIT phase - check if the market moved.");
         if (shouldExitMarket()) {
-            LOG.info(() -> market.getName() + " SELL phase - The market moved down. Place a soll order on the exchange -->");
-            stateTracker.placeSellOrder(sellPriceCalculator);
+            LOG.info(() -> market.getName() + " EXIT phase - The market did move. Place a EXIT order on the exchange -->");
+            stateTracker.placeSellOrder(exitPriceCalculator);
         } else {
-            LOG.info(() -> market.getName() + " SELL phase - The market loss needed to place a SELL order was not reached. Wait for the next trading strategy tick.");
+            LOG.info(() -> market.getName() + " EXIT phase - The market movevement needed to place an EXIT order was not reached. Wait for the next trading strategy tick.");
         }
 
     }
 
-    private void executeCheckOfTheBuyOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
-        LOG.info(() -> market.getName() + " State: Wait for BUY order to fulfill.");
-        stateTracker.trackRunningBuyOrder(newState -> {
+    private void executeCheckOfTheEnterOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
+        LOG.info(() -> market.getName() + " State: Wait for ENTER order to fulfill.");
+        stateTracker.trackRunningEnterOrder(newState -> {
             switch (newState) {
-                case NEED_SELL:
-                    executeSellPhase();
+                case NEED_EXIT:
+                    executeExitPhase();
                     break;
-                case NEED_BUY:
-                    executeBuyPhase();
+                case NEED_ENTER:
+                    executeEnterPhase();
                     break;
                 default:
                     throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
@@ -175,16 +175,16 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
         });
     }
 
-    private void executeCheckOfTheSellOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
+    private void executeCheckOfTheExitOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " State: Wait for SELL order to fulfill.");
-        sellPriceCalculator.logStatistics();
-        stateTracker.trackRunningSellOrder(sellPriceCalculator, newState -> {
+        exitPriceCalculator.logStatistics();
+        stateTracker.trackRunningExitOrder(exitPriceCalculator, newState -> {
             switch (newState) {
-                case NEED_SELL:
-                    executeSellPhase();
+                case NEED_EXIT:
+                    executeExitPhase();
                     break;
-                case NEED_BUY:
-                    executeBuyPhase();
+                case NEED_ENTER:
+                    executeEnterPhase();
                     break;
                 default:
                     throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
@@ -210,9 +210,9 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     protected abstract Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException;
 
-    protected abstract IntelligentStateTracker.OrderPriceCalculator createSellPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;
+    protected abstract IntelligentStateTracker.OrderPriceCalculator createExitPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException;
 
-    protected abstract IntelligentStateTracker.OrderPriceCalculator createBuyPriceCalculator(StrategyConfig config);
+    protected abstract IntelligentStateTracker.OrderPriceCalculator createEnterPriceCalculator(StrategyConfig config);
 
     protected abstract IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config);
 
