@@ -1,13 +1,17 @@
 package com.gazbert.bxbot.strategies;
 
+import static com.gazbert.bxbot.strategies.helper.MarketEnterType.LONG_POSITION;
+
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
+import com.gazbert.bxbot.strategies.helper.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.*;
+import java.util.Optional;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
@@ -29,7 +33,8 @@ import java.text.DecimalFormat;
 import java.util.Collection;
 import java.util.LinkedList;
 
-@Component("intelligentIchimokuTa4jStrategy") // used to load the strategy using Spring bean injection
+@Component("intelligentIchimokuTa4jStrategy")
+// used to load the strategy using Spring bean injection
 @Scope("prototype") // create always a new instance if it is injected
 public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy {
 
@@ -101,7 +106,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                 .and(laggingSpanAbovePastPrice)
                 .and(priceAboveConversionLine)
                 .and(laggingSpanAbovePastConversionLine)
-                ;
+        ;
 
 
         cloudLowerLineAtBuyPrice = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, currentCloudLowerLine.getValue(buyIndex)));
@@ -198,7 +203,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected boolean marketMovedUp() {
+    protected Optional<MarketEnterType> shouldEnterMarket() {
         int currentIndex = priceTracker.getSeries().getEndIndex();
         boolean result = buyRule.isSatisfied(currentIndex - 1);
         LOG.info(() -> {
@@ -210,7 +215,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                     "\n* Place a BUY order?: " + result +
                     "\n#############################";
         });
-        return result;
+        return result ? Optional.of(LONG_POSITION) : Optional.empty();
     }
 
     private Num getPercentageChange(Num newPrice, Num priceToCompareAgainst) {
@@ -218,7 +223,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     }
 
     @Override
-    protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
+    protected boolean shouldExitMarket() throws TradingApiException, ExchangeNetworkException {
         return true;
     }
 

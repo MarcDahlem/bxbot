@@ -1,8 +1,11 @@
 package com.gazbert.bxbot.strategies;
 
+import static com.gazbert.bxbot.strategies.helper.MarketEnterType.LONG_POSITION;
+
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.MarketEnterType;
 import com.gazbert.bxbot.strategies.helper.StaticSellPriceParams;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
@@ -12,6 +15,7 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
@@ -21,7 +25,6 @@ import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.StochasticOscillatorKIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
@@ -112,8 +115,8 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected boolean marketMovedUp() {
-        boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex()-1);
+    protected Optional<MarketEnterType> shouldEnterMarket() {
+        boolean result = ta4jStrategy.shouldEnter(priceTracker.getSeries().getEndIndex() - 1);
         LOG.info(() -> {
             Num currentLongEma = buyIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
             Num currentShortEma = buyIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
@@ -127,7 +130,7 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
                     "\n* Place a BUY order?: " + result +
                     "\n#############################";
         });
-        return result;
+        return result ? Optional.of(LONG_POSITION) : Optional.empty();
     }
 
     private Num getPercentageChange(Num newPrice, Num priceToCompareAgainst) {
@@ -135,8 +138,8 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
     }
 
     @Override
-    protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
-        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex()-1);
+    protected boolean shouldExitMarket() throws TradingApiException, ExchangeNetworkException {
+        boolean result = ta4jStrategy.shouldExit(priceTracker.getSeries().getEndIndex() - 1);
         Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
         Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
         LOG.info(market.getName() +

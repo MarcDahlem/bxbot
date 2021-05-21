@@ -3,6 +3,7 @@ package com.gazbert.bxbot.strategies;
 import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentStrategyState;
+import com.gazbert.bxbot.strategies.helper.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;
@@ -13,10 +14,10 @@ import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
+import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.awt.*;
 import java.io.File;
 import java.util.Collection;
 
@@ -138,7 +139,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     private void executeBuyPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " BUY phase - check if the market moved up.");
-        if (marketMovedUp()) {
+        if (shouldEnterMarket().isPresent()) {
             LOG.info(() -> market.getName() + " BUY phase - The market moved up. Place a BUY order on the exchange -->");
             buyPriceCalculator.logStatistics();
             stateTracker.placeBuyOrder(buyPriceCalculator);
@@ -149,7 +150,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     private void executeSellPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " SELL phase - check if the market moved down.");
-        if (marketMovedDown()) {
+        if (shouldExitMarket()) {
             LOG.info(() -> market.getName() + " SELL phase - The market moved down. Place a soll order on the exchange -->");
             stateTracker.placeSellOrder(sellPriceCalculator);
         } else {
@@ -194,7 +195,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     @Override
     public void saveState() {
         if (shouldPersistTickerData) {
-            JsonBarsSerializer.persistSeries(priceTracker.getSeries(), "recordedMarketDataOhlc" + File.separator +"15min_" +market.getId() + System.currentTimeMillis() + ".json");
+            JsonBarsSerializer.persistSeries(priceTracker.getSeries(), "recordedMarketDataOhlc" + File.separator + "15min_" + market.getId() + System.currentTimeMillis() + ".json");
         }
         try {
             showOverviewCharts();
@@ -215,9 +216,9 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     protected abstract IntelligentStateTracker.OnTradeSuccessfullyClosedListener createTradesObserver(StrategyConfig config);
 
-    protected abstract boolean marketMovedUp() throws TradingApiException, ExchangeNetworkException;
+    protected abstract Optional<MarketEnterType> shouldEnterMarket() throws TradingApiException, ExchangeNetworkException;
 
-    protected abstract boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException;
+    protected abstract boolean shouldExitMarket() throws TradingApiException, ExchangeNetworkException;
 
     protected abstract Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificOverviewChartIndicators() throws TradingApiException, ExchangeNetworkException;
 

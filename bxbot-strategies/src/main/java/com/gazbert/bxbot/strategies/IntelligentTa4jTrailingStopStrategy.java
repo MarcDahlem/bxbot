@@ -1,8 +1,11 @@
 package com.gazbert.bxbot.strategies;
 
+import static com.gazbert.bxbot.strategies.helper.MarketEnterType.LONG_POSITION;
+
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
+import com.gazbert.bxbot.strategies.helper.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
@@ -12,6 +15,7 @@ import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.Optional;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.Indicator;
@@ -116,12 +120,13 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     }
 
     @Override
-    protected boolean marketMovedUp() {
-        return buyRule.isSatisfied(priceTracker.getSeries().getEndIndex()-1);
+    protected Optional<MarketEnterType> shouldEnterMarket() {
+        boolean shouldEnter = buyRule.isSatisfied(priceTracker.getSeries().getEndIndex() - 1);
+        return shouldEnter ? Optional.of(LONG_POSITION) : Optional.empty();
     }
 
     @Override
-    protected boolean marketMovedDown() throws TradingApiException, ExchangeNetworkException {
+    protected boolean shouldExitMarket() throws TradingApiException, ExchangeNetworkException {
         return true;
     }
 
