@@ -1,21 +1,30 @@
 package com.gazbert.bxbot.strategies.helper;
 
+import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.NEED_ENTER;
+import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.NEED_EXIT;
+import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.WAIT_FOR_ENTER;
+import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.WAIT_FOR_EXIT;
+
 import com.gazbert.bxbot.strategies.StrategyConfigParser;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
-import com.gazbert.bxbot.trading.api.*;
+import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
+import com.gazbert.bxbot.trading.api.Market;
+import com.gazbert.bxbot.trading.api.OpenOrder;
+import com.gazbert.bxbot.trading.api.OrderType;
+import com.gazbert.bxbot.trading.api.TradingApi;
+import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
-import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
-
-import static com.gazbert.bxbot.strategies.helper.IntelligentStrategyState.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class IntelligentStateTracker {
 
@@ -412,7 +421,7 @@ public class IntelligentStateTracker {
         BigDecimal exitPrice = exitPriceCalculator.calculate(currentEnterOrder.getMarketEnterType());
         BigDecimal exitOrderAmount = calculateAmountToUseForExitOrder();
 
-        LOG.info(() -> market.getName() + " EXIT phase - Place a EXIT order of type "+ currentEnterOrder.getMarketEnterType()+" with '" + DECIMAL_FORMAT.format(exitOrderAmount) + " * " + priceTracker.formatWithCounterCurrency(exitPrice) + "'");
+        LOG.info(() -> market.getName() + " EXIT phase - Place a EXIT order of type " + currentEnterOrder.getMarketEnterType() + " with '" + DECIMAL_FORMAT.format(exitOrderAmount) + " * " + priceTracker.formatWithCounterCurrency(exitPrice) + "'");
 
         OrderType orderType = currentEnterOrder.getMarketEnterType().equals(MarketEnterType.SHORT_POSITION) ? OrderType.BUY : OrderType.SELL;
         String orderId = tradingApi.createOrder(market.getId(), orderType, exitOrderAmount, exitPrice);
@@ -436,6 +445,8 @@ public class IntelligentStateTracker {
                 return exitOrderAmount;
             case SHORT_POSITION:
                 return BigDecimal.ZERO; //can return zero, as Kraken buys as much as needed to close the position
+            default:
+                throw new IllegalStateException("Unkown market enter type encountered: " + currentEnterOrder.getMarketEnterType());
         }
     }
 
