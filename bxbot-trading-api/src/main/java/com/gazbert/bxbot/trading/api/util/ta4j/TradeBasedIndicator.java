@@ -24,6 +24,8 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import com.google.common.primitives.Ints;
+import java.util.Map;
+import java.util.TreeMap;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.indicators.CachedIndicator;
 
@@ -31,8 +33,8 @@ import java.util.TreeSet;
 
 public abstract class TradeBasedIndicator<T> extends CachedIndicator<T> {
 
-    private final TreeSet<Integer> sortedBuyIndeces = new TreeSet<>();
-    private final TreeSet<Integer> sortedSellIndeces = new TreeSet<>();
+    private final TreeMap<Integer, MarketEnterType> sortedEnterIndeces = new TreeMap<>();
+    private final TreeSet<Integer> sortedExitIndeces = new TreeSet<>();
     private final TradeBasedIndicator<?> tradeKnowingIndicator;
 
     public TradeBasedIndicator(BarSeries series) {
@@ -50,62 +52,63 @@ public abstract class TradeBasedIndicator<T> extends CachedIndicator<T> {
 
     @Override
     protected T calculate(int index) {
-        if (isLastBuyForIndexAvailable(index)) {
-            if (isLastTradeForIndexABuy(index)) {
-                return calculateLastTradeWasBuy(getLastBuyForIndex(index), index);
+        if (isLastEnterForIndexAvailable(index)) {
+            if (isLastTradeForIndexAEnter(index)) {
+                Map.Entry<Integer, MarketEnterType> lastEnterForIndex = getLastEnterForIndex(index);
+                return calculateLastTradeWasEnter(lastEnterForIndex.getKey(), lastEnterForIndex.getValue(), index);
             } else {
-                return calculateLastTradeWasSell(getLastSellForIndex(index), index);
+                return calculateLastTradeWasExit(getLastExitForIndex(index), index);
             }
         }
 
         return calculateNoLastTradeAvailable(index);
     }
 
-    private boolean isLastBuyForIndexAvailable(int index) {
-        return getLastBuyForIndex(index) != null;
+    private boolean isLastEnterForIndexAvailable(int index) {
+        return getLastEnterForIndex(index) != null;
     }
 
-    private boolean isLastTradeForIndexABuy(int index) {
-        Integer lastSellForIndex = getLastSellForIndex(index);
-        return lastSellForIndex == null
-                || getLastBuyForIndex(index) > lastSellForIndex;
+    private boolean isLastTradeForIndexAEnter(int index) {
+        Integer lastExitForIndex = getLastExitForIndex(index);
+        return lastExitForIndex == null
+                || getLastEnterForIndex(index).getKey() > lastExitForIndex;
     }
 
-    private Integer getLastSellForIndex(int index) {
-        return tradeKnowingIndicator.sortedSellIndeces.floor(index);
+    private Integer getLastExitForIndex(int index) {
+        return tradeKnowingIndicator.sortedExitIndeces.floor(index);
     }
 
-    private Integer getLastBuyForIndex(int index) {
-        return tradeKnowingIndicator.sortedBuyIndeces.floor(index);
+    private Map.Entry<Integer, MarketEnterType> getLastEnterForIndex(int index) {
+        return tradeKnowingIndicator.sortedEnterIndeces.floorEntry(index);
     }
 
-    public void registerSellOrderExecution(Integer atIndex) {
-        sortedSellIndeces.add(atIndex);
+    public void registerExitOrderExecution(Integer atIndex) {
+        sortedExitIndeces.add(atIndex);
     }
 
-    public void registerBuyOrderExecution(Integer atIndex) {
-        sortedBuyIndeces.add(atIndex);
+    public void registerEntryOrderExecution(Integer atIndex, MarketEnterType enterType) {
+        sortedEnterIndeces.put(atIndex, enterType);
     }
 
-    public int[] getRecordedBuyOrderExecutions() {
-        return Ints.toArray(this.sortedBuyIndeces);
+    public int[] getRecordedEnterOrderExecutions() {
+        return Ints.toArray(this.sortedEnterIndeces.keySet());
     }
 
-    public int[] getRecordedSellOrderExecutions() {
-        return Ints.toArray(this.sortedSellIndeces);
+    public int[] getRecordedExitOrderExecutions() {
+        return Ints.toArray(this.sortedExitIndeces);
     }
 
-    public Integer getLastRecordedSellIndex() {
-        if (sortedSellIndeces.isEmpty()) {
+    public Integer getLastRecordedExitIndex() {
+        if (sortedExitIndeces.isEmpty()) {
             return null;
         }
-        return sortedSellIndeces.last();
+        return sortedExitIndeces.last();
     }
 
     protected abstract T calculateNoLastTradeAvailable(int index);
 
-    protected abstract T calculateLastTradeWasBuy(int buyIndex, int index);
+    protected abstract T calculateLastTradeWasEnter(int enterIndex, MarketEnterType enterType, int index);
 
-    protected abstract T calculateLastTradeWasSell(int sellIndex, int index);
+    protected abstract T calculateLastTradeWasExit(int exitIndex, int index);
 
 }

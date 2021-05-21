@@ -6,14 +6,14 @@ import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.rules.FixedRule;
 
 public class RecordedStrategy extends BaseStrategy {
-    private final SellIndicator breakEvenIndicator;
+    private final ExitIndicator breakEvenIndicator;
 
-    protected RecordedStrategy(String name, SellIndicator breakEvenIndicator) {
-        super(name, new FixedRule(breakEvenIndicator.getRecordedBuyOrderExecutions()), new FixedRule(breakEvenIndicator.getRecordedSellOrderExecutions()));
+    protected RecordedStrategy(String name, ExitIndicator breakEvenIndicator) {
+        super(name, new FixedRule(breakEvenIndicator.getRecordedEnterOrderExecutions()), new FixedRule(breakEvenIndicator.getRecordedExitOrderExecutions()));
         this.breakEvenIndicator = breakEvenIndicator;
     }
 
-    public static RecordedStrategy createStrategyFromRecording(String strategyName, SellIndicator beIndicator) {
+    public static RecordedStrategy createStrategyFromRecording(String strategyName, ExitIndicator beIndicator) {
         return new RecordedStrategy(strategyName, beIndicator);
     }
 

@@ -3,7 +3,7 @@ package com.gazbert.bxbot.strategies;
 import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentStrategyState;
-import com.gazbert.bxbot.strategies.helper.MarketEnterType;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.strategy.api.TradingStrategy;

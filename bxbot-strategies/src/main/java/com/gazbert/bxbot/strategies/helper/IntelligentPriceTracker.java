@@ -11,6 +11,7 @@ import com.gazbert.bxbot.trading.api.OhlcFrame;
 import com.gazbert.bxbot.trading.api.OhlcInterval;
 import com.gazbert.bxbot.trading.api.TradingApi;
 import com.gazbert.bxbot.trading.api.TradingApiException;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;

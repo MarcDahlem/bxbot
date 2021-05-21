@@ -1,11 +1,11 @@
 package com.gazbert.bxbot.strategies;
 
-import static com.gazbert.bxbot.strategies.helper.MarketEnterType.LONG_POSITION;
+import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
-import com.gazbert.bxbot.strategies.helper.MarketEnterType;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
@@ -49,7 +49,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
     private BigDecimal sellFee;
     private IchimokuKijunSenIndicator baseLine;
     private IchimokuTenkanSenIndicator conversionLine;
-    private SellIndicator cloudLowerLineAtBuyPrice;
+    private ExitIndicator cloudLowerLineAtBuyPrice;
     private IchimokuLead1FutureIndicator lead1Future;
     private IchimokuLead2FutureIndicator lead2Future;
     private Rule buyRule;
@@ -109,12 +109,12 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         ;
 
 
-        cloudLowerLineAtBuyPrice = new SellIndicator(series, stateTracker.getBreakEvenIndicator(), (buyIndex, index) -> new ConstantIndicator<>(series, currentCloudLowerLine.getValue(buyIndex)));
+        cloudLowerLineAtBuyPrice = new ExitIndicator(series, stateTracker.getBreakEvenIndicator(), buyIndex -> enterType -> index -> new ConstantIndicator<>(series, currentCloudLowerLine.getValue(buyIndex)));
     }
 
     @Override
     protected Collection<Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
-        SellIndicator binanceBreakEvenIndicator = SellIndicator.createBreakEvenIndicator(priceTracker.getSeries(), stateTracker.getBreakEvenIndicator(), new BigDecimal("0.00075"), new BigDecimal("0.00075"));
+        ExitIndicator binanceBreakEvenIndicator = ExitIndicator.createBreakEvenIndicator(priceTracker.getSeries(), stateTracker.getBreakEvenIndicator(), new BigDecimal("0.00075"), new BigDecimal("0.00075"));
         LinkedList<Ta4j2Chart.ChartIndicatorConfig> result = new LinkedList<>();
         result.add(new Ta4j2Chart.ChartIndicatorConfig(conversionLine, "conversion line", Ta4j2Chart.BUY_SHORT_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(baseLine, "base line", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));

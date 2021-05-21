@@ -9,7 +9,7 @@ import org.ta4j.core.num.Num;
 public class Ta4jOptimalTradingStrategy extends RecordedStrategy {
 
 
-    protected Ta4jOptimalTradingStrategy(String name, SellIndicator breakEvenIndicator) {
+    protected Ta4jOptimalTradingStrategy(String name, ExitIndicator breakEvenIndicator) {
         super(name, breakEvenIndicator);
     }
 
@@ -19,7 +19,7 @@ public class Ta4jOptimalTradingStrategy extends RecordedStrategy {
         int lastSeenMaximumIndex = -1;
         Num lastSeenMaximum = null;
 
-        SellIndicator beIndicator = SellIndicator.createBreakEvenIndicator(series, buyFee, sellFee);
+        ExitIndicator beIndicator = ExitIndicator.createBreakEvenIndicator(series, buyFee, sellFee);
 
         for(int index = series.getBeginIndex(); index <= series.getEndIndex(); index++) {
             Bar bar = series.getBar(index);
@@ -67,10 +67,10 @@ public class Ta4jOptimalTradingStrategy extends RecordedStrategy {
         return RecordedStrategy.createStrategyFromRecording("Optimal trading strategy", beIndicator);
     }
 
-    private static void createTrade(int lastSeenMinimumIndex, Num lastSeenMinimum, int lastSeenMaximumIndex, Num lastSeenMaximum, SellIndicator beIndicator) throws TradingApiException {
+    private static void createTrade(int lastSeenMinimumIndex, Num lastSeenMinimum, int lastSeenMaximumIndex, Num lastSeenMaximum, ExitIndicator beIndicator) throws TradingApiException {
         if (lastSeenMinimum != null && lastSeenMaximum != null) {
-            beIndicator.registerBuyOrderExecution(lastSeenMinimumIndex);
-            beIndicator.registerSellOrderExecution(lastSeenMaximumIndex);
+            beIndicator.registerEntryOrderExecution(lastSeenMinimumIndex, MarketEnterType.LONG_POSITION);
+            beIndicator.registerExitOrderExecution(lastSeenMaximumIndex);
         }
     }
 }

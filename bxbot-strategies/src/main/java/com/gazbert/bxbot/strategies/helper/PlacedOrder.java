@@ -3,6 +3,7 @@ package com.gazbert.bxbot.strategies.helper;
 import com.gazbert.bxbot.trading.api.Market;
 import com.gazbert.bxbot.trading.api.OrderType;
 import com.gazbert.bxbot.trading.api.TradingApi;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.google.common.base.MoreObjects;
 
 import java.math.BigDecimal;
@@ -55,5 +56,17 @@ public class PlacedOrder {
 
     public int getOrderNotExecutedCounter() {
         return orderNotExecutedCount;
+    }
+
+    public MarketEnterType getMarketEnterType() {
+        // TODO cleaner with subclassiung? Should only be called for ENTER orders
+        switch (getType()) {
+            case BUY:
+                return MarketEnterType.LONG_POSITION;
+            case SELL:
+                return MarketEnterType.SHORT_POSITION;
+            default:
+                throw new IllegalStateException("Unknown order type " + getType());
+        }
     }
 }

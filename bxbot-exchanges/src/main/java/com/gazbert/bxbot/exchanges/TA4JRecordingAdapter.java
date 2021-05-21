@@ -20,14 +20,13 @@ import com.gazbert.bxbot.trading.api.OrderType;
 import com.gazbert.bxbot.trading.api.Ticker;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
-import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4jOptimalTradingStrategy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.Array;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -67,7 +66,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
     private BigDecimal counterCurrencyBalance;
     private OpenOrder currentOpenOrder;
     private int currentTick;
-    private SellIndicator recordingIndicator;
+    private ExitIndicator recordingIndicator;
 
     @Override
     public void init(ExchangeConfig config) {
@@ -276,7 +275,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         BigDecimal currentMarketPrice = (BigDecimal) tradingSeries.getBar(currentTick).getClosePrice().getDelegate();
         if (currentMarketPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("SELL: the market's price moved below the stop-limit price --> record sell order execution with the current market price");
-            getRecordingIndicator(marketId).registerSellOrderExecution(currentTick);
+            getRecordingIndicator(marketId).registerExitOrderExecution(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
             BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
@@ -290,7 +289,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         BigDecimal currentMarketPrice = (BigDecimal) tradingSeries.getBar(currentTick).getClosePrice().getDelegate();
         if (currentMarketPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("BUY: the market's current market price moved below the limit price --> record buy order execution with the current market price");
-            getRecordingIndicator(marketId).registerBuyOrderExecution(currentTick);
+            getRecordingIndicator(marketId).registerEntryOrderExecution(currentTick, MarketEnterType.LONG_POSITION);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
             BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.add(buyFees);
@@ -300,9 +299,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         }
     }
 
-    private SellIndicator getRecordingIndicator(String marketId) {
+    private ExitIndicator getRecordingIndicator(String marketId) {
         if (recordingIndicator == null) {
-            recordingIndicator = SellIndicator.createBreakEvenIndicator(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
+            recordingIndicator = ExitIndicator.createBreakEvenIndicator(tradingSeries, getPercentageOfBuyOrderTakenForExchangeFee(marketId), getPercentageOfSellOrderTakenForExchangeFee(marketId));
         }
         return recordingIndicator;
     }

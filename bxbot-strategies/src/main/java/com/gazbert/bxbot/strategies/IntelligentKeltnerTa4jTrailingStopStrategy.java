@@ -1,17 +1,17 @@
 package com.gazbert.bxbot.strategies;
 
-import static com.gazbert.bxbot.strategies.helper.MarketEnterType.LONG_POSITION;
+import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
-import com.gazbert.bxbot.strategies.helper.MarketEnterType;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategies.helper.TripleKeltnerChannelMiddleIndicator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -40,9 +40,9 @@ public class IntelligentKeltnerTa4jTrailingStopStrategy extends AbstractIntellig
     private IntelligentTrailingStopConfigParams intelligentTrailingStopConfigParams;
     private UnderIndicatorRule sellRule;
     private IntelligentTrailIndicator intelligentTrailIndicator;
-    private SellIndicator aboveBreakEvenIndicator;
+    private ExitIndicator aboveBreakEvenIndicator;
     private Indicator<Num> minAboveBreakEvenIndicator;
-    private SellIndicator belowBreakEvenIndicator;
+    private ExitIndicator belowBreakEvenIndicator;
     private KeltnerChannelMiddleIndicator buyLongIndicator;
     private Indicator<Num> buyShortIndicator;
     private Indicator<Num> buyGainLine;

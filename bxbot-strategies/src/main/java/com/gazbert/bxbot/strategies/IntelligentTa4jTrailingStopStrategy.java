@@ -1,16 +1,16 @@
 package com.gazbert.bxbot.strategies;
 
-import static com.gazbert.bxbot.strategies.helper.MarketEnterType.LONG_POSITION;
+import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
-import com.gazbert.bxbot.strategies.helper.MarketEnterType;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -36,9 +36,9 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
     private IntelligentTrailingStopConfigParams intelligentTrailingStopConfigParams;
     private UnderIndicatorRule sellRule;
     private IntelligentTrailIndicator intelligentTrailIndicator;
-    private SellIndicator aboveBreakEvenIndicator;
+    private ExitIndicator aboveBreakEvenIndicator;
     private Indicator<Num> minAboveBreakEvenIndicator;
-    private SellIndicator belowBreakEvenIndicator;
+    private ExitIndicator belowBreakEvenIndicator;
     private Indicator<Num> buyLongIndicator;
     //private Indicator<Num> buyShortIndicator;
     private TransformIndicator buyGainLine;
@@ -55,9 +55,9 @@ public class IntelligentTa4jTrailingStopStrategy extends AbstractIntelligentStra
 
     private void initBuyRule() throws TradingApiException, ExchangeNetworkException {
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(priceTracker.getSeries());
-        buyLongIndicator = SellIndicator.createLowestSinceLastSellIndicator(closePriceIndicator, intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount(), stateTracker.getBreakEvenIndicator());
+        buyLongIndicator = ExitIndicator.createLowestSinceLastExitIndicator(closePriceIndicator, intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount(), stateTracker.getBreakEvenIndicator());
         //buyShortIndicator = SellIndicator.createLowestSinceLastSellIndicator(closePriceIndicator, intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded(), stateTracker.getBreakEvenIndicator());
-        buyGainLine = TransformIndicator.multiply(SellIndicator.createLowestSinceLastSellIndicator(buyLongIndicator, 400, stateTracker.getBreakEvenIndicator()), BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
+        buyGainLine = TransformIndicator.multiply(ExitIndicator.createLowestSinceLastExitIndicator(buyLongIndicator, 400, stateTracker.getBreakEvenIndicator()), BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
         //buyGainLine = TransformIndicator.multiply(buyLongIndicator, BigDecimal.ONE.add(intelligentTrailingStopConfigParams.getCurrentPercentageGainNeededForBuy()));
 
         buyRule = new OverIndicatorRule(closePriceIndicator, buyGainLine);

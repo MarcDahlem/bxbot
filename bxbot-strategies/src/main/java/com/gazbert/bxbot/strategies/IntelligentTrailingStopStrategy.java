@@ -23,17 +23,17 @@
 
 package com.gazbert.bxbot.strategies;
 
-import static com.gazbert.bxbot.strategies.helper.MarketEnterType.LONG_POSITION;
+import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentBuyPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
-import com.gazbert.bxbot.strategies.helper.MarketEnterType;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.SellIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
@@ -102,8 +102,8 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
     @Override
     protected Collection<? extends Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
-        SellIndicator belowBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageBelowBreakEven(), stateTracker.getBreakEvenIndicator());
-        SellIndicator aboveBreakEvenIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageAboveBreakEven(), stateTracker.getBreakEvenIndicator());
+        ExitIndicator belowBreakEvenIndicator = ExitIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageBelowBreakEven(), stateTracker.getBreakEvenIndicator());
+        ExitIndicator aboveBreakEvenIndicator = ExitIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageAboveBreakEven(), stateTracker.getBreakEvenIndicator());
         Indicator<Num> minAboveBreakEvenIndicator = createMinAboveBreakEvenIndicator();
         Indicator<Num> longBuyLowPrice = new LowestValueIndicator(new ClosePriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentLowestPriceLookbackCount() + 1);
         Indicator<Num> shortBuyLowPrice = new LowestValueIndicator(new ClosePriceIndicator(priceTracker.getSeries()), intelligentTrailingStopConfigParams.getCurrentTimesAboveLowestPriceNeeded() + 1);
@@ -119,7 +119,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
     }
 
     private Indicator<Num> createMinAboveBreakEvenIndicator() throws TradingApiException, ExchangeNetworkException {
-        SellIndicator limitIndicator = SellIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven(), stateTracker.getBreakEvenIndicator());
+        ExitIndicator limitIndicator = ExitIndicator.createSellLimitIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven(), stateTracker.getBreakEvenIndicator());
         BigDecimal minimumAboveBreakEvenAsFactor = BigDecimal.ONE.subtract(intelligentTrailingStopConfigParams.getCurrentSellStopLimitPercentageMinimumAboveBreakEven());
         TransformIndicator minimalDistanceNeededToBreakEven = TransformIndicator.divide(stateTracker.getBreakEvenIndicator(), minimumAboveBreakEvenAsFactor);
         return CombineIndicator.min(limitIndicator, minimalDistanceNeededToBreakEven);
@@ -182,7 +182,7 @@ public class IntelligentTrailingStopStrategy extends AbstractIntelligentStrategy
 
         int spanStartIndex = currentEndIndex - ticks + 1;
         int availableStartIndex = Math.max(currentBeginIndex, spanStartIndex);
-        Integer lastRecordedSellIndex = stateTracker.getBreakEvenIndicator().getLastRecordedSellIndex();
+        Integer lastRecordedSellIndex = stateTracker.getBreakEvenIndicator().getLastRecordedExitIndex();
 
         int startIndexRegardingSells = availableStartIndex;
         if (lastRecordedSellIndex != null) {

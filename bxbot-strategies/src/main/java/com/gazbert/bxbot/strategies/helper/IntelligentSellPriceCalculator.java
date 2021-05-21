@@ -1,6 +1,5 @@
 package com.gazbert.bxbot.strategies.helper;
 
-import com.gazbert.bxbot.strategies.IntelligentTradeTracker;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
@@ -50,7 +49,7 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
         BigDecimal buyFees = BigDecimal.ONE.add(params.getBuyFee());
         BigDecimal sellFees = BigDecimal.ONE.subtract(params.getSellFee());
 
-        BigDecimal totalBuy = stateTracker.getCurrentBuyOrderPrice().multiply(buyFees);
+        BigDecimal totalBuy = stateTracker.getCurrentEnterOrderPrice().multiply(buyFees);
         BigDecimal estimatedBreakEven = totalBuy.divide(sellFees, 8, RoundingMode.HALF_UP);
         return estimatedBreakEven;
     }
@@ -87,7 +86,7 @@ public class IntelligentSellPriceCalculator implements IntelligentStateTracker.O
         BigDecimal aboveBreakEvenPriceLimit = calculateAboveBreakEvenPriceLimit();
         BigDecimal belowBreakEvenPriceLimit = calculateBelowBreakEvenPriceLimit();
         BigDecimal minimumAboveBreakEvenPriceLimit = calculateMinimumAboveBreakEvenPriceLimit(breakEven);
-        BigDecimal currentBuyOrderPrice = stateTracker.getCurrentBuyOrderPrice();
+        BigDecimal currentBuyOrderPrice = stateTracker.getCurrentEnterOrderPrice();
         BigDecimal percentageChangeToBuyOrder = getPercentageChange(currentMarketPrice, currentBuyOrderPrice);
         BigDecimal percentageChangeToBreakEven = getPercentageChange(currentMarketPrice, breakEven);
         BigDecimal percentageChangeCurrentSellToMarket = getPercentageChange(currentSellOrderPrice, currentMarketPrice);

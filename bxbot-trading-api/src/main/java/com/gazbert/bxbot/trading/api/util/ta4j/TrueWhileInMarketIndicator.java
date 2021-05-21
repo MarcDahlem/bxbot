@@ -4,8 +4,8 @@ import com.gazbert.bxbot.trading.api.util.ta4j.TradeBasedIndicator;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 
-public class TrueInBuyPhaseIndicator extends TradeBasedIndicator<Boolean> {
-    public TrueInBuyPhaseIndicator(BarSeries series, TradeBasedIndicator<?> tradeKnowingIndicator) {
+public class TrueWhileInMarketIndicator extends TradeBasedIndicator<Boolean> {
+    public TrueWhileInMarketIndicator(BarSeries series, TradeBasedIndicator<?> tradeKnowingIndicator) {
         super(series, tradeKnowingIndicator);
     }
 
@@ -15,12 +15,12 @@ public class TrueInBuyPhaseIndicator extends TradeBasedIndicator<Boolean> {
     }
 
     @Override
-    protected Boolean calculateLastTradeWasBuy(int buyIndex, int index) {
+    protected Boolean calculateLastTradeWasEnter(int enterIndex, MarketEnterType enterType, int index) {
         return true;
     }
 
     @Override
-    protected Boolean calculateLastTradeWasSell(int sellIndex, int index) {
+    protected Boolean calculateLastTradeWasExit(int exitIndex, int index) {
         return false;
     }
 }
