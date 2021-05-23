@@ -76,6 +76,9 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
         }
         String newOrderID = "DUMMY_" + orderType + "_ORDER_ID_" + System.currentTimeMillis();
         Date creationDate = new Date();
+        if (quantity.equals(BigDecimal.ZERO)) {
+            quantity = baseCurrencyBalance.abs();
+        }
         BigDecimal total = price.multiply(quantity);
         currentOpenOrder = new OpenOrderImpl(newOrderID, creationDate, marketId, orderType, price, quantity, quantity, total);
         LOG.info(() -> "Created a new dummy order: " + currentOpenOrder);
@@ -210,6 +213,12 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
                     case SELL:
                         checkOpenSellOrderExecution(marketId);
                         break;
+                    case SHORT_EXIT:
+                        checkOpenShortExitOrderExecution(marketId);
+                        break;
+                    case SHORT_ENTER:
+                        checkOpenShortEnterOrderExecution(marketId);
+                        break;
                     default:
                         throw new TradingApiException("Order type not recognized: " + currentOpenOrder.getType());
                 }
@@ -232,10 +241,36 @@ public class TryModeExchangeAdapter extends AbstractExchangeAdapter implements E
         }
     }
 
+    private void checkOpenShortEnterOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
+        BigDecimal currentBidPrice = getTicker(marketId).getBid();
+        if (currentBidPrice.compareTo(currentOpenOrder.getPrice()) >= 0) {
+            LOG.info("SELL (SHORT ENTER): the market's bid price moved above the limit price --> record sell order execution with the current bid price");
+            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentBidPrice);
+            BigDecimal enterFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
+            BigDecimal netOrderPrice = orderPrice.subtract(enterFees);
+            counterCurrencyBalance = counterCurrencyBalance.add(netOrderPrice);
+            baseCurrencyBalance = baseCurrencyBalance.subtract(currentOpenOrder.getOriginalQuantity());
+            currentOpenOrder = null;
+        }
+    }
+
     private void checkOpenBuyOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
         BigDecimal currentAskPrice = getTicker(marketId).getAsk();
         if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("BUY: the market's current ask price moved below the limit price --> record buy order execution with the current ask price");
+            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
+            BigDecimal enterFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
+            BigDecimal netOrderPrice = orderPrice.add(enterFees);
+            counterCurrencyBalance = counterCurrencyBalance.subtract(netOrderPrice);
+            baseCurrencyBalance = baseCurrencyBalance.add(currentOpenOrder.getOriginalQuantity());
+            currentOpenOrder = null;
+        }
+    }
+
+    private void checkOpenShortExitOrderExecution(String marketId) throws TradingApiException, ExchangeNetworkException {
+        BigDecimal currentAskPrice = getTicker(marketId).getAsk();
+        if (currentAskPrice.compareTo(currentOpenOrder.getPrice()) >= 0) {
+            LOG.info("BUY (SHORT EXIT): the market's current ask price moved above the limit price --> record buy order execution with the current ask price");
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentAskPrice);
             BigDecimal enterFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.add(enterFees);
