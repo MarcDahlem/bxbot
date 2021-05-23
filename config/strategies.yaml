@@ -65,12 +65,12 @@ strategies:
     beanName: intelligentIchimokuTa4jStrategy
 
     configItems:
-      percentage-of-counter-currency-balance-to-use: 17
+      percentage-of-counter-currency-balance-to-use: 25
       configured-emergency-stop-balance: 50
 
-      sell-stop-limit-percentage-below-break-even: 7
+      sell-stop-limit-percentage-below-break-even: 1
       sell-stop-limit-percentage-above-break-even: 3
-      sell-stop-limit-percentage-minimum-above-break-even: 1.25
+      sell-stop-limit-percentage-minimum-above-break-even: 2
 
       initial-percentage-gain-needed-to-place-buy-order: 2
       lowest-price-lookback-count: 120
