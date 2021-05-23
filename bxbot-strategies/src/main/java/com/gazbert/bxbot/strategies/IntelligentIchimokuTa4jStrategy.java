@@ -103,7 +103,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
         entryRuleLong = priceAboveTheCloud
                 .and(cloudGreenInFuture)
-                .and(conversionLineCrossOverCloud)
+                .and(conversionLineCrossesBaseLine)
                 .and(laggingSpanAbovePastPrice)
                 .and(priceAboveConversionLine)
                 .and(laggingSpanAbovePastConversionLine)
@@ -119,7 +119,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
         entryRuleShort = priceBelowTheCloud
                 .and(cloudRedInFuture)
-                .and(conversionLineDownCrossUnderCloud)
+                .and(conversionLineCrossesDownBaseLine)
                 .and(laggingSpanBelowPastPrice)
                 .and(priceBelowConversionLine)
                 .and(laggingSpanBelowPastConversionLine)

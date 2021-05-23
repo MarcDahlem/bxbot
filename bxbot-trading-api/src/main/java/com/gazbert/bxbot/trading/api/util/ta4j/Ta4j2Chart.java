@@ -207,7 +207,7 @@ public class Ta4j2Chart {
                         .title(series.getName())
                         .xAxisTitle("Date")
                         .yAxisTitle("Price")
-                        .height(900 / 4)
+                        .height(900 / 3)
                         .width(1680 / 3)
                         .build();
         chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNW);

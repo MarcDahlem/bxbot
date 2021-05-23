@@ -189,7 +189,7 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     @Override
     public void saveState() {
         if (shouldPersistTickerData) {
-            JsonBarsSerializer.persistSeries(priceTracker.getSeries(), "recordedMarketDataOhlc" + File.separator + "15min_" + market.getId() + System.currentTimeMillis() + ".json");
+            JsonBarsSerializer.persistSeries(priceTracker.getSeries(), "recordedMarketDataOhlc" + File.separator + "5min_" + market.getId() + System.currentTimeMillis() + ".json");
         }
         try {
             showOverviewCharts();
