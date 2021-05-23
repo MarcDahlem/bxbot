@@ -155,24 +155,29 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
         return new IntelligentStateTracker.OrderPriceCalculator() {
             private IntelligentTrailIndicator intelligentTrailIndicator;
-            private Rule laggingSpanEmergencyStopReached;
+            private Rule laggingSpanLongEmergencyStopReached;
+            private Rule laggingSpanShortEmergencyStopReached;
             private boolean initialized = false;
 
             @Override
             public BigDecimal calculate(MarketEnterType type) throws TradingApiException, ExchangeNetworkException, StrategyException {
-                if (!type.equals(MarketEnterType.LONG_POSITION)) {
-                    throw new StrategyException("Short sell price calculations are not implemented so far");
-                }
                 initSellRules();
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
 
-                if (laggingSpanEmergencyStopReached.isSatisfied(currentIndex - 1)) {
+                if (type.equals(LONG_POSITION) && laggingSpanLongEmergencyStopReached.isSatisfied(currentIndex - 1)) {
+                    return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
+                }
+
+                if (type.equals(SHORT_POSITION) && laggingSpanShortEmergencyStopReached.isSatisfied(currentIndex - 1)) {
                     return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
                 BigDecimal stopLossPrice = (BigDecimal) cloudFarthermostLineAtBuyPrice.getValue(currentIndex).getDelegate();
                 if (stopLossPrice == null) { // no lower line available --> was a resume.
+                    if (type.equals(SHORT_POSITION)) {
+                        throw new IllegalStateException("IntelligentStopLoss not implemented for SHORT so far");
+                    }
                     return (BigDecimal) intelligentTrailIndicator.getValue(currentIndex).getDelegate();
                 }
                 return stopLossPrice;
@@ -180,7 +185,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
             private void initSellRules() throws TradingApiException, ExchangeNetworkException {
                 if (!initialized) {
-                    laggingSpanEmergencyStopReached = new UnderIndicatorRule(laggingSpan, delayedConversionLine);
+                    laggingSpanLongEmergencyStopReached = new UnderIndicatorRule(laggingSpan, delayedConversionLine);
+                    laggingSpanShortEmergencyStopReached = new OverIndicatorRule(laggingSpan, delayedConversionLine);
 
                     intelligentTrailIndicator = IntelligentTrailIndicator.createIntelligentTrailIndicator(priceTracker.getSeries(), intelligentTrailingStopConfigParams, stateTracker.getBreakEvenIndicator());
                     initialized = true;
