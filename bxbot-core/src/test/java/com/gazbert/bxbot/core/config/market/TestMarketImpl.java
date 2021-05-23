@@ -40,11 +40,12 @@ public class TestMarketImpl {
   private static final String MARKET_ID = "3";
   private static final String BASE_CURRENCY = "LTC";
   private static final String COUNTER_CURRENCY = "BTC";
+  private static final boolean MARGIN_TRADING_ENABLED = false;
 
   @Test
   public void testMarketIsInitialisedAsExpected() {
     final MarketImpl market =
-        new MarketImpl(MARKET_NAME, MARKET_ID, BASE_CURRENCY, COUNTER_CURRENCY);
+        new MarketImpl(MARKET_NAME, MARKET_ID, BASE_CURRENCY, COUNTER_CURRENCY, MARGIN_TRADING_ENABLED);
     assertEquals(MARKET_NAME, market.getName());
     assertEquals(MARKET_ID, market.getId());
     assertEquals(BASE_CURRENCY, market.getBaseCurrency());
@@ -53,7 +54,7 @@ public class TestMarketImpl {
 
   @Test
   public void testSettersWorkAsExpected() {
-    final MarketImpl market = new MarketImpl(null, null, null, null);
+    final MarketImpl market = new MarketImpl(null, null, null, null, false);
     assertNull(market.getName());
     assertNull(market.getId());
     assertNull(market.getBaseCurrency());
@@ -74,8 +75,8 @@ public class TestMarketImpl {
 
   @Test
   public void testEqualsWorksAsExpected() {
-    final MarketImpl market1 = new MarketImpl(null, "id-1", null, null);
-    final MarketImpl market2 = new MarketImpl(null, "id-2", null, null);
+    final MarketImpl market1 = new MarketImpl(null, "id-1", null, null, false);
+    final MarketImpl market2 = new MarketImpl(null, "id-2", null, null, false);
     assertEquals(market1, market1);
     assertNotEquals(market1, market2);
   }

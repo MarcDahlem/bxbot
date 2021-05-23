@@ -38,13 +38,15 @@ public final class MarketImpl implements Market {
   private String id;
   private String baseCurrency;
   private String counterCurrency;
+  private final boolean marginTradingEnabled;
 
   /** Creates a new MarketImpl. */
-  public MarketImpl(String name, String id, String baseCurrency, String counterCurrency) {
+  public MarketImpl(String name, String id, String baseCurrency, String counterCurrency, boolean marginTradingEnabled) {
     this.id = id;
     this.name = name;
     this.baseCurrency = baseCurrency;
     this.counterCurrency = counterCurrency;
+    this.marginTradingEnabled = marginTradingEnabled;
   }
 
   public void setName(String name) {
@@ -77,6 +79,11 @@ public final class MarketImpl implements Market {
 
   public String getCounterCurrency() {
     return counterCurrency;
+  }
+
+  @Override
+  public boolean isMarginTradingEnabled() {
+    return marginTradingEnabled;
   }
 
   @Override

@@ -74,6 +74,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
   private static final String MARKET_1_COUNTER_CURRENCY = "USD";
   private static final boolean MARKET_1_ENABLED = true;
   private static final String MARKET_1_STRATEGY_ID = "scalper-strategy";
+  private static final boolean MARKET_1_MARGIN_TRADING_ENABLED = false;
 
   private static final String MARKET_2_ID = "btc_gbp";
   private static final String MARKET_2_NAME = "BTC/GBP";
@@ -81,6 +82,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
   private static final String MARKET_2_COUNTER_CURRENCY = "GBP";
   private static final boolean MARKET_2_ENABLED = false;
   private static final String MARKET_2_STRATEGY_ID = "macd-strategy";
+  private static final boolean MARKET_2_MARGIN_TRADING_ENABLED = false;
 
   @MockBean private MarketConfigService marketConfigService;
 
@@ -103,8 +105,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             get(MARKETS_CONFIG_ENDPOINT_URI)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD)))
+                .header("Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD)))
         .andDo(print())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.[0].id").value(MARKET_1_ID))
@@ -147,8 +148,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             get(MARKETS_CONFIG_ENDPOINT_URI + MARKET_1_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD)))
+                .header("Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD)))
         .andDo(print())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(MARKET_1_ID))
@@ -185,8 +185,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             get(MARKETS_CONFIG_ENDPOINT_URI + UNKNOWN_MARKET_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isNotFound());
   }
@@ -199,8 +198,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             put(MARKETS_CONFIG_ENDPOINT_URI + MARKET_1_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(someMarketConfig())))
         .andDo(print())
@@ -223,8 +221,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             put(MARKETS_CONFIG_ENDPOINT_URI + MARKET_1_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(someMarketConfig())))
         .andExpect(status().isForbidden());
@@ -262,8 +259,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             put(MARKETS_CONFIG_ENDPOINT_URI + UNKNOWN_MARKET_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(unrecognizedMarketConfig())))
@@ -275,8 +271,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             put(MARKETS_CONFIG_ENDPOINT_URI + MARKET_1_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(someMarketConfigWithMissingId())))
@@ -290,8 +285,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             delete(MARKETS_CONFIG_ENDPOINT_URI + MARKET_1_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_USER_PASSWORD)))
+                .header("Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_USER_PASSWORD)))
         .andExpect(status().isNoContent());
 
     verify(marketConfigService, times(1)).deleteMarketConfig(MARKET_1_ID);
@@ -336,8 +330,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             delete(MARKETS_CONFIG_ENDPOINT_URI + UNKNOWN_MARKET_ID)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
   }
@@ -350,8 +343,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             post(MARKETS_CONFIG_ENDPOINT_URI)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(someMarketConfig())))
         .andDo(print())
@@ -374,8 +366,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             post(MARKETS_CONFIG_ENDPOINT_URI)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_USER_NAME, VALID_USER_PASSWORD))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(someMarketConfig())))
         .andDo(print())
@@ -412,8 +403,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             post(MARKETS_CONFIG_ENDPOINT_URI)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(someMarketConfigWithMissingId())))
@@ -427,8 +417,7 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
     mockMvc
         .perform(
             post(MARKETS_CONFIG_ENDPOINT_URI)
-                .header(
-                    "Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
+                .header("Authorization", "Bearer " + getJwt(VALID_ADMIN_NAME, VALID_ADMIN_PASSWORD))
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonify(someMarketConfigWithMissingStrategyId())))
@@ -446,7 +435,8 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
         MARKET_1_BASE_CURRENCY,
         MARKET_1_COUNTER_CURRENCY,
         MARKET_1_ENABLED,
-        MARKET_1_STRATEGY_ID);
+        MARKET_1_STRATEGY_ID,
+        MARKET_1_MARGIN_TRADING_ENABLED);
   }
 
   private static MarketConfig unrecognizedMarketConfig() {
@@ -456,7 +446,8 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
         MARKET_1_BASE_CURRENCY,
         MARKET_1_COUNTER_CURRENCY,
         MARKET_1_ENABLED,
-        MARKET_1_STRATEGY_ID);
+        MARKET_1_STRATEGY_ID,
+        MARKET_1_MARGIN_TRADING_ENABLED);
   }
 
   private static MarketConfig someMarketConfigWithMissingId() {
@@ -466,7 +457,8 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
         MARKET_1_BASE_CURRENCY,
         MARKET_1_COUNTER_CURRENCY,
         MARKET_1_ENABLED,
-        MARKET_1_STRATEGY_ID);
+        MARKET_1_STRATEGY_ID,
+        MARKET_1_MARGIN_TRADING_ENABLED);
   }
 
   private static MarketConfig someMarketConfigWithMissingStrategyId() {
@@ -476,7 +468,8 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
         MARKET_1_BASE_CURRENCY,
         MARKET_1_COUNTER_CURRENCY,
         MARKET_1_ENABLED,
-        null);
+        null,
+        MARKET_1_MARGIN_TRADING_ENABLED);
   }
 
   private static List<MarketConfig> allMarketConfig() {
@@ -487,7 +480,8 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
             MARKET_1_BASE_CURRENCY,
             MARKET_1_COUNTER_CURRENCY,
             MARKET_1_ENABLED,
-            MARKET_1_STRATEGY_ID);
+            MARKET_1_STRATEGY_ID,
+            MARKET_1_MARGIN_TRADING_ENABLED);
     final MarketConfig market2Config =
         new MarketConfig(
             MARKET_2_ID,
@@ -495,7 +489,8 @@ public class TestMarketConfigController extends AbstractConfigControllerTest {
             MARKET_2_BASE_CURRENCY,
             MARKET_2_COUNTER_CURRENCY,
             MARKET_2_ENABLED,
-            MARKET_2_STRATEGY_ID);
+            MARKET_2_STRATEGY_ID,
+            MARKET_2_MARGIN_TRADING_ENABLED);
 
     final List<MarketConfig> allMarkets = new ArrayList<>();
     allMarkets.add(market1Config);

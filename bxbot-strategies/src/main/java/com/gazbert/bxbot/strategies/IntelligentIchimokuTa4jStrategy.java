@@ -254,7 +254,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         if (isLongRuleSatisfied) {
             return Optional.of(LONG_POSITION);
         }
-        if (isShortRuleSatisfied) {
+        if (isShortRuleSatisfied && market.isMarginTradingEnabled()) {
             return Optional.of(SHORT_POSITION);
         }
         return Optional.empty();
