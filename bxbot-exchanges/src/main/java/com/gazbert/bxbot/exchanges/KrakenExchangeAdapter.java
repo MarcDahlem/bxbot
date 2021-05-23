@@ -205,8 +205,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
   private boolean initializedMacAuthentication = false;
 
   private Gson gson;
-
-
+  private static final String LEVERAGE_FOR_SHORT_ORDERS = "2";
 
   @Override
   public void init(ExchangeConfig config) {
@@ -340,35 +339,40 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
       String volumePrecision = "#." + "#".repeat(pairPrecisionConfig.getVolumePrecision(marketId));
 
       params.put(PRICE, new DecimalFormat(pricePrecision, getDecimalFormatSymbols()).format(price));
-      params.put("volume",
-              new DecimalFormat(volumePrecision, getDecimalFormatSymbols()).format(quantity));
+      params.put(
+          "volume", new DecimalFormat(volumePrecision, getDecimalFormatSymbols()).format(quantity));
 
-      if (orderType == OrderType.BUY) {
-        params.put("type", "buy");
-        params.put("ordertype", "limit"); // this exchange adapter only supports buy limit orders
-      } else if (orderType == OrderType.SELL) {
-        params.put("type", "sell");
+      switch (orderType) {
+        case SHORT_EXIT:
+          params.put("leverage", LEVERAGE_FOR_SHORT_ORDERS);
+        case BUY:
+          params.put("type", "buy");
+          params.put("ordertype", "limit"); // this exchange adapter only supports buy limit orders
+          break;
+        case SHORT_ENTER:
+          params.put("leverage", LEVERAGE_FOR_SHORT_ORDERS);
+        case SELL:
+          params.put("type", "sell");
 
-        // this exchange adapter only supports sell stop-loss-limit orders
-        params.put("ordertype", "stop-loss-limit");
+          // this exchange adapter only supports sell stop-loss-limit orders
+          params.put("ordertype", "stop-loss-limit");
 
-        BigDecimal limitPrice = price.subtract(price.multiply(sellLimitDistancePercentage));
-        params.put("price2",new DecimalFormat(pricePrecision,
-                getDecimalFormatSymbols()).format(limitPrice));
-      } else {
-        final String errorMsg =
-            "Invalid order type: "
-                + orderType
-                + " - Can only be "
-                + OrderType.BUY.getStringValue()
-                + " or "
-                + OrderType.SELL.getStringValue();
-        LOG.error(errorMsg);
-        throw new IllegalArgumentException(errorMsg);
+          BigDecimal limitPrice = price.subtract(price.multiply(sellLimitDistancePercentage));
+          params.put(
+              "price2",
+              new DecimalFormat(pricePrecision, getDecimalFormatSymbols()).format(limitPrice));
+          break;
+        default:
+          final String errorMsg =
+              "Invalid order type: "
+                  + orderType
+                  + " - Can only be "
+                  + OrderType.BUY.getStringValue()
+                  + " or "
+                  + OrderType.SELL.getStringValue();
+          LOG.error(errorMsg);
+          throw new IllegalArgumentException(errorMsg);
       }
-
-
-
       response = sendAuthenticatedRequestToExchange("AddOrder", params);
       LOG.debug(() -> "Create Order response: " + response);
 
@@ -774,8 +778,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
 
     private static final long serialVersionUID = -4913711010647027759L;
 
-    KrakenTickerResult() {
-    }
+    KrakenTickerResult() {}
   }
 
   private static class KrakenAssetPairsConfig extends HashMap<String, Object> {
@@ -799,7 +802,6 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
           BigDecimal orderMin = jsonObject.get("ordermin").getAsBigDecimal();
           orderMins.put(name, orderMin);
         }
-
 
         prices.put(name, price);
         volumes.put(name, volume);
@@ -991,8 +993,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
   private static class KrakenTickerResultDeserializer
       implements JsonDeserializer<KrakenTickerResult> {
 
-    KrakenTickerResultDeserializer() {
-    }
+    KrakenTickerResultDeserializer() {}
 
     public KrakenTickerResult deserialize(
         JsonElement json, Type type, JsonDeserializationContext context) {
@@ -1252,11 +1253,15 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
       LOG.info(() -> KEEP_ALIVE_DURING_MAINTENANCE_PROPERTY_NAME + " is not set in exchange.yaml");
     }
 
-    final String sellLimitDistanceInConfig = getOtherConfigItem(otherConfig, "sell-stop-limit-percentage-distance");
+    final String sellLimitDistanceInConfig =
+        getOtherConfigItem(otherConfig, "sell-stop-limit-percentage-distance");
     sellLimitDistancePercentage =
-            new BigDecimal(sellLimitDistanceInConfig).divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-    LOG.info(() -> "Sell (stop-limit order) limit distance % in BigDecimal format: " + sellLimitDistancePercentage);
-
+        new BigDecimal(sellLimitDistanceInConfig)
+            .divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+    LOG.info(
+        () ->
+            "Sell (stop-limit order) limit distance % in BigDecimal format: "
+                + sellLimitDistancePercentage);
   }
 
   private void loadPairPrecisionConfig() {
@@ -1305,7 +1310,7 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
         final KrakenOpenOrderDescription krakenOpenOrderDescription = krakenOpenOrder.descr;
 
         if (!marketId.equalsIgnoreCase(krakenOpenOrderDescription.pair)) {
-          //continue;
+          // continue;
         }
 
         switch (krakenOpenOrderDescription.type) {
