@@ -122,6 +122,7 @@ public class Ta4j2Chart {
             chart.updateOHLCSeries(indicatorConfig.name, dates, values);
         } else {
             OHLCSeries chartSeries = chart.addSeries(indicatorConfig.name, dates, values);
+            chartSeries.setMarker(SeriesMarkers.NONE);
 
             if (indicatorConfig.color != null) {
                 chartSeries.setLineColor(indicatorConfig.color);
@@ -210,9 +211,10 @@ public class Ta4j2Chart {
                         .width(1680 / 3)
                         .build();
         chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNW);
-        chart.getStyler().setToolTipsEnabled(true);
-        // chart.getStyler().setCursorEnabled(true); //disable cursor, as it has memory leaks in live
+
+        // chart.getStyler().setCursorEnabled(true); //disable cursor and tooltip, as it has memory leaks in live
         // charts. Check https://github.com/knowm/XChart/issues/593
+        //chart.getStyler().setToolTipsEnabled(true);
 
         addOhlcToChart(chart, series, false, maxAmountBars);
 
