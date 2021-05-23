@@ -39,7 +39,17 @@ public enum OrderType {
   /**
    * Sell order.
    */
-  SELL("Sell");
+  SELL("Sell"),
+
+  /**
+   * Short enter (Sell before Buy)
+   */
+  SHORT_ENTER("ShortEnter"),
+
+  /**
+   * Short exit (BUY after SELL)
+   */
+  SHORT_EXIT("ShortExit");
 
   private final String type;
 

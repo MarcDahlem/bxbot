@@ -63,7 +63,7 @@ public class PlacedOrder {
         switch (getType()) {
             case BUY:
                 return MarketEnterType.LONG_POSITION;
-            case SELL:
+            case SHORT_ENTER:
                 return MarketEnterType.SHORT_POSITION;
             default:
                 throw new IllegalStateException("Unknown order type " + getType());

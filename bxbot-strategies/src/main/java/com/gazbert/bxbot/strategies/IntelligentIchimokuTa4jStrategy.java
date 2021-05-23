@@ -47,7 +47,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
     private IchimokuKijunSenIndicator baseLine;
     private IchimokuTenkanSenIndicator conversionLine;
-    private ExitIndicator cloudFarthermostLineAtBuyPrice;
+    private ExitIndicator cloudFarthermostLineAtEntryPrice;
     private IchimokuLead1FutureIndicator lead1Future;
     private IchimokuLead2FutureIndicator lead2Future;
     private Rule entryRuleLong;
@@ -126,12 +126,12 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         ;
 
 
-        cloudFarthermostLineAtBuyPrice = new ExitIndicator(series, stateTracker.getBreakEvenIndicator(),
-                buyIndex -> enterType -> index -> {
+        cloudFarthermostLineAtEntryPrice = new ExitIndicator(series, stateTracker.getBreakEvenIndicator(),
+                entryIndex -> enterType -> index -> {
                     if (enterType.equals(LONG_POSITION)) {
-                        return new ConstantIndicator<>(series, currentCloudLowerLine.getValue(buyIndex));
+                        return new ConstantIndicator<>(series, currentCloudLowerLine.getValue(entryIndex));
                     } else {
-                        return new ConstantIndicator<>(series, currentCloudUpperLine.getValue(buyIndex));
+                        return new ConstantIndicator<>(series, currentCloudUpperLine.getValue(entryIndex));
                     }
                 });
     }
@@ -144,7 +144,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         result.add(new Ta4j2Chart.ChartIndicatorConfig(baseLine, "base line", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(lead1Future, "kumo a future", Color.GREEN, ICHIMOKU_LONG_SPAN * -1));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(lead2Future, "kumo b future", Color.RED, ICHIMOKU_LONG_SPAN * -1));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(cloudFarthermostLineAtBuyPrice, "exit stop price", Ta4j2Chart.SELL_LIMIT_2_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(cloudFarthermostLineAtEntryPrice, "exit stop price", Ta4j2Chart.SELL_LIMIT_2_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpan, "lagging span", Ta4j2Chart.SELL_LIMIT_3_COLOR, ICHIMOKU_LONG_SPAN));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(binanceBreakEvenIndicator, "binanceBreakEvenIndicator", Ta4j2Chart.BUY_TRIGGER_COLOR));
         return result;
@@ -161,7 +161,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
             @Override
             public BigDecimal calculate(MarketEnterType type) throws TradingApiException, ExchangeNetworkException, StrategyException {
-                initSellRules();
+                initExitRules();
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
 
@@ -173,7 +173,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                     return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
-                BigDecimal stopLossPrice = (BigDecimal) cloudFarthermostLineAtBuyPrice.getValue(currentIndex).getDelegate();
+                BigDecimal stopLossPrice = (BigDecimal) cloudFarthermostLineAtEntryPrice.getValue(currentIndex).getDelegate();
                 if (stopLossPrice == null) { // no lower line available --> was a resume.
                     if (type.equals(SHORT_POSITION)) {
                         throw new IllegalStateException("IntelligentStopLoss not implemented for SHORT so far");
@@ -183,7 +183,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                 return stopLossPrice;
             }
 
-            private void initSellRules() throws TradingApiException, ExchangeNetworkException {
+            private void initExitRules() throws TradingApiException, ExchangeNetworkException {
                 if (!initialized) {
                     laggingSpanLongEmergencyStopReached = new UnderIndicatorRule(laggingSpan, delayedConversionLine);
                     laggingSpanShortEmergencyStopReached = new OverIndicatorRule(laggingSpan, delayedConversionLine);
@@ -195,7 +195,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
 
             @Override
             public void logStatistics(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
-                initSellRules();
+                initExitRules();
                 int currentIndex = priceTracker.getSeries().getEndIndex();
                 LOG.info(market.getName() +
                         "\n######### MOVED DOWN? #########\n" +
@@ -205,8 +205,8 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                         "\n* lagging span: " + priceTracker.formatWithCounterCurrency((BigDecimal) laggingSpan.getValue(currentIndex).getDelegate()) +
                         "\n* past conversionline (" + ICHIMOKU_LONG_SPAN + "): " + priceTracker.formatWithCounterCurrency((BigDecimal) delayedConversionLine.getValue(currentIndex).getDelegate()) +
                         "\n lagging span to past conversionline: " + formatAsPercentage((BigDecimal) getPercentageChange(laggingSpan.getValue(currentIndex), delayedConversionLine.getValue(currentIndex)).getDelegate()) +
-                        "\n Stop loss: " + priceTracker.formatWithCounterCurrency((BigDecimal) cloudFarthermostLineAtBuyPrice.getValue(currentIndex).getDelegate()) +
-                        "\n market change to stop loss: " + formatAsPercentage((BigDecimal) getPercentageChange(closePriceIndicator.getValue(currentIndex), cloudFarthermostLineAtBuyPrice.getValue(currentIndex)).getDelegate()) +
+                        "\n Stop loss: " + priceTracker.formatWithCounterCurrency((BigDecimal) cloudFarthermostLineAtEntryPrice.getValue(currentIndex).getDelegate()) +
+                        "\n market change to stop loss: " + formatAsPercentage((BigDecimal) getPercentageChange(closePriceIndicator.getValue(currentIndex), cloudFarthermostLineAtEntryPrice.getValue(currentIndex)).getDelegate()) +
                         "\n###############################");
             }
         };

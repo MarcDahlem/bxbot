@@ -479,7 +479,7 @@ public class IntelligentStateTracker {
         if (sanitizedPiecesToEnter != null) {
 
             LOG.info(() -> market.getName() + " ENTER phase - Place a ENTER order of type: " + marketEnterType + ", pieces '" + DECIMAL_FORMAT.format(sanitizedPiecesToEnter) + " * " + priceTracker.getFormattedLast() + "'");
-            OrderType orderType = marketEnterType == MarketEnterType.SHORT_POSITION ? OrderType.SELL : OrderType.BUY;
+            OrderType orderType = marketEnterType == MarketEnterType.SHORT_POSITION ? OrderType.SHORT_ENTER : OrderType.BUY;
             String orderID = tradingApi.createOrder(market.getId(), orderType, sanitizedPiecesToEnter, priceTracker.getLast());
             priceTracker.adaptBalanceDueToBuyEvent(sanitizedPiecesToEnter, priceTracker.getLast(), marketEnterType);
 
@@ -528,7 +528,7 @@ public class IntelligentStateTracker {
 
         LOG.info(() -> market.getName() + " EXIT phase - Place a EXIT order of type " + currentEnterOrder.getMarketEnterType() + " with '" + DECIMAL_FORMAT.format(exitOrderAmount) + " * " + priceTracker.formatWithCounterCurrency(exitPrice) + "'");
 
-        OrderType orderType = currentEnterOrder.getMarketEnterType().equals(MarketEnterType.SHORT_POSITION) ? OrderType.BUY : OrderType.SELL;
+        OrderType orderType = currentEnterOrder.getMarketEnterType().equals(MarketEnterType.SHORT_POSITION) ? OrderType.SHORT_EXIT : OrderType.SELL;
         String orderId = tradingApi.createOrder(market.getId(), orderType, exitOrderAmount, exitPrice);
 
         LOG.info(() -> market.getName() + " EXIT Order sent successfully to exchange. ID: " + orderId + ". Type: " + orderType);

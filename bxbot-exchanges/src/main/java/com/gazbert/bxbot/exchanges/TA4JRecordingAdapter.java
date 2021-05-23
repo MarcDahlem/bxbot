@@ -105,6 +105,9 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         }
         String newOrderID = "DUMMY_" + orderType + "_ORDER_ID_" + System.currentTimeMillis();
         Date creationDate = Date.from(tradingSeries.getBar(currentTick).getEndTime().toInstant());
+        if (quantity.equals(BigDecimal.ZERO)) {
+            quantity = baseCurrencyBalance.abs();
+        }
         BigDecimal total = price.multiply(quantity);
         currentOpenOrder = new OpenOrderImpl(newOrderID, creationDate, marketId, orderType, price, quantity, quantity, total);
         LOG.info(() -> "Created a new dummy order: " + currentOpenOrder);
@@ -186,7 +189,7 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         Bar currentBar = tradingSeries.getBar(currentTick);
         OhlcFrameImpl currentFrame = new OhlcFrameImpl(
                 currentBar.getEndTime(),
-        (BigDecimal) currentBar.getOpenPrice().getDelegate(),
+                (BigDecimal) currentBar.getOpenPrice().getDelegate(),
                 (BigDecimal) currentBar.getHighPrice().getDelegate(),
                 (BigDecimal) currentBar.getLowPrice().getDelegate(),
                 (BigDecimal) currentBar.getClosePrice().getDelegate(),
@@ -260,6 +263,12 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
                 case SELL:
                     checkOpenSellOrderExecution(marketId);
                     break;
+                case SHORT_ENTER:
+                    checkOpenShortEnterOrderExecution(marketId);
+                    break;
+                case SHORT_EXIT:
+                    checkOpenShortExitOrderExecution(marketId);
+                    break;
                 default:
                     throw new TradingApiException("Order type not recognized: " + currentOpenOrder.getType());
             }
@@ -277,6 +286,20 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
             LOG.info("SELL: the market's price moved below the stop-limit price --> record sell order execution with the current market price");
             getRecordingIndicator(marketId).registerExitOrderExecution(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
+            BigDecimal exitFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
+            BigDecimal netOrderPrice = orderPrice.subtract(exitFees);
+            counterCurrencyBalance = counterCurrencyBalance.add(netOrderPrice);
+            baseCurrencyBalance = baseCurrencyBalance.subtract(currentOpenOrder.getOriginalQuantity());
+            currentOpenOrder = null;
+        }
+    }
+
+    private void checkOpenShortEnterOrderExecution(String marketId) {
+        BigDecimal currentMarketPrice = (BigDecimal) tradingSeries.getBar(currentTick).getClosePrice().getDelegate();
+        if (currentMarketPrice.compareTo(currentOpenOrder.getPrice()) >= 0) {
+            LOG.info("SELL (SHORT ENTER): the market's price moved above the stop-limit price --> record sell order execution with the current market price");
+            getRecordingIndicator(marketId).registerEntryOrderExecution(currentTick, MarketEnterType.SHORT_POSITION);
+            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
             BigDecimal buyFees = getPercentageOfSellOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.subtract(buyFees);
             counterCurrencyBalance = counterCurrencyBalance.add(netOrderPrice);
@@ -290,6 +313,20 @@ public class TA4JRecordingAdapter extends AbstractExchangeAdapter implements Exc
         if (currentMarketPrice.compareTo(currentOpenOrder.getPrice()) <= 0) {
             LOG.info("BUY: the market's current market price moved below the limit price --> record buy order execution with the current market price");
             getRecordingIndicator(marketId).registerEntryOrderExecution(currentTick, MarketEnterType.LONG_POSITION);
+            BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
+            BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
+            BigDecimal netOrderPrice = orderPrice.add(buyFees);
+            counterCurrencyBalance = counterCurrencyBalance.subtract(netOrderPrice);
+            baseCurrencyBalance = baseCurrencyBalance.add(currentOpenOrder.getOriginalQuantity());
+            currentOpenOrder = null;
+        }
+    }
+
+    private void checkOpenShortExitOrderExecution(String marketId) {
+        BigDecimal currentMarketPrice = (BigDecimal) tradingSeries.getBar(currentTick).getClosePrice().getDelegate();
+        if (currentMarketPrice.compareTo(currentOpenOrder.getPrice()) >= 0) {
+            LOG.info("BUY (SHORT EXIT): the market's current market price moved above the limit price --> record buy order execution with the current market price");
+            getRecordingIndicator(marketId).registerExitOrderExecution(currentTick);
             BigDecimal orderPrice = currentOpenOrder.getOriginalQuantity().multiply(currentMarketPrice);
             BigDecimal buyFees = getPercentageOfBuyOrderTakenForExchangeFee(marketId).multiply(orderPrice);
             BigDecimal netOrderPrice = orderPrice.add(buyFees);
