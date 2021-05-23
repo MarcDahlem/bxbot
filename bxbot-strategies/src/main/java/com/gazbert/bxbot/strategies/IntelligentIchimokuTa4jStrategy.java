@@ -93,7 +93,7 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
         Rule priceAboveConversionLine = new OverIndicatorRule(closePriceIndicator, conversionLine);
 
         delayedConversionLine = new UnstableIndicator(new DelayIndicator(conversionLine, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
-        UnderIndicatorRule laggingSpanAbovePastConversionLine = new UnderIndicatorRule(laggingSpan, delayedConversionLine);
+        OverIndicatorRule laggingSpanAbovePastConversionLine = new OverIndicatorRule(laggingSpan, delayedConversionLine);
 
         buyRule = priceAboveTheCloud
                 .and(cloudGreenInFuture)
