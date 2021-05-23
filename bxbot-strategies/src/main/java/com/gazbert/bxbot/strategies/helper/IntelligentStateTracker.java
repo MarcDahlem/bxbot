@@ -159,7 +159,7 @@ public class IntelligentStateTracker {
                     }
                 }
                 currentEnterOrder.increaseOrderNotExecutedCounter();
-                if (currentEnterOrder.getOrderNotExecutedCounter() <= 3) { // TODO make configurable + TODO reset counter
+                if (currentEnterOrder.getOrderNotExecutedCounter() <= 9) { // TODO make configurable + TODO reset counter
                     LOG.warn(() -> market.getName() + " The ENTER order execution failed just '" + currentEnterOrder.getOrderNotExecutedCounter() + "' times so far. Wait a bit longer for the order to be processed.");
                 } else {
                     LOG.warn(() -> market.getName() + " The ENTER order execution failed '" + currentEnterOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Cancel the rest of the order and proceed with waiting for exiting the partially filled ENTER order.");

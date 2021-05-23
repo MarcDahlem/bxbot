@@ -345,22 +345,32 @@ public final class KrakenExchangeAdapter extends AbstractExchangeAdapter
       switch (orderType) {
         case SHORT_EXIT:
           params.put("leverage", LEVERAGE_FOR_SHORT_ORDERS);
+          params.put("type", "buy");
+          params.put("ordertype", "stop-loss-limit");
+
+          BigDecimal limitPrice = price.add(price.multiply(sellLimitDistancePercentage));
+          params.put(
+                  "price2",
+                  new DecimalFormat(pricePrecision, getDecimalFormatSymbols()).format(limitPrice));
+          break;
         case BUY:
           params.put("type", "buy");
           params.put("ordertype", "limit"); // this exchange adapter only supports buy limit orders
           break;
         case SHORT_ENTER:
           params.put("leverage", LEVERAGE_FOR_SHORT_ORDERS);
+          params.put("type", "sell");
+          params.put("ordertype", "limit"); // this exchange adapter only supports buy limit orders
+          break;
         case SELL:
           params.put("type", "sell");
-
           // this exchange adapter only supports sell stop-loss-limit orders
           params.put("ordertype", "stop-loss-limit");
 
-          BigDecimal limitPrice = price.subtract(price.multiply(sellLimitDistancePercentage));
+          BigDecimal sellLimitPrice = price.subtract(price.multiply(sellLimitDistancePercentage));
           params.put(
               "price2",
-              new DecimalFormat(pricePrecision, getDecimalFormatSymbols()).format(limitPrice));
+              new DecimalFormat(pricePrecision, getDecimalFormatSymbols()).format(sellLimitPrice));
           break;
         default:
           final String errorMsg =
