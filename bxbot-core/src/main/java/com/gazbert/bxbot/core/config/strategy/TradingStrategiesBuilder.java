@@ -85,7 +85,7 @@ public class TradingStrategiesBuilder {
 
       final Market tradingMarket =
           new MarketImpl(
-              marketName, market.getId(), market.getBaseCurrency(), market.getCounterCurrency());
+              marketName, market.getId(), market.getBaseCurrency(), market.getCounterCurrency(), market.isMarginTradingEnabled());
       final boolean wasAdded = loadedMarkets.add(tradingMarket);
       if (!wasAdded) {
         final String errorMsg = "Found duplicate Market! Market details: " + market;

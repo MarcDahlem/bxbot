@@ -66,18 +66,21 @@ public class TestTradingStrategiesBuilder {
   private static final String MARKET_1_BASE_CURRENCY = "BTC";
   private static final String MARKET_1_COUNTER_CURRENCY = "USD";
   private static final boolean MARKET_1_IS_ENABLED = true;
+  private static final boolean MARKET_1_IS_MARGIN_TRADING_ENABLED = false;
 
   private static final String MARKET_2_NAME = "LTC/USD";
   private static final String MARKET_2_ID = "ltc_usd";
   private static final String MARKET_2_BASE_CURRENCY = "LTC";
   private static final String MARKET_2_COUNTER_CURRENCY = "USD";
   private static final boolean MARKET_2_IS_ENABLED = true;
+  private static final boolean MARKET_2_IS_MARGIN_TRADING_ENABLED = false;
 
   private static final String MARKET_3_NAME = "ETH/USD";
   private static final String MARKET_3_ID = "eth_usd";
   private static final String MARKET_3_BASE_CURRENCY = "ETC";
   private static final String MARKET_3_COUNTER_CURRENCY = "USD";
   private static final boolean MARKET_3_NOT_ENABLED = false;
+  private static final boolean MARKET_3_IS_MARGIN_TRADING_ENABLED = false;
 
   @Test
   public void testBuildingStrategiesSuccessfully() {
@@ -147,7 +150,8 @@ public class TestTradingStrategiesBuilder {
             MARKET_1_BASE_CURRENCY,
             MARKET_1_COUNTER_CURRENCY,
             MARKET_1_IS_ENABLED,
-            STRATEGY_1_ID);
+            STRATEGY_1_ID,
+            MARKET_1_IS_MARGIN_TRADING_ENABLED);
 
     final MarketConfig marketConfig2 =
         new MarketConfig(
@@ -156,7 +160,8 @@ public class TestTradingStrategiesBuilder {
             MARKET_2_BASE_CURRENCY,
             MARKET_2_COUNTER_CURRENCY,
             MARKET_2_IS_ENABLED,
-            STRATEGY_2_ID);
+            STRATEGY_2_ID,
+            MARKET_2_IS_MARGIN_TRADING_ENABLED);
 
     final MarketConfig marketConfig3 =
         new MarketConfig(
@@ -165,7 +170,8 @@ public class TestTradingStrategiesBuilder {
             MARKET_3_BASE_CURRENCY,
             MARKET_3_COUNTER_CURRENCY,
             MARKET_3_NOT_ENABLED,
-            STRATEGY_1_ID);
+            STRATEGY_1_ID,
+            MARKET_3_IS_MARGIN_TRADING_ENABLED);
 
     final List<MarketConfig> allMarkets = new ArrayList<>();
     allMarkets.add(marketConfig1);
@@ -182,7 +188,8 @@ public class TestTradingStrategiesBuilder {
             MARKET_1_BASE_CURRENCY,
             MARKET_1_COUNTER_CURRENCY,
             MARKET_1_IS_ENABLED,
-            UNKNOWN_STRATEGY_ID);
+            UNKNOWN_STRATEGY_ID,
+            MARKET_1_IS_MARGIN_TRADING_ENABLED);
 
     final List<MarketConfig> allMarkets = new ArrayList<>();
     allMarkets.add(marketConfig1);
@@ -197,7 +204,8 @@ public class TestTradingStrategiesBuilder {
             MARKET_1_BASE_CURRENCY,
             MARKET_1_COUNTER_CURRENCY,
             MARKET_1_IS_ENABLED,
-            STRATEGY_1_ID);
+            STRATEGY_1_ID,
+            MARKET_1_IS_MARGIN_TRADING_ENABLED);
 
     final MarketConfig marketConfig2 =
         new MarketConfig(
@@ -206,7 +214,8 @@ public class TestTradingStrategiesBuilder {
             MARKET_1_BASE_CURRENCY,
             MARKET_1_COUNTER_CURRENCY,
             MARKET_1_IS_ENABLED,
-            STRATEGY_1_ID);
+            STRATEGY_1_ID,
+            MARKET_1_IS_MARGIN_TRADING_ENABLED);
 
     final List<MarketConfig> allMarkets = new ArrayList<>();
     allMarkets.add(marketConfig1);

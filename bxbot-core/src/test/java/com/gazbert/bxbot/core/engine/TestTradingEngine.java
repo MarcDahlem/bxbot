@@ -86,12 +86,12 @@ import org.powermock.modules.junit4.PowerMockRunner;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ConfigurableComponentFactory.class, Market.class, BalanceInfo.class})
 @PowerMockIgnore({
-    "javax.crypto.*",
-    "javax.management.*",
-    "com.sun.org.apache.xerces.*",
-    "javax.xml.parsers.*",
-    "org.xml.sax.*",
-    "org.w3c.dom.*"
+  "javax.crypto.*",
+  "javax.management.*",
+  "com.sun.org.apache.xerces.*",
+  "javax.xml.parsers.*",
+  "org.xml.sax.*",
+  "org.w3c.dom.*"
 })
 public class TestTradingEngine {
 
@@ -136,6 +136,7 @@ public class TestTradingEngine {
   private static final String MARKET_BASE_CURRENCY = "BTC";
   private static final String MARKET_COUNTER_CURRENCY = "USD";
   private static final boolean MARKET_IS_ENABLED = true;
+  private static final boolean MARKET_IS_MARGIN_TRADING_ENABLED = false;
 
   // Mocks used by all tests
   private ExchangeAdapter exchangeAdapter;
@@ -854,7 +855,8 @@ public class TestTradingEngine {
             MARKET_BASE_CURRENCY,
             MARKET_COUNTER_CURRENCY,
             MARKET_IS_ENABLED,
-            STRATEGY_ID);
+            STRATEGY_ID,
+            MARKET_IS_MARGIN_TRADING_ENABLED);
     final List<MarketConfig> allMarkets = new ArrayList<>();
     allMarkets.add(marketConfig1);
     return allMarkets;

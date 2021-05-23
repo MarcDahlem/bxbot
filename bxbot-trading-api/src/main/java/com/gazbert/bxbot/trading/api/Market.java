@@ -71,4 +71,6 @@ public interface Market {
    * @return the counter currency short code, e.g. LTC
    */
   String getCounterCurrency();
+
+    boolean isMarginTradingEnabled();
 }

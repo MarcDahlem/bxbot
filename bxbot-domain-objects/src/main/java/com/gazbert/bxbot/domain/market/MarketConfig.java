@@ -44,6 +44,7 @@ public class MarketConfig {
   private String counterCurrency;
   private boolean enabled;
   private String tradingStrategyId;
+  private boolean marginTradingEnabled;
 
   // Required by ConfigurableComponentFactory
   public MarketConfig() {
@@ -57,6 +58,7 @@ public class MarketConfig {
     this.counterCurrency = other.counterCurrency;
     this.enabled = other.enabled;
     this.tradingStrategyId = other.tradingStrategyId;
+    this.marginTradingEnabled = other.marginTradingEnabled;
   }
 
   /** Creates a new MarketConfig. */
@@ -66,7 +68,8 @@ public class MarketConfig {
       String baseCurrency,
       String counterCurrency,
       boolean enabled,
-      String tradingStrategyId) {
+      String tradingStrategyId,
+      boolean marginTradingEnabled) {
 
     this.id = id;
     this.name = name;
@@ -74,6 +77,7 @@ public class MarketConfig {
     this.counterCurrency = counterCurrency;
     this.enabled = enabled;
     this.tradingStrategyId = tradingStrategyId;
+    this.marginTradingEnabled = marginTradingEnabled;
   }
 
   public String getId() {
@@ -116,6 +120,14 @@ public class MarketConfig {
     this.enabled = enabled;
   }
 
+  public boolean isMarginTradingEnabled() {
+    return marginTradingEnabled;
+  }
+
+  public void setMarginTradingEnabled(boolean marginTradingEnabled) {
+    this.marginTradingEnabled = marginTradingEnabled;
+  }
+
   public String getTradingStrategyId() {
     return tradingStrategyId;
   }
@@ -150,6 +162,7 @@ public class MarketConfig {
         .add("counterCurrency", counterCurrency)
         .add("enabled", enabled)
         .add("tradingStrategyId", tradingStrategyId)
+        .add("marginTradingEnabled", marginTradingEnabled)
         .toString();
   }
 }

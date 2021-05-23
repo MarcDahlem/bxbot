@@ -69,6 +69,7 @@ public class TestMarketConfigYamlRepository {
   private static final String MARKET_1_BASE_CURRENCY = "BTC";
   private static final String MARKET_1_COUNTER_CURRENCY = "USD";
   private static final boolean MARKET_1_IS_ENABLED = true;
+  private static final boolean MARKET_1_IS_MARGIN_TRADING_ENABLED = false;
   private static final String MARKET_1_TRADING_STRATEGY_ID = "macd_trend_follower";
 
   private static final String MARKET_2_ID = "coinbasepro_gbp/btc";
@@ -76,12 +77,14 @@ public class TestMarketConfigYamlRepository {
   private static final String MARKET_2_BASE_CURRENCY = "BTC";
   private static final String MARKET_2_COUNTER_CURRENCY = "GBP";
   private static final boolean MARKET_2_IS_ENABLED = false;
+  private static final boolean MARKET_2_IS_MARGIN_TRADING_ENABLED = false;
   private static final String MARKET_2_TRADING_STRATEGY_ID = "scalper";
 
   private static final String NEW_MARKET_NAME = "BTC/ETH";
   private static final String NEW_MARKET_BASE_CURRENCY = "BTC";
   private static final String NEW_MARKET_COUNTER_CURRENCY = "ETH";
   private static final boolean NEW_MARKET_IS_ENABLED = false;
+  private static final boolean NEW_MARKET_IS_MARGIN_TRADING_ENABLED = false;
   private static final String NEW_MARKET_TRADING_STRATEGY_ID = "macd-jobby";
 
   @Before
@@ -312,7 +315,7 @@ public class TestMarketConfigYamlRepository {
         MARKET_1_BASE_CURRENCY,
         MARKET_1_COUNTER_CURRENCY,
         MARKET_1_IS_ENABLED,
-        MARKET_1_TRADING_STRATEGY_ID);
+        MARKET_1_TRADING_STRATEGY_ID, MARKET_1_IS_MARGIN_TRADING_ENABLED);
   }
 
   private static MarketConfig someNewExternalMarketConfig() {
@@ -322,7 +325,7 @@ public class TestMarketConfigYamlRepository {
         NEW_MARKET_BASE_CURRENCY,
         NEW_MARKET_COUNTER_CURRENCY,
         NEW_MARKET_IS_ENABLED,
-        NEW_MARKET_TRADING_STRATEGY_ID);
+        NEW_MARKET_TRADING_STRATEGY_ID, NEW_MARKET_IS_MARGIN_TRADING_ENABLED);
   }
 
   private static MarketConfig someExternalMarketConfigWithUnknownId() {
@@ -332,6 +335,6 @@ public class TestMarketConfigYamlRepository {
         MARKET_1_BASE_CURRENCY,
         MARKET_1_COUNTER_CURRENCY,
         MARKET_1_IS_ENABLED,
-        MARKET_1_TRADING_STRATEGY_ID);
+        MARKET_1_TRADING_STRATEGY_ID, MARKET_1_IS_MARGIN_TRADING_ENABLED);
   }
 }
