@@ -164,12 +164,14 @@ public class IntelligentIchimokuTa4jStrategy extends AbstractIntelligentStrategy
                 initExitRules();
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
+                int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
+                int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
 
-                if (type.equals(LONG_POSITION) && laggingSpanLongEmergencyStopReached.isSatisfied(currentIndex - 1)) {
+                if (type.equals(LONG_POSITION) && laggingSpanLongEmergencyStopReached.isSatisfied(checkIndex)) {
                     return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
-                if (type.equals(SHORT_POSITION) && laggingSpanShortEmergencyStopReached.isSatisfied(currentIndex - 1)) {
+                if (type.equals(SHORT_POSITION) && laggingSpanShortEmergencyStopReached.isSatisfied(checkIndex)) {
                     return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
