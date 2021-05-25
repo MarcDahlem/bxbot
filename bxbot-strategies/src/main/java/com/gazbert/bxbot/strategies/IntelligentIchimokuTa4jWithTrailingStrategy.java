@@ -197,18 +197,20 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
                 initExitRules();
 
                 int currentIndex = priceTracker.getSeries().getEndIndex();
+                int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
+                int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
                 switch (type) {
                     case LONG_POSITION:
-                        if(laggingSpanLongEmergencyStopReached.isSatisfied(currentIndex - 1)) {
+                        if(laggingSpanLongEmergencyStopReached.isSatisfied(checkIndex)) {
                             return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                         } else {
-                            return (BigDecimal) intelligentLongTrailIndicator.getValue(currentIndex-1).getDelegate();
+                            return (BigDecimal) intelligentLongTrailIndicator.getValue(checkIndex).getDelegate();
                         }
                     case SHORT_POSITION:
-                        if(laggingSpanShortEmergencyStopReached.isSatisfied(currentIndex - 1)) {
+                        if(laggingSpanShortEmergencyStopReached.isSatisfied(checkIndex)) {
                             return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                         } else {
-                            return (BigDecimal) intelligentShortTrailIndicator.getValue(currentIndex-1).getDelegate();
+                            return (BigDecimal) intelligentShortTrailIndicator.getValue(checkIndex).getDelegate();
                         }
                     default:
                         throw new StrategyException("Unknown market entry type encountered: " + type);

@@ -105,10 +105,16 @@ public abstract class TradeBasedIndicator<T> extends CachedIndicator<T> {
         return sortedExitIndeces.last();
     }
 
+    public Integer getLastRecordedEntryIndex() {
+        if (sortedEnterIndeces.isEmpty()) {
+            return null;
+        }
+        return sortedEnterIndeces.lastKey();
+    }
+
     protected abstract T calculateNoLastTradeAvailable(int index);
 
     protected abstract T calculateLastTradeWasEnter(int enterIndex, MarketEnterType enterType, int index);
 
     protected abstract T calculateLastTradeWasExit(int exitIndex, int index);
-
 }
