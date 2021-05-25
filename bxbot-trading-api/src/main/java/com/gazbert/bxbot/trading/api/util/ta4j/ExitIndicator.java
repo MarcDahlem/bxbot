@@ -80,11 +80,23 @@ public class ExitIndicator extends TradeBasedIndicator<Num> {
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
         BigDecimal limitScaleFactor = BigDecimal.ONE.subtract(limitPercentageUnderCurrentMarket);
         TransformIndicator sellLimitCalculator = TransformIndicator.multiply(closePriceIndicator, limitScaleFactor);
-        return new ExitIndicator(series, tradeKnowingIndicator, buyIndex -> enterType -> index -> {
+        return new ExitIndicator(series, tradeKnowingIndicator, entryIndex -> enterType -> index -> {
             if (!enterType.equals(MarketEnterType.LONG_POSITION)) {
                 throw new IllegalStateException("Cannot calculate sell limit indicator on short positions");
             }
-            return new HighestValueIndicator(sellLimitCalculator, index - buyIndex + 1);
+            return new HighestValueIndicator(sellLimitCalculator, index - entryIndex + 1);
+        });
+    }
+
+    public static ExitIndicator createShortBuyLimitIndicator(BarSeries series, BigDecimal limitPercentageOverCurrentMarket, ExitIndicator tradeKnowingIndicator) {
+        ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
+        BigDecimal limitScaleFactor = BigDecimal.ONE.add(limitPercentageOverCurrentMarket);
+        TransformIndicator shortBuyLimitCalculator = TransformIndicator.multiply(closePriceIndicator, limitScaleFactor);
+        return new ExitIndicator(series, tradeKnowingIndicator, entryIndex -> enterType -> index -> {
+            if (!enterType.equals(MarketEnterType.SHORT_POSITION)) {
+                throw new IllegalStateException("Cannot calculate short buy limit indicator on long positions");
+            }
+            return new LowestValueIndicator(shortBuyLimitCalculator, index - entryIndex + 1);
         });
     }
 
