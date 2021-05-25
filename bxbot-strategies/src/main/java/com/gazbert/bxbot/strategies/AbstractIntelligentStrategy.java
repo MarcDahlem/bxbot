@@ -161,29 +161,13 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     private void executeCheckOfTheEnterOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " State: Wait for ENTER order to fulfill.");
-        stateTracker.trackRunningEnterOrder(enterPriceCalculator, newState -> {
-            switch (newState) {
-                case NEED_EXIT:
-                    executeExitPhase();
-                    break;
-                default:
-                    throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
-            }
-        });
+        stateTracker.trackRunningEnterOrder(enterPriceCalculator);
     }
 
     private void executeCheckOfTheExitOrder() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " State: Wait for EXIT order to fulfill.");
         exitPriceCalculator.logStatistics(stateTracker.getCurrentMarketEntry());
-        stateTracker.trackRunningExitOrder(exitPriceCalculator, newState -> {
-            switch (newState) {
-                case NEED_ENTER:
-                    executeEnterPhase();
-                    break;
-                default:
-                    throw new StrategyException("Invalid state encountered: " + newState + ". No idea how to proceed...");
-            }
-        }, tradesObserver);
+        stateTracker.trackRunningExitOrder(exitPriceCalculator, tradesObserver);
     }
 
     @Override

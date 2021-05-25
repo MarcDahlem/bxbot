@@ -131,7 +131,7 @@ public class IntelligentStateTracker {
         return currentExitOrder.getPrice();
     }
 
-    public void trackRunningEnterOrder(OrderPriceCalculator amountOfPiecesToEnterCalcualtor, OnStrategyStateChangeListener listener) throws TradingApiException, ExchangeNetworkException, StrategyException {
+    public void trackRunningEnterOrder(OrderPriceCalculator amountOfPiecesToEnterCalcualtor) throws TradingApiException, ExchangeNetworkException, StrategyException {
         if (strategyState != WAIT_FOR_ENTER) {
             String errorMsg = "Invalid state encountered: " + strategyState + " while ask to track a running ENTER order. State needed: " + WAIT_FOR_ENTER;
             LOG.error(() -> market.getName() + " " + errorMsg);
@@ -173,7 +173,6 @@ public class IntelligentStateTracker {
                         LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentEnterOrder.getId() + "' successfully with '" + DECIMAL_FORMAT.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with EXIT phase");
                         getBreakEvenIndicator().registerEntryOrderExecution(priceTracker.getSeries().getEndIndex(), currentEnterOrder.getMarketEnterType());
                         updateStateTo(IntelligentStrategyState.NEED_EXIT);
-                        listener.onStrategyChanged(IntelligentStrategyState.NEED_EXIT);
                     } else {
                         LOG.warn(() -> market.getName() + " Order '" + currentEnterOrder.getId() + "' canceling failed. Maybe it was fulfilled recently on the market. Wait another tick.");
                     }
@@ -233,14 +232,13 @@ public class IntelligentStateTracker {
                 LOG.info(() -> market.getName() + " ENTER order '" + currentEnterOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Proceed to the EXIT phase...");
                 getBreakEvenIndicator().registerEntryOrderExecution(priceTracker.getSeries().getEndIndex(), currentEnterOrder.getMarketEnterType());
                 updateStateTo(IntelligentStrategyState.NEED_EXIT);
-                listener.onStrategyChanged(NEED_EXIT);
                 break;
             default:
                 throw new StrategyException("Unknown order market state encounted: " + marketState);
         }
     }
 
-    public void trackRunningExitOrder(OrderPriceCalculator sellOrderPriceCalcuclator, OnStrategyStateChangeListener stateChangedListener, OnTradeSuccessfullyClosedListener tradeClosedListener) throws TradingApiException, ExchangeNetworkException, StrategyException {
+    public void trackRunningExitOrder(OrderPriceCalculator sellOrderPriceCalcuclator, OnTradeSuccessfullyClosedListener tradeClosedListener) throws TradingApiException, ExchangeNetworkException, StrategyException {
         if (strategyState != WAIT_FOR_EXIT) {
             String errorMsg = "Invalid state encountered: " + strategyState + " while ask to track a running EXIT order. State needed: " + WAIT_FOR_EXIT;
             LOG.error(() -> market.getName() + " " + errorMsg);
@@ -265,7 +263,6 @@ public class IntelligentStateTracker {
                 currentExitOrder = null;
                 getBreakEvenIndicator().registerExitOrderExecution(priceTracker.getSeries().getEndIndex());
                 updateStateTo(NEED_ENTER);
-                stateChangedListener.onStrategyChanged(NEED_ENTER);
                 break;
             default:
                 throw new StrategyException("Unknown order market state encounted: " + marketState);
@@ -574,10 +571,6 @@ public class IntelligentStateTracker {
             throw new IllegalStateException("No current open order found, therefore the current maraket enter type cannot be determined");
         }
         return currentEnterOrder.getMarketEnterType();
-    }
-
-    public interface OnStrategyStateChangeListener {
-        void onStrategyChanged(IntelligentStrategyState newState) throws TradingApiException, ExchangeNetworkException, StrategyException;
     }
 
     public interface OnTradeSuccessfullyClosedListener {
