@@ -79,6 +79,30 @@ strategies:
       show-live-chart: true
 
       persist-ticker-data: true
+  - id: intelligent-ichimoku-ta4j-with-trailing-strategy
+
+    name: Intelligent Ichimoku TA4J With Trailing Strategy
+
+    description: >
+      Uses Ichimoku for entering and trailing stop loss for leaving the market
+
+    beanName: intelligentIchimokuTa4jWithTrailingStrategy
+
+    configItems:
+      percentage-of-counter-currency-balance-to-use: 20
+      configured-emergency-stop-balance: 50
+
+      sell-stop-limit-percentage-below-break-even: 1
+      sell-stop-limit-percentage-above-break-even: 3
+      sell-stop-limit-percentage-minimum-above-break-even: 2
+
+      initial-percentage-gain-needed-to-place-buy-order: 2
+      lowest-price-lookback-count: 120
+      times-above-lowest-price-needed: 20
+
+      show-live-chart: true
+
+      persist-ticker-data: true
   - id: intelligent-ta4j-trailing-stop-strategy
 
     name: Intelligent Trailing Stop Strategy (Ta4j Version)
