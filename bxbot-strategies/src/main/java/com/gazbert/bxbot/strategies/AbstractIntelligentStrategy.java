@@ -3,6 +3,7 @@ package com.gazbert.bxbot.strategies;
 import com.gazbert.bxbot.strategies.helper.IntelligentPriceTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategies.helper.IntelligentStrategyState;
+import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
@@ -14,9 +15,13 @@ import com.gazbert.bxbot.trading.api.TradingApiException;
 import com.gazbert.bxbot.trading.api.util.JsonBarsSerializer;
 import com.gazbert.bxbot.trading.api.util.ta4j.RecordedStrategy;
 import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
+
+import java.math.BigDecimal;
 import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.indicators.helpers.ConstantIndicator;
 
 import java.io.File;
 import java.util.Collection;
@@ -70,10 +75,27 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
     private void initLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
         RecordedStrategy recordedStrategy = stateTracker.getRecordedStrategy();
         Collection<Ta4j2Chart.ChartIndicatorConfig> indicatorConfigs = recordedStrategy.createChartIndicators();
+        ExitIndicator exitPriceIndicator = createExitPriceIndicator();
+        indicatorConfigs.add(new Ta4j2Chart.ChartIndicatorConfig(exitPriceIndicator, "calculated exit price", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR));
         indicatorConfigs.addAll(createStrategySpecificLiveChartIndicators());
         for (Ta4j2Chart.ChartIndicatorConfig config : indicatorConfigs) {
             priceTracker.addLivechartIndicatorConfig(config);
         }
+    }
+
+    private ExitIndicator createExitPriceIndicator() throws TradingApiException, ExchangeNetworkException {
+        BarSeries series = priceTracker.getSeries();
+        return new ExitIndicator(series,
+                stateTracker.getBreakEvenIndicator(),
+                entryIndex -> entryType -> index -> {
+                    try {
+                        BigDecimal currentExitPrice = this.exitPriceCalculator.calculate(entryType);
+                        return new ConstantIndicator<>(series, series.numOf(currentExitPrice));
+                    } catch (TradingApiException | ExchangeNetworkException | StrategyException e) {
+                        e.printStackTrace();
+                        throw new IllegalStateException(e);
+                    }
+                });
     }
 
     /**
