@@ -93,8 +93,8 @@ strategies:
       configured-emergency-stop-balance: 50
 
       sell-stop-limit-percentage-below-break-even: 1
-      sell-stop-limit-percentage-above-break-even: 3
-      sell-stop-limit-percentage-minimum-above-break-even: 2
+      sell-stop-limit-percentage-above-break-even: 4
+      sell-stop-limit-percentage-minimum-above-break-even: 0.5
 
       initial-percentage-gain-needed-to-place-buy-order: 2
       lowest-price-lookback-count: 120
