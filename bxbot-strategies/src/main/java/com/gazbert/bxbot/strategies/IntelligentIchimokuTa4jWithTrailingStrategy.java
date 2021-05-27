@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
+import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.UnstableIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.ConstantIndicator;
+import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.indicators.ichimoku.IchimokuKijunSenIndicator;
 import org.ta4j.core.indicators.ichimoku.IchimokuTenkanSenIndicator;
 import org.ta4j.core.num.Num;
@@ -94,8 +94,12 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
 
         UnstableIndicator delayedMarketPrice = new UnstableIndicator(new DelayIndicator(closePriceIndicator, ICHIMOKU_LONG_SPAN), ICHIMOKU_LONG_SPAN);
 
+        Indicator<Num> lastHighPrice = new UnstableIndicator(new DelayIndicator(new HighPriceIndicator(series),1), 1);
+        UnstableIndicator highestMarketPriceBetweenLaggingSpanAndPresent = new UnstableIndicator(new HighestValueIndicator(lastHighPrice, ICHIMOKU_LONG_SPAN-1), ICHIMOKU_LONG_SPAN-1);
+
         cloudGreenInFuture = new OverIndicatorRule(lead1Future, lead2Future);
         laggingSpanAbovePastPrice = new OverIndicatorRule(laggingSpan, delayedMarketPrice);
+        Rule laggingSpanAboveHighestPastPrice = new OverIndicatorRule(laggingSpan, highestMarketPriceBetweenLaggingSpanAndPresent);
         Rule priceAboveTheCloud = new OverIndicatorRule(closePriceIndicator, currentCloudUpperLine);
         Rule priceAboveConversionLine = new OverIndicatorRule(closePriceIndicator, conversionLine);
         OverIndicatorRule conversionLineAboveBaseLine = new OverIndicatorRule(conversionLine, baseLine);
@@ -122,6 +126,7 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
                         .and(conversionLineAboveBaseLine)
                         .and(laggingSpanAbovePastCloud))
                 .and(laggingSpanAbovePastPrice)
+                .and(laggingSpanAboveHighestPastPrice)
                 .and(priceAboveConversionLine)
                 .and(laggingSpanAbovePastConversionLine);
 
@@ -129,9 +134,13 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
 
         entryRuleLong = new StrictBeforeRule(series, crossTheCurrentCloudLowerUp, crossUpperAndIchimokuSignals, resetLowerCrossUpOn).and(laggingSpanCrossedUpper);
 
+        Indicator<Num> lastLowPrice = new UnstableIndicator(new DelayIndicator(new LowPriceIndicator(series),1), 1);
+        UnstableIndicator lowestMarketPriceBetweenLaggingSpanAndPresent = new UnstableIndicator(new LowestValueIndicator(lastLowPrice, ICHIMOKU_LONG_SPAN-1), ICHIMOKU_LONG_SPAN-1);
+
         Rule priceBelowTheCloud = new UnderIndicatorRule(closePriceIndicator, currentCloudLowerLine);
         cloudRedInFuture = new UnderIndicatorRule(lead1Future, lead2Future);
         laggingSpanBelowPastPrice = new UnderIndicatorRule(laggingSpan, delayedMarketPrice);
+        Rule laggingSpanBelowLowestPastPrice = new UnderIndicatorRule(laggingSpan, lowestMarketPriceBetweenLaggingSpanAndPresent);
         Rule priceBelowConversionLine = new UnderIndicatorRule(closePriceIndicator, conversionLine);
         Rule laggingSpanBelowPastConversionLine = new UnderIndicatorRule(laggingSpan, delayedConversionLine);
         UnderIndicatorRule conversionLineBelowBaseLine = new UnderIndicatorRule(conversionLine, baseLine);
@@ -142,6 +151,7 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
                         .and(conversionLineBelowBaseLine)
                         .and(laggingSpanBelowPastCloud))
                 .and(laggingSpanBelowPastPrice)
+                .and(laggingSpanBelowLowestPastPrice)
                 .and(priceBelowConversionLine)
                 .and(laggingSpanBelowPastConversionLine);
 
@@ -172,6 +182,12 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
     protected Collection<Ta4j2Chart.ChartIndicatorConfig> createStrategySpecificLiveChartIndicators() throws TradingApiException, ExchangeNetworkException {
         ExitIndicator binanceBreakEvenIndicator = ExitIndicator.createBreakEvenIndicator(priceTracker.getSeries(), stateTracker.getBreakEvenIndicator(), new BigDecimal("0.00075"), new BigDecimal("0.00075"));
         LinkedList<Ta4j2Chart.ChartIndicatorConfig> result = new LinkedList<>();
+        Ta4j2Chart.YAxisGroupConfig rsiAxisConfig = new Ta4j2Chart.YAxisGroupConfig("RSI", 1, Ta4j2Chart.AREA_COLOR_1);
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(
+                new RSIIndicator(new ClosePriceIndicator(priceTracker.getSeries()), 14),
+                "RSI",
+                Ta4j2Chart.AREA_COLOR_LINE_1,
+                rsiAxisConfig));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(conversionLine, "conversion line", Ta4j2Chart.SELL_LIMIT_1_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(baseLine, "base line", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(lead1Future, "kumo a future", Color.GREEN, ICHIMOKU_LONG_SPAN * -1));
@@ -179,6 +195,8 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
         result.add(new Ta4j2Chart.ChartIndicatorConfig(cloudFarthermostLineAtEntryPrice, "exit stop price", Ta4j2Chart.SELL_LIMIT_2_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(laggingSpan, "lagging span", Ta4j2Chart.SELL_LIMIT_3_COLOR, ICHIMOKU_LONG_SPAN));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(binanceBreakEvenIndicator, "binanceBreakEvenIndicator", Ta4j2Chart.BUY_TRIGGER_COLOR));
+
+
         return result;
     }
 
