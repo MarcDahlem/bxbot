@@ -6,6 +6,7 @@ import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.SHORT_POSI
 import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategies.helper.StaticSellPriceParams;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
@@ -17,6 +18,8 @@ import java.text.DecimalFormat;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Optional;
+
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseStrategy;
@@ -35,15 +38,13 @@ import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
 @Component("intelligentEmaTa4jStrategy") // used to load the strategy using Spring bean injection
+@Scope("prototype") // create always a new instance if it is injected
 public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     private static final DecimalFormat DECIMAL_FORMAT_PERCENTAGE = new DecimalFormat("#.#### %");
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
     private BaseStrategy ta4jStrategyLong;
-    private BigDecimal buyFee;
-    private BigDecimal sellFee;
-
 
     private Indicator<Num> buyIndicatorLong;
     private Indicator<Num> buyIndicatorShort;
@@ -70,9 +71,6 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
         stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, k); // 14
         macd = new MACDIndicator(closePriceIndicator, j, i); // 9, 26
         emaMacd = new EMAIndicator(macd, l); // 18
-
-        BigDecimal buyFeeFactor = BigDecimal.ONE.add(buyFee);
-        BigDecimal sellFeeFactor = BigDecimal.ONE.subtract(sellFee);
 
         buyIndicatorLong = new EMAIndicator(closePriceIndicator, i);
         buyIndicatorShort = new EMAIndicator(closePriceIndicator, j);
@@ -132,9 +130,17 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createExitPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
-        buyFee = tradingApi.getPercentageOfBuyOrderTakenForExchangeFee(market.getId());
-        sellFee = tradingApi.getPercentageOfSellOrderTakenForExchangeFee(market.getId());
-        return new IntelligentSellPriceCalculator(priceTracker, stateTracker, new StaticSellPriceParams(buyFee, sellFee, config));
+        return new IntelligentStateTracker.OrderPriceCalculator() {
+            @Override
+            public BigDecimal calculate(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
+                return priceTracker.getLast();
+            }
+
+            @Override
+            public void logStatistics(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
+
+            }
+        };
     }
 
     @Override

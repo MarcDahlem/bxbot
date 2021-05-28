@@ -161,10 +161,15 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     private void executeEnterPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " ENTER phase - check if the market moved up.");
-        if (shouldEnterMarket().isPresent()) {
+        Optional<MarketEnterType> marketEnterType = shouldEnterMarket();
+        if (marketEnterType.isPresent()) {
             LOG.info(() -> market.getName() + " ENTER phase - The market did move. Place a ENTER order on the exchange -->");
-            enterPriceCalculator.logStatistics(shouldEnterMarket().get());
-            stateTracker.placeEnterOrder(enterPriceCalculator, shouldEnterMarket().get());
+            enterPriceCalculator.logStatistics(marketEnterType.get());
+            if (marketEnterType.get().equals(MarketEnterType.SHORT_POSITION) && !market.isMarginTradingEnabled()) {
+                LOG.warn(() -> market.getName() + " Cannot ENTER the market with a SHORT position, as the market is configured to not allow margin trading. Skip enter signal.");
+            } else {
+                stateTracker.placeEnterOrder(enterPriceCalculator, marketEnterType.get());
+            }
         } else {
             LOG.info(() -> market.getName() + " ENTER phase - The market movement needed to place an ENTER order was not reached. Wait for the next trading strategy tick.");
         }
