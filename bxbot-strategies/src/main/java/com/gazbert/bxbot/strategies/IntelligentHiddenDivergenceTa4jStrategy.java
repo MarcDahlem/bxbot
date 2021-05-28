@@ -89,25 +89,10 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
 
         Rule upTrend = new OverIndicatorRule(shortEma, emaUpTrendLine);
         Rule priceOverLongReversalArea = new OverIndicatorRule(closePriceIndicator, emaUpTrendLine);
+        Rule lowPriceMovesUp = new OverIndicatorRule(lowPivotPoints, new DelayIndicator(lowPivotPoints, 1));
+        Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLowPivotPoints, new DelayIndicator(rsiAtLowPivotPoints, 1));
 
-        DelayIndicator previousLowPivotPoint = new DelayIndicator(lowPivotPoints, 1);
-        DelayIndicator previousRsiAtLowPivotPoint = new DelayIndicator(rsiAtLowPivotPoints, 1);
-
-        Rule lowPriceMovesUp = new OverIndicatorRule(lowPivotPoints, previousLowPivotPoint);
-        Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLowPivotPoints, previousRsiAtLowPivotPoint);
-
-        LowestPivotPointIndicator secondLastLowestPivotPoint = new LowestPivotPointIndicator(priceTracker.getSeries(), previousLowPivotPoint, pivotCalculationFrame);
-        LowestPivotPointIndicator secondLastRsiAtLowPivotPoints = new LowestPivotPointIndicator(priceTracker.getSeries(), previousRsiAtLowPivotPoint, pivotCalculationFrame);
-
-        Rule lowPriceMovesUpInTwo = new OverIndicatorRule(lowPivotPoints, secondLastLowestPivotPoint);
-        Rule oversoldIndicatorMovesDownInTwo = new UnderIndicatorRule(rsiAtLowPivotPoints, secondLastRsiAtLowPivotPoints);
-
-        Rule divergenceWithLastPivot = lowPriceMovesUp.and(oversoldIndicatorMovesDown);
-        Rule divergenceWithSecondLastPivot = lowPriceMovesUpInTwo.and(oversoldIndicatorMovesDownInTwo);
-
-        Rule longDivergence = divergenceWithLastPivot.or(divergenceWithSecondLastPivot)
-
-        Rule longEntryRule = upTrend.and(priceOverLongReversalArea).and(longDivergence);
+        Rule longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown);
 
         chandelierExitLongIndicator = new ChandelierExitLongIndicator(priceTracker.getSeries(), 22, chandelierExitMultiplier);
 
