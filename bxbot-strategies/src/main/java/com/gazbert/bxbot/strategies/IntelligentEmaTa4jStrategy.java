@@ -63,10 +63,10 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
-        int i = 20;
-        int j = 6;
-        int k = 6;
-        int l = 6;
+        int i = 83;
+        int j = 8;
+        int k = 36;
+        int l = 83;
 
         stochasticOscillaltorK = new StochasticOscillatorKIndicator(series, k); // 14
         macd = new MACDIndicator(closePriceIndicator, j, i); // 9, 26
@@ -79,12 +79,12 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
         sellIndicatorShort = new EMAIndicator(closePriceIndicator, j);
 
         Rule entryRule = new OverIndicatorRule(buyIndicatorShort, buyIndicatorLong) // Trend
-                .and(new CrossedDownIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1
+                .and(new UnderIndicatorRule(stochasticOscillaltorK, 20)) // Signal 1
                 .and(new OverIndicatorRule(macd, emaMacd)) // Signal 2
                 ;
 
         Rule exitRule = new UnderIndicatorRule(sellIndicatorShort, sellIndicatorLong) // Trend
-                .and(new CrossedUpIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1
+                .and(new OverIndicatorRule(stochasticOscillaltorK, 80)) // Signal 1
                 .and(new UnderIndicatorRule(macd, emaMacd)) // Signal 2
                 ;
         ta4jStrategyLong = new BaseStrategy("Intelligent Ta4j EMA MACD (long)", entryRule, exitRule);
@@ -184,22 +184,11 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
 
     @Override
     protected boolean shouldExitMarket() throws TradingApiException, ExchangeNetworkException {
-        boolean resultLong = ta4jStrategyLong.shouldExit(priceTracker.getSeries().getEndIndex() - 1);
-        boolean resultShort = ta4jStrategyLong.shouldExit(priceTracker.getSeries().getEndIndex() - 1);
-        Num currentLongEma = sellIndicatorLong.getValue(priceTracker.getSeries().getEndIndex());
-        Num currentShortEma = sellIndicatorShort.getValue(priceTracker.getSeries().getEndIndex());
-        LOG.info(market.getName() +
-                "\n######### MOVED DOWN? #########\n" +
-                "* Current market price: " + priceTracker.getFormattedLast() +
-                "\n Break even: " + priceTracker.formatWithCounterCurrency((BigDecimal) stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex()).getDelegate()) +
-                "\n market change (last) to break even: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(priceTracker.getSeries().numOf(priceTracker.getLast()), stateTracker.getBreakEvenIndicator().getValue(priceTracker.getSeries().getEndIndex())).getDelegate()) +
-                "\n* Current long EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.getDelegate()) +
-                "\n* Current short EMA value: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentShortEma.getDelegate()) +
-                "\n* Percentage EMA loss needed: " + DECIMAL_FORMAT_PERCENTAGE.format((BigDecimal) getPercentageChange(currentLongEma, currentShortEma).getDelegate()) +
-                "\n* Absolute EMA loss needed: " + priceTracker.formatWithCounterCurrency((BigDecimal) currentLongEma.minus(currentShortEma).getDelegate()) +
-                "\n* Place a SELL (long) order?: " + resultLong +
-                "\n* Place a BUY (short) order?: " + resultShort +
-                "\n###############################");
+        int currentIndex = priceTracker.getSeries().getEndIndex();
+        int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
+        int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
+        boolean resultLong = ta4jStrategyLong.shouldExit(checkIndex);
+        boolean resultShort = ta4jStrategyLong.shouldExit(checkIndex);
 
         switch(stateTracker.getCurrentMarketEntry()) {
             case SHORT_POSITION:
