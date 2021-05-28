@@ -18,6 +18,14 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
     }
 
     @Override
+    public Num getValue(int index) {
+        if(index-frameSize >= getBarSeries().getBeginIndex() && index+frameSize < getBarSeries().getEndIndex()) {
+            return super.getValue(index);
+        }
+        return calculate(index);
+    }
+
+    @Override
     protected Num calculate(int index) {
         Optional<Integer> latestPivotIndex = getLatestPivotIndex(index);
         if (latestPivotIndex.isPresent()) {
