@@ -29,12 +29,10 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
     protected Num calculate(int index) {
         Optional<Integer> latestPivotIndex = getLatestPivotIndex(index);
         if (latestPivotIndex.isPresent()) {
-            return this.getIndicator().getValue(latestPivotIndex.get());
+            return this.getValueIndicator().getValue(latestPivotIndex.get());
         }
         return NaN;
     }
-
-    protected abstract Indicator<Num> getIndicator();
 
     private Optional<Integer> getLatestPivotIndex(int index) {
         while (index >= getBarSeries().getBeginIndex()) {
@@ -47,13 +45,13 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
     }
 
     private boolean isPivotIndex(int index) {
-        Num valueToCheck = getIndicator().getValue(index);
+        Num valueToCheck = getPivotIndicator().getValue(index);
         int startIndex = Math.max(index - frameSize, getBarSeries().getBeginIndex());
         int endIndex = Math.min(index + frameSize, getBarSeries().getEndIndex());
 
         for (int inFrameIndex = startIndex; inFrameIndex <= endIndex; inFrameIndex++) {
             if (index != inFrameIndex) {
-                Num otherValue = getIndicator().getValue(inFrameIndex);
+                Num otherValue = getPivotIndicator().getValue(inFrameIndex);
                 if (contradictsPivot(valueToCheck, otherValue)) {
                     return false;
                 }
@@ -62,5 +60,7 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
         return true;
     }
 
+    protected abstract Indicator<Num> getPivotIndicator();
+    protected abstract Indicator<Num> getValueIndicator();
     protected abstract boolean contradictsPivot(Num valueToCheck, Num otherValue);
 }
