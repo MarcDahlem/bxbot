@@ -7,6 +7,8 @@ import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentSellPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
 import com.gazbert.bxbot.strategy.api.StrategyException;
+import com.gazbert.bxbot.trading.api.util.ta4j.HighestPivotPointIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.LowestPivotPointIndicator;
 import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
 import com.gazbert.bxbot.strategies.helper.StaticSellPriceParams;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
@@ -124,6 +126,10 @@ public class IntelligentEmaTa4jStrategy extends AbstractIntelligentStrategy {
         result.add(new Ta4j2Chart.ChartIndicatorConfig(sellIndicatorShort, "sell short", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(sellIndicatorLong, "sell long", Ta4j2Chart.SELL_LIMIT_1_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(emaMacd, "emaMacd", Ta4j2Chart.ASK_PRICE_COLOR, macdYAxisConfig));
+        HighestPivotPointIndicator movingHighestPivot = new HighestPivotPointIndicator(priceTracker.getSeries(), 5);
+        LowestPivotPointIndicator movingLowestPivot = new LowestPivotPointIndicator(priceTracker.getSeries(), 5);
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(movingHighestPivot, "movingHighestPivot", Ta4j2Chart.BID_PRICE_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(movingLowestPivot, "movingLowestPivot", Ta4j2Chart.BID_PRICE_COLOR));
 
         return result;
     }
