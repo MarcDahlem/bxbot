@@ -54,7 +54,22 @@ strategies:
 
       show-live-chart: true
 
-      persist-ticker-data: true
+      persist-ticker-data: false
+  - id: intelligent-hidden-divergence-ta4j-strategy
+
+    name: Intelligent Hidden Divergence TA4J Strategy
+
+    description: >
+      Uses hidden divergence to find good market enter spots
+
+    beanName: intelligentHiddenDivergenceTa4jStrategy
+
+    configItems:
+      percentage-of-counter-currency-balance-to-use: 20
+      configured-emergency-stop-balance: 50
+
+      show-live-chart: true
+      persist-ticker-data: false
   - id: intelligent-ichimoku-ta4j-strategy
 
     name: Intelligent Ichimoku TA4J Strategy
@@ -78,7 +93,7 @@ strategies:
 
       show-live-chart: true
 
-      persist-ticker-data: true
+      persist-ticker-data: false
   - id: intelligent-ichimoku-ta4j-with-trailing-strategy
 
     name: Intelligent Ichimoku TA4J With Trailing Strategy
@@ -102,7 +117,7 @@ strategies:
 
       show-live-chart: true
 
-      persist-ticker-data: true
+      persist-ticker-data: false
   - id: intelligent-ta4j-trailing-stop-strategy
 
     name: Intelligent Trailing Stop Strategy (Ta4j Version)

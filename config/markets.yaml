@@ -31,6 +31,13 @@ markets:
     enabled: false
     tradingStrategyId: intelligent-ema-ta4j-strategy
   - id: XRPEUR
+    name: XRP/EUR(ta4j-hidden-divergence)
+    baseCurrency: XXRP
+    counterCurrency: ZEUR
+    enabled: false
+    marginTradingEnabled: true
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
+  - id: XRPEUR
     name: XRP/EUR(trailing-ta4j)
     baseCurrency: XXRP
     counterCurrency: ZEUR
