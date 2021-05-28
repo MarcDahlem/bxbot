@@ -28,6 +28,8 @@ import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.ATRIndicator;
+import org.ta4j.core.indicators.ChandelierExitLongIndicator;
+import org.ta4j.core.indicators.ChandelierExitShortIndicator;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
@@ -55,6 +57,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private Indicator<Num> emaDownTrendLine;
     private Indicator<Num> rsiAtHighPivotPoints;
     private Indicator<Num> rsiAtLowPivotPoints;
+    private Indicator<Num> chandelierExitLongIndicator;
+    private Indicator<Num> chandelierExitShortIndicator;
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
@@ -68,6 +72,7 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         int j = 50;
 
         int pivotCalculationFrame = 5;
+        int chandelierExitMultiplier = 6;
 
         longEma = new EMAIndicator(closePriceIndicator, i);
         shortEma = new EMAIndicator(closePriceIndicator, j);
@@ -88,9 +93,21 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLowPivotPoints, new DelayIndicator(rsiAtLowPivotPoints, 1));
 
         Rule longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown);
-        Rule longExitRule = BooleanRule.FALSE;
-        Rule shortEntryRule = BooleanRule.FALSE;
-        Rule shortExitRule = BooleanRule.FALSE;
+
+        chandelierExitLongIndicator = new ChandelierExitLongIndicator(priceTracker.getSeries(), 22, chandelierExitMultiplier);
+
+        Rule longExitRule = new UnderIndicatorRule(closePriceIndicator,chandelierExitLongIndicator);
+
+        Rule downTrend = new UnderIndicatorRule(shortEma, emaDownTrendLine);
+        Rule priceUnderLongReversalArea = new UnderIndicatorRule(closePriceIndicator, emaDownTrendLine);
+        Rule highPriceMovesDown = new UnderIndicatorRule(highPivotPoints, new DelayIndicator(highPivotPoints, 1));
+        Rule oversoldIndicatorMovesUp = new OverIndicatorRule(rsiAtHighPivotPoints, new DelayIndicator(rsiAtHighPivotPoints, 1));
+
+        Rule shortEntryRule = downTrend.and(priceUnderLongReversalArea).and(highPriceMovesDown).and(oversoldIndicatorMovesUp);
+
+        chandelierExitShortIndicator = new ChandelierExitShortIndicator(priceTracker.getSeries(), 22, chandelierExitMultiplier);
+
+        Rule shortExitRule = new OverIndicatorRule(closePriceIndicator,chandelierExitShortIndicator);
 
         ta4jStrategyLong = new BaseStrategy("Intelligent Ta4j Hidden Divergence (long)", longEntryRule, longExitRule);
         ta4jStrategyShort = new BaseStrategy("Intelligent Ta4j Hidden Divergence (short)", shortEntryRule, shortExitRule);
@@ -129,6 +146,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         result.add(new Ta4j2Chart.ChartIndicatorConfig(rsiAtLowPivotPoints, "rsi at last low", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR, rsiYAxisConfig));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(emaUpTrendLine, "+ATR14", Ta4j2Chart.BUY_TRIGGER_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(emaDownTrendLine, "-ATR14", Ta4j2Chart.SELL_LIMIT_3_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(chandelierExitLongIndicator, "ChandelierExit (long)", Ta4j2Chart.SELL_LIMIT_1_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(chandelierExitShortIndicator, "ChandelierExit (short)", Ta4j2Chart.SELL_LIMIT_2_COLOR));
 
         return result;
     }
