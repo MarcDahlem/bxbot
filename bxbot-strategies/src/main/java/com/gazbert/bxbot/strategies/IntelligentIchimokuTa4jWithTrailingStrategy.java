@@ -188,6 +188,26 @@ public class IntelligentIchimokuTa4jWithTrailingStrategy extends AbstractIntelli
                 "RSI",
                 Ta4j2Chart.AREA_COLOR_LINE_1,
                 rsiAxisConfig));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(
+                new ConstantIndicator<>(priceTracker.getSeries(), priceTracker.getSeries().numOf(80)),
+                "RSI (80)",
+                Ta4j2Chart.AREA_COLOR_LINE_1,
+                rsiAxisConfig));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(
+                new ConstantIndicator<>(priceTracker.getSeries(), priceTracker.getSeries().numOf(70)),
+                "RSI (70)",
+                Ta4j2Chart.AREA_COLOR_LINE_1,
+                rsiAxisConfig));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(
+                new ConstantIndicator<>(priceTracker.getSeries(), priceTracker.getSeries().numOf(30)),
+                "RSI (30)",
+                Ta4j2Chart.AREA_COLOR_LINE_1,
+                rsiAxisConfig));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(
+                new ConstantIndicator<>(priceTracker.getSeries(), priceTracker.getSeries().numOf(20)),
+                "RSI (20)",
+                Ta4j2Chart.AREA_COLOR_LINE_1,
+                rsiAxisConfig));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(conversionLine, "conversion line", Ta4j2Chart.SELL_LIMIT_1_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(baseLine, "base line", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(lead1Future, "kumo a future", Color.GREEN, ICHIMOKU_LONG_SPAN * -1));
