@@ -157,7 +157,18 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         return new IntelligentStateTracker.OrderPriceCalculator() {
             @Override
             public BigDecimal calculate(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
-                return priceTracker.getLast();
+                int currentIndex = priceTracker.getSeries().getEndIndex();
+                int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
+                int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
+
+                switch (marketEnterType) {
+                    case SHORT_POSITION:
+                        return (BigDecimal)chandelierExitShortIndicator.getValue(checkIndex).getDelegate();
+                    case LONG_POSITION:
+                        return (BigDecimal)chandelierExitLongIndicator.getValue(checkIndex).getDelegate();
+                    default:
+                        throw new IllegalStateException("Unkown entry type encountered: " + stateTracker.getCurrentMarketEntry());
+                }
             }
 
             @Override
@@ -201,20 +212,7 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
 
     @Override
     protected boolean shouldExitMarket() throws TradingApiException, ExchangeNetworkException {
-        int currentIndex = priceTracker.getSeries().getEndIndex();
-        int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
-        int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
-        boolean resultLong = ta4jStrategyLong.shouldExit(checkIndex);
-        boolean resultShort = ta4jStrategyLong.shouldExit(checkIndex);
-
-        switch (stateTracker.getCurrentMarketEntry()) {
-            case SHORT_POSITION:
-                return resultShort;
-            case LONG_POSITION:
-                return resultLong;
-            default:
-                throw new IllegalStateException("Unkown entry type encountered: " + stateTracker.getCurrentMarketEntry());
-        }
+        return true;
     }
 
     @Override
