@@ -2,6 +2,8 @@ package com.gazbert.bxbot.strategies.helper;
 
 import com.gazbert.bxbot.trading.api.OpenOrder;
 
+import java.math.BigDecimal;
+
 public class OpenOrderState {
     private final OpenOrder orderInMarket;
 
@@ -15,5 +17,13 @@ public class OpenOrderState {
 
     public boolean isFullAvailable() {
         return orderInMarket.getQuantity().compareTo(orderInMarket.getOriginalQuantity()) == 0;
+    }
+
+    public BigDecimal getRemainingOrderAmount() {
+        return orderInMarket.getQuantity();
+    }
+
+    public BigDecimal getExecutedOrderAmount() {
+        return orderInMarket.getOriginalQuantity().subtract(getRemainingOrderAmount());
     }
 }

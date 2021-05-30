@@ -166,13 +166,22 @@ public class IntelligentStateTracker {
             } else {
                 LOG.warn(() -> market.getName() + " The ENTER order execution failed '" + currentEnterOrder.getOrderNotExecutedCounter() + "' times. Waiting did not help. Cancel the rest of the order and proceed with waiting for exiting the partially filled ENTER order.");
 
+                BigDecimal executedOrderAmount = marketState.getExecutedOrderAmount();
+                BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
                 boolean orderCanceled = tradingApi.cancelOrder(currentEnterOrder.getId(), market.getId());
 
                 if (orderCanceled) {
                     LOG.info(() -> market.getName() + " Order '" + currentEnterOrder.getId() + "' successfully canceled. Compute executed order amount for the partial order.");
-                    BigDecimal filledOrderAmount = priceTracker.getAvailableBaseCurrencyBalance(); // TODO check what the market returns for partially filled or filled sell orders
-                    currentEnterOrder = new PlacedOrder(currentEnterOrder.getId(), currentEnterOrder.getType(), filledOrderAmount, getCurrentEnterOrderPrice());
-                    LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentEnterOrder.getId() + "' successfully with '" + DECIMAL_FORMAT.format(filledOrderAmount) + "' according to the available funds on the account. Proceed with EXIT phase");
+                    if (executedOrderAmount.compareTo(minimumOrderVolume) <0) {
+                        LOG.warn(() -> market.getName() + " The ENTER order was partially filled, but the executed order amount " + executedOrderAmount + " is below the minimum order volume required. Reset the phase to BUY.");
+                        MarketEnterType currentMarketEnterType = currentEnterOrder.getMarketEnterType();
+                        currentEnterOrder = null;
+                        updateStateTo(NEED_ENTER);
+                        placeEnterOrder(amountOfPiecesToEnterCalcualtor, currentMarketEnterType);
+                        return;
+                    }
+                    currentEnterOrder = new PlacedOrder(currentEnterOrder.getId(), currentEnterOrder.getType(), executedOrderAmount, getCurrentEnterOrderPrice());
+                    LOG.info(() -> market.getName() + " Replaced the order amount for '" + currentEnterOrder.getId() + "' successfully with '" + DECIMAL_FORMAT.format(executedOrderAmount) + "' according to the executed quantity. Proceed with EXIT phase");
                     getBreakEvenIndicator().registerEntryOrderExecution(priceTracker.getSeries().getEndIndex(), currentEnterOrder.getMarketEnterType());
                     updateStateTo(IntelligentStrategyState.NEED_EXIT);
                 } else {
@@ -246,7 +255,7 @@ public class IntelligentStateTracker {
 
         if (marketState.isPresent()) {
             LOG.info(() -> market.getName() + " EXIT order '" + currentExitOrder.getId() + "' is still available. Check if the current market price moved to the other side of the order price.");
-            handleExitPositionIsStillAvailableOnMarket(sellOrderPriceCalcuclator, currentMarketPrice, currentExitOrderPrice);
+            handleExitPositionIsStillAvailableOnMarket(sellOrderPriceCalcuclator, currentMarketPrice, currentExitOrderPrice, marketState.get());
         } else {
             LOG.info(() -> market.getName() + " EXIT order '" + currentExitOrder.getId() + "' is not in the open orders anymore. Normally it was executed. Restart gaining money in the ENTER phase...");
             BigDecimal totalGain = calculateGainOnPositionExit(currentExitOrderPrice);
@@ -290,10 +299,10 @@ public class IntelligentStateTracker {
         return totalGain;
     }
 
-    private void handleExitPositionIsStillAvailableOnMarket(OrderPriceCalculator sellOrderPriceCalcuclator, BigDecimal currentMarketPrice, BigDecimal currentExitOrderPrice) throws ExchangeNetworkException, TradingApiException, StrategyException {
+    private void handleExitPositionIsStillAvailableOnMarket(OrderPriceCalculator sellOrderPriceCalcuclator, BigDecimal currentMarketPrice, BigDecimal currentExitOrderPrice, OpenOrderState openOrderState) throws ExchangeNetworkException, TradingApiException, StrategyException {
         switch (currentEnterOrder.getMarketEnterType()) {
             case SHORT_POSITION:
-                handleShortExitPositionIsStillAvailableInMarket(sellOrderPriceCalcuclator, currentMarketPrice, currentExitOrderPrice);
+                handleShortExitPositionIsStillAvailableInMarket(sellOrderPriceCalcuclator, currentMarketPrice, currentExitOrderPrice, openOrderState);
                 break;
             case LONG_POSITION:
                 handleLongExitPositionIsStillAvailableInMarket(sellOrderPriceCalcuclator, currentMarketPrice, currentExitOrderPrice);
@@ -350,6 +359,14 @@ public class IntelligentStateTracker {
                 LOG.info(() -> market.getName() + " The new SELL order's price '" + priceTracker.formatWithCounterCurrency(sellPrice)
                         + "' is higher than the the current sell order's price ('" + priceTracker.formatWithCounterCurrency(currentExitOrderPrice) + "'). Cancel the current sell order '" + currentExitOrder.getId() + "' and trail the stop according to the higher stop limit.");
 
+                BigDecimal availableBaseCurrencyBalance = priceTracker.getAvailableBaseCurrencyBalance();
+                BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
+                if (minimumOrderVolume.compareTo(availableBaseCurrencyBalance) > 0) {
+                    String minMsg = market.getName() + " The current SELL order was partially filled. The remaining volume '" + priceTracker.getFormattedBaseCurrencyBalance() + "' cannot be placed as new SELL order as it is below the minimal order volume of '" + minimumOrderVolume + "'. Let the order as it is and wait until it is fulfilled.";
+                    LOG.warn(() -> minMsg);
+                    return;
+                }
+
                 boolean orderCanceled = tradingApi.cancelOrder(currentExitOrder.getId(), market.getId());
 
                 if (orderCanceled) {
@@ -367,17 +384,17 @@ public class IntelligentStateTracker {
         }
     }
 
-    private void handleShortExitPositionIsStillAvailableInMarket(OrderPriceCalculator exitOrderPriceCalcuclator, BigDecimal currentMarketPrice, BigDecimal currentExitOrderPrice) throws ExchangeNetworkException, TradingApiException, StrategyException {
+    private void handleShortExitPositionIsStillAvailableInMarket(OrderPriceCalculator exitOrderPriceCalcuclator, BigDecimal currentMarketPrice, BigDecimal currentExitOrderPrice, OpenOrderState marketOrderState) throws ExchangeNetworkException, TradingApiException, StrategyException {
         if (currentExitOrderPrice.compareTo(currentMarketPrice) < 0) {
             LOG.warn(() -> market.getName() + " The current BUY (short exit) order is below the current market price. It should soon be fulfilled.");
             currentExitOrder.increaseOrderNotExecutedCounter();
             if (currentExitOrder.getOrderNotExecutedCounter() >= 10) { // TODO make 10 configurable or another approach
                 String msg = market.getName() + " The current BUY (short exit) order was " + currentExitOrder.getOrderNotExecutedCounter() + " times below the current market price. It should normally be fulfilled. Cancel the order and place directly a new BUY (short exit) order with the current markets price.";
                 LOG.warn(() -> msg);
-                BigDecimal availableBaseCurrencyBalance = priceTracker.getAvailableBaseCurrencyBalance(); // TODO check what is in here for short orders
+                BigDecimal remainingOrderAmount = marketOrderState.getRemainingOrderAmount();
                 BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
-                if (minimumOrderVolume.compareTo(availableBaseCurrencyBalance.abs()) > 0) {
-                    String minMsg = market.getName() + " The current BUY (short exit) order was partially filled. The remaining volume '" + priceTracker.getFormattedBaseCurrencyBalance() + "' cannot be placed as new SELL order as it is below the minimal order volume of '" + minimumOrderVolume + "'. Let the order as it is and wait until it is fulfilled.";
+                if (minimumOrderVolume.compareTo(remainingOrderAmount.abs()) > 0) {
+                    String minMsg = market.getName() + " The current BUY (short exit) order was partially filled. The remaining volume '" + remainingOrderAmount + "' cannot be placed as new SELL order as it is below the minimal order volume of '" + minimumOrderVolume + "'. Let the order as it is and wait until it is fulfilled.";
                     LOG.warn(() -> minMsg);
                     return;
                 }
@@ -414,7 +431,13 @@ public class IntelligentStateTracker {
                 LOG.info(() -> market.getName() + " The new BUY (short exit) order's price '" + priceTracker.formatWithCounterCurrency(rebuyShortPrice)
                         + "' is lower than the the current BUY (short exit) order's price ('" + priceTracker.formatWithCounterCurrency(currentExitOrderPrice) + "'). Cancel the current BUY (short exit) order '" + currentExitOrder.getId() + "' and trail the limit according down to the lower short rebuy limit.");
 
-                // TODO do this only if there is enough balance. Also for long exits
+                BigDecimal remainingOrderAmount = marketOrderState.getRemainingOrderAmount();
+                BigDecimal minimumOrderVolume = tradingApi.getMinimumOrderVolume(market.getId());
+                if (minimumOrderVolume.compareTo(remainingOrderAmount) > 0) {
+                    String minMsg = market.getName() + " The current BUY (short exit) order was partially filled. The remaining volume '" + remainingOrderAmount + "' cannot be placed as new SELL order as it is below the minimal order volume of '" + minimumOrderVolume + "'. Let the order as it is and wait until it is fulfilled.";
+                    LOG.warn(() -> minMsg);
+                    return;
+                }
 
                 boolean orderCanceled = tradingApi.cancelOrder(currentExitOrder.getId(), market.getId());
 
