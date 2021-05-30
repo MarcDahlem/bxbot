@@ -1,12 +1,13 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import static org.ta4j.core.num.NaN.NaN;
-
-import java.util.Optional;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.CachedIndicator;
 import org.ta4j.core.num.Num;
+
+import java.util.Optional;
+
+import static org.ta4j.core.num.NaN.NaN;
 
 public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
 
@@ -19,7 +20,7 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
 
     @Override
     public Num getValue(int index) {
-        if(index-frameSize >= getBarSeries().getBeginIndex() && index+frameSize < getBarSeries().getEndIndex()) {
+        if (index - frameSize >= getBarSeries().getBeginIndex() && index + frameSize < getBarSeries().getEndIndex()) {
             return super.getValue(index);
         }
         return calculate(index);
@@ -48,7 +49,7 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
         Num valueToCheck = getPivotIndicator().getValue(index);
         int startIndex = Math.max(index - frameSize, getBarSeries().getBeginIndex());
         int endIndex = Math.min(index + frameSize, getBarSeries().getEndIndex());
-        if (endIndex-index <=2) {
+        if (endIndex - index <= (frameSize / 3)) {
             return false;
         }
 
@@ -64,6 +65,8 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
     }
 
     protected abstract Indicator<Num> getPivotIndicator();
+
     protected abstract Indicator<Num> getValueIndicator();
+
     protected abstract boolean contradictsPivot(Num valueToCheck, Num otherValue);
 }
