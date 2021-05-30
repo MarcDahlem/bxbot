@@ -68,11 +68,11 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
-        int i = 200;
-        int j = 50;
+        int i = 384;
+        int j = 26;
 
-        int pivotCalculationFrame = 5;
-        int chandelierExitMultiplier = 6;
+        int pivotCalculationFrame = 6;
+        int chandelierExitMultiplier = 5;
 
         longEma = new EMAIndicator(closePriceIndicator, i);
         shortEma = new EMAIndicator(closePriceIndicator, j);

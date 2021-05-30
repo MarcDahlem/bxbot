@@ -447,7 +447,7 @@ public class IntelligentStateTracker {
         for (final OpenOrder myOrder : myOrders) {
             if (myOrder.getId().equals(order.getId())) {
                 LOG.info(() -> market.getName() + "Order is still available on the market: '. " + myOrder + "'. Check if it is fully available or partly fulfilled");
-                if (myOrder.getQuantity().equals(myOrder.getOriginalQuantity())) {
+                if (myOrder.getQuantity().compareTo(myOrder.getOriginalQuantity())==0) {
                     LOG.info(() -> market.getName() + "Order completely available.");
                     return OpenOrderState.FULL_AVAILABLE;
                 }
