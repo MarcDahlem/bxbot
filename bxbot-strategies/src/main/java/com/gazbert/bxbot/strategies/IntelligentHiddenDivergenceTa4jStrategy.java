@@ -74,7 +74,6 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         int j = 26;
 
         int pivotCalculationFrame = 6;
-        int chandelierExitMultiplier = 5;
 
         longEma = new EMAIndicator(closePriceIndicator, i);
         shortEma = new EMAIndicator(closePriceIndicator, j);
@@ -196,8 +195,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         BarSeries series = priceTracker.getSeries();
         ATRIndicator trueRangeIndicator = new ATRIndicator(series, 14);
         Number profitGainRatio = 2;
-        Number atrStopLossRatio = 2;
-        TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, atrStopLossRatio);
+        Number stoplossAtrRatio = 2;
+        TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, stoplossAtrRatio);
 
         stopLoss = new ExitIndicator(series, stateTracker.getBreakEvenIndicator(),
                 entryIndex -> enterType -> index -> {
