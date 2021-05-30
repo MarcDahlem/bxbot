@@ -92,81 +92,81 @@ markets:
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: XDGEUR
     name: XDG/EUR(ta4j-ichimoku)
     baseCurrency: XXDG
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: false
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: LTCEUR
     name: LTC/EUR(ta4j-ichimoku)
     baseCurrency: XLTC
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: BCHEUR
     name: BCH/EUR(ta4j-ichimoku)
     baseCurrency: BCH
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: DOTEUR
     name: DOT/EUR(ta4j-ichimoku)
     baseCurrency: DOT
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: XMREUR
     name: XMR/EUR(ta4j-ichimoku)
     baseCurrency: XXMR
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: UNIEUR
     name: UNI/EUR(ta4j-ichimoku)
     baseCurrency: UNI
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: false
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: DASHEUR
     name: DASH/EUR(ta4j-ichimoku)
     baseCurrency: DASH
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: KSMEUR
     name: KSM/EUR(ta4j-ichimoku)
     baseCurrency: KSM
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: false
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: EOSEUR
     name: EOS/EUR(ta4j-ichimoku)
     baseCurrency: EOS
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: XLMEUR
     name: XLM/EUR(ta4j-ichimoku)
     baseCurrency: XXLM
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: LINKEUR
     name: LINK/EUR(ta4j-ichimoku)
     baseCurrency: LINK
     counterCurrency: ZEUR
     enabled: true
     marginTradingEnabled: true
-    tradingStrategyId: intelligent-ichimoku-ta4j-with-trailing-strategy
+    tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy

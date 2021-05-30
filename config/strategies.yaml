@@ -21,7 +21,7 @@ strategies:
     beanName: intelligentTrailingStopStrategy
 
     configItems:
-      percentage-of-counter-currency-balance-to-use: 50
+      percentage-of-counter-currency-balance-to-use: 19
       configured-emergency-stop-balance: 50
 
       sell-stop-limit-percentage-below-break-even: 1.5
@@ -45,7 +45,7 @@ strategies:
     beanName: intelligentEmaTa4jStrategy
 
     configItems:
-      percentage-of-counter-currency-balance-to-use: 50
+      percentage-of-counter-currency-balance-to-use: 19
       configured-emergency-stop-balance: 50
 
       sell-stop-limit-percentage-below-break-even: 0
@@ -65,11 +65,11 @@ strategies:
     beanName: intelligentHiddenDivergenceTa4jStrategy
 
     configItems:
-      percentage-of-counter-currency-balance-to-use: 20
+      percentage-of-counter-currency-balance-to-use: 18
       configured-emergency-stop-balance: 50
 
       show-live-chart: true
-      persist-ticker-data: false
+      persist-ticker-data: true
   - id: intelligent-ichimoku-ta4j-strategy
 
     name: Intelligent Ichimoku TA4J Strategy
@@ -107,9 +107,9 @@ strategies:
       percentage-of-counter-currency-balance-to-use: 20
       configured-emergency-stop-balance: 50
 
-      sell-stop-limit-percentage-below-break-even: 1
-      sell-stop-limit-percentage-above-break-even: 4
-      sell-stop-limit-percentage-minimum-above-break-even: 0.5
+      sell-stop-limit-percentage-below-break-even: 4
+      sell-stop-limit-percentage-above-break-even: 3.5
+      sell-stop-limit-percentage-minimum-above-break-even: 3
 
       initial-percentage-gain-needed-to-place-buy-order: 2
       lowest-price-lookback-count: 120
@@ -158,8 +158,8 @@ strategies:
       percentage-of-counter-currency-balance-to-use: 25
       configured-emergency-stop-balance: 50
 
-      sell-stop-limit-percentage-below-break-even: 7
-      sell-stop-limit-percentage-above-break-even: 3
+      sell-stop-limit-percentage-below-break-even: 4
+      sell-stop-limit-percentage-above-break-even: 3.5
       sell-stop-limit-percentage-minimum-above-break-even: 1.25
 
       initial-percentage-gain-needed-to-place-buy-order: 2
