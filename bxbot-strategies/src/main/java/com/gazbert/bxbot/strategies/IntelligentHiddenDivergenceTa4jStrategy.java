@@ -150,8 +150,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createExitPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
         return new IntelligentStateTracker.OrderPriceCalculator() {
-            private UnderIndicatorRule stopLossLongReached;
-            private OverIndicatorRule stopLossShortReached;
+            private OverIndicatorRule profitGainLongReached;
+            private UnderIndicatorRule profitGainShortReached;
             private ClosePriceIndicator closePriceIndicator;
             private boolean initialized;
 
@@ -162,15 +162,15 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
                 int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
                 int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
 
-                if (marketEnterType.equals(LONG_POSITION) && stopLossLongReached.isSatisfied(checkIndex)) {
+                if (marketEnterType.equals(LONG_POSITION) && profitGainLongReached.isSatisfied(currentIndex)) {
                     return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
-                if (marketEnterType.equals(SHORT_POSITION) && stopLossShortReached.isSatisfied(checkIndex)) {
+                if (marketEnterType.equals(SHORT_POSITION) && profitGainShortReached.isSatisfied(currentIndex)) {
                     return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
                 }
 
-                return (BigDecimal) exitTakeProfitCalculator.getValue(checkIndex).getDelegate();
+                return (BigDecimal) stopLoss.getValue(checkIndex).getDelegate();
             }
 
             private void initExitRules() throws TradingApiException, ExchangeNetworkException {
@@ -178,8 +178,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
                     final BarSeries series = priceTracker.getSeries();
                     closePriceIndicator = new ClosePriceIndicator(series);
 
-                    stopLossLongReached = new UnderIndicatorRule(closePriceIndicator, stopLoss);
-                    stopLossShortReached = new OverIndicatorRule(closePriceIndicator, stopLoss);
+                    profitGainLongReached = new OverIndicatorRule(closePriceIndicator, exitTakeProfitCalculator);
+                    profitGainShortReached = new UnderIndicatorRule(closePriceIndicator, exitTakeProfitCalculator);
 
                     initialized = true;
                 }
