@@ -32,8 +32,13 @@ import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.ConstantIndicator;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.HighestValueIndicator;
+import org.ta4j.core.indicators.helpers.LowPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowestValueIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
+import org.ta4j.core.rules.IsEqualRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
@@ -93,8 +98,10 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         Rule priceOverLongReversalArea = new OverIndicatorRule(closePriceIndicator, emaUpTrendLine);
         Rule lowPriceMovesUp = new OverIndicatorRule(lastLow, secondLastLow);
         Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLastLow, rsiAtSecondLastLow);
+        Rule lastHighIsInFrame = new IsEqualRule(lastHigh, new HighestValueIndicator(new HighPriceIndicator(series), pivotCalculationFrame+1));
+        Rule lastLowIsInFrame = new IsEqualRule(lastLow, new LowestValueIndicator(new LowPriceIndicator(series), pivotCalculationFrame+1));
 
-        longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown);
+        longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown).and(lastLowIsInFrame);
         enterPriceIndicator = ExitIndicator.createEnterPriceIndicator(stateTracker.getBreakEvenIndicator());
 
         Rule downTrend = new UnderIndicatorRule(shortEma, emaDownTrendLine);
@@ -102,7 +109,7 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         Rule highPriceMovesDown = new UnderIndicatorRule(lastHigh, secondLastHigh);
         Rule oversoldIndicatorMovesUp = new OverIndicatorRule(rsiAtLastHigh, rsiAtSecondLastHigh);
 
-        shortEntryRule = downTrend.and(priceUnderLongReversalArea).and(highPriceMovesDown).and(oversoldIndicatorMovesUp);
+        shortEntryRule = downTrend.and(priceUnderLongReversalArea).and(highPriceMovesDown).and(oversoldIndicatorMovesUp).and(lastHighIsInFrame);
 
         createPublicExitIndicators();
     }
