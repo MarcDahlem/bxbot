@@ -227,7 +227,7 @@ public class TradingEngine {
                 + engineConfig.getTradeCycleInterval()
                 + "s til next trade cycle... ***");
     try {
-      Thread.sleep(engineConfig.getTradeCycleInterval() * 1000L);
+      Thread.sleep(engineConfig.getTradeCycleInterval());
     } catch (InterruptedException e) {
       LOG.warn(() -> "Control Loop thread interrupted when sleeping before next trade cycle");
       Thread.currentThread().interrupt();
@@ -259,7 +259,7 @@ public class TradingEngine {
                     exchangeAdapter.getClass().getName()));
 
     try {
-      Thread.sleep(engineConfig.getTradeCycleInterval() * 1000L);
+      Thread.sleep(engineConfig.getTradeCycleInterval());
     } catch (InterruptedException e1) {
       LOG.warn(() -> "Control Loop thread interrupted when sleeping before next trade cycle");
       Thread.currentThread().interrupt();
