@@ -7,11 +7,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.ConstantIndicator;
-import org.ta4j.core.indicators.helpers.HighestValueIndicator;
-import org.ta4j.core.indicators.helpers.LowestValueIndicator;
-import org.ta4j.core.indicators.helpers.TransformIndicator;
+import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.num.Num;
 
 /* This indicator is only active in a sell phase and when the last trade is still open. */
@@ -113,6 +109,12 @@ public class ExitIndicator extends TradeBasedIndicator<Num> {
                 tradeKnowingIndicator,
                 getNanEntryCreator(originalIndicator.getBarSeries()),
                 lowestSinceCreator);
+    }
+
+    public static ExitIndicator createEnterPriceIndicator(ExitIndicator tradeKnowingIndicator) {
+        OpenPriceIndicator openPriceIndicator = new OpenPriceIndicator(tradeKnowingIndicator.getBarSeries());
+        return new ExitIndicator(tradeKnowingIndicator.getBarSeries(), tradeKnowingIndicator,
+                entryIndex -> enterType -> index -> new ConstantIndicator<>(tradeKnowingIndicator.getBarSeries(), openPriceIndicator.getValue(entryIndex)));
     }
 
     private static Function<Integer, Function<Integer, Indicator<Num>>> getNanCreator(BarSeries series) {

@@ -1,22 +1,24 @@
 package com.gazbert.bxbot.strategies;
 
-import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.minus;
+import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.divide;
 import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.plus;
+import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.minus;
+import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.multiply;
 import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.SHORT_POSITION;
 import static org.ta4j.core.indicators.helpers.TransformIndicator.multiply;
+import static org.ta4j.core.indicators.helpers.TransformIndicator.minus;
+import static org.ta4j.core.indicators.helpers.TransformIndicator.plus;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
+import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.DelayIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.HighestPivotPointIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.LowestPivotPointIndicator;
-import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
-import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
+import com.gazbert.bxbot.trading.api.util.ta4j.*;
+
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -34,6 +36,7 @@ import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.ConstantIndicator;
+import org.ta4j.core.indicators.helpers.OpenPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.BooleanRule;
@@ -44,10 +47,6 @@ import org.ta4j.core.rules.UnderIndicatorRule;
 // used to load the strategy using Spring bean injection
 @Scope("prototype") // create always a new instance if it is injected
 public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligentStrategy {
-
-    private BaseStrategy ta4jStrategyLong;
-    private BaseStrategy ta4jStrategyShort;
-
     private Indicator<Num> longEma;
     private Indicator<Num> shortEma;
     private Indicator<Num> rsi;
@@ -57,8 +56,11 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private Indicator<Num> emaDownTrendLine;
     private Indicator<Num> rsiAtHighPivotPoints;
     private Indicator<Num> rsiAtLowPivotPoints;
-    private Indicator<Num> chandelierExitLongIndicator;
-    private Indicator<Num> chandelierExitShortIndicator;
+    private Indicator<Num> enterPriceIndicator;
+    private Rule longEntryRule;
+    private Rule shortEntryRule;
+    private Indicator<Num> stopLoss;
+    private Indicator<Num> exitTakeProfitCalculator;
 
     @Override
     protected void botWillStartup(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
@@ -92,25 +94,17 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         Rule lowPriceMovesUp = new OverIndicatorRule(lowPivotPoints, new DelayIndicator(lowPivotPoints, 1));
         Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLowPivotPoints, new DelayIndicator(rsiAtLowPivotPoints, 1));
 
-        Rule longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown);
-
-        chandelierExitLongIndicator = new ChandelierExitLongIndicator(priceTracker.getSeries(), 22, chandelierExitMultiplier);
-
-        Rule longExitRule = new UnderIndicatorRule(closePriceIndicator,chandelierExitLongIndicator);
+        longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown);
+        enterPriceIndicator = ExitIndicator.createEnterPriceIndicator(stateTracker.getBreakEvenIndicator());
 
         Rule downTrend = new UnderIndicatorRule(shortEma, emaDownTrendLine);
         Rule priceUnderLongReversalArea = new UnderIndicatorRule(closePriceIndicator, emaDownTrendLine);
         Rule highPriceMovesDown = new UnderIndicatorRule(highPivotPoints, new DelayIndicator(highPivotPoints, 1));
         Rule oversoldIndicatorMovesUp = new OverIndicatorRule(rsiAtHighPivotPoints, new DelayIndicator(rsiAtHighPivotPoints, 1));
 
-        Rule shortEntryRule = downTrend.and(priceUnderLongReversalArea).and(highPriceMovesDown).and(oversoldIndicatorMovesUp);
+        shortEntryRule = downTrend.and(priceUnderLongReversalArea).and(highPriceMovesDown).and(oversoldIndicatorMovesUp);
 
-        chandelierExitShortIndicator = new ChandelierExitShortIndicator(priceTracker.getSeries(), 22, chandelierExitMultiplier);
-
-        Rule shortExitRule = new OverIndicatorRule(closePriceIndicator,chandelierExitShortIndicator);
-
-        ta4jStrategyLong = new BaseStrategy("Intelligent Ta4j Hidden Divergence (long)", longEntryRule, longExitRule);
-        ta4jStrategyShort = new BaseStrategy("Intelligent Ta4j Hidden Divergence (short)", shortEntryRule, shortExitRule);
+        createPublicExitIndicators();
     }
 
     @Override
@@ -146,8 +140,9 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         result.add(new Ta4j2Chart.ChartIndicatorConfig(rsiAtLowPivotPoints, "rsi at last low", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR, rsiYAxisConfig));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(emaUpTrendLine, "+ATR14", Ta4j2Chart.BUY_TRIGGER_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(emaDownTrendLine, "-ATR14", Ta4j2Chart.SELL_LIMIT_3_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(chandelierExitLongIndicator, "ChandelierExit (long)", Ta4j2Chart.SELL_LIMIT_1_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(chandelierExitShortIndicator, "ChandelierExit (short)", Ta4j2Chart.SELL_LIMIT_2_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(enterPriceIndicator, "enter price", Ta4j2Chart.SELL_LIMIT_1_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(exitTakeProfitCalculator, "take profit", Ta4j2Chart.SELL_LIMIT_2_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(stopLoss, "stop loss", Ta4j2Chart.SELL_LIMIT_3_COLOR));
 
         return result;
     }
@@ -155,9 +150,39 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     @Override
     protected IntelligentStateTracker.OrderPriceCalculator createExitPriceCalculator(StrategyConfig config) throws TradingApiException, ExchangeNetworkException {
         return new IntelligentStateTracker.OrderPriceCalculator() {
+            private UnderIndicatorRule stopLossLongReached;
+            private OverIndicatorRule stopLossShortReached;
+            private ClosePriceIndicator closePriceIndicator;
+            private boolean initialized;
+
             @Override
             public BigDecimal calculate(MarketEnterType marketEnterType) throws TradingApiException, ExchangeNetworkException, StrategyException {
-                return priceTracker.getLast();
+                initExitRules();
+                int currentIndex = priceTracker.getSeries().getEndIndex();
+                int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
+                int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
+
+                if (marketEnterType.equals(LONG_POSITION) && stopLossLongReached.isSatisfied(checkIndex)) {
+                    return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
+                }
+
+                if (marketEnterType.equals(SHORT_POSITION) && stopLossShortReached.isSatisfied(checkIndex)) {
+                    return (BigDecimal) closePriceIndicator.getValue(currentIndex).getDelegate();
+                }
+
+                return (BigDecimal) exitTakeProfitCalculator.getValue(checkIndex).getDelegate();
+            }
+
+            private void initExitRules() throws TradingApiException, ExchangeNetworkException {
+                if (!initialized) {
+                    final BarSeries series = priceTracker.getSeries();
+                    closePriceIndicator = new ClosePriceIndicator(series);
+
+                    stopLossLongReached = new UnderIndicatorRule(closePriceIndicator, stopLoss);
+                    stopLossShortReached = new OverIndicatorRule(closePriceIndicator, stopLoss);
+
+                    initialized = true;
+                }
             }
 
             @Override
@@ -165,6 +190,28 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
 
             }
         };
+    }
+
+    private void createPublicExitIndicators() throws TradingApiException, ExchangeNetworkException {
+        BarSeries series = priceTracker.getSeries();
+        ATRIndicator trueRangeIndicator = new ATRIndicator(series, 14);
+        Number profitGainRatio = 2;
+        Number riskRatio = 1;
+        TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, riskRatio);
+
+        stopLoss = new ExitIndicator(series, stateTracker.getBreakEvenIndicator(),
+                entryIndex -> enterType -> index -> {
+                    if (enterType.equals(LONG_POSITION)) {
+                        return new ConstantIndicator<>(series, minus(enterPriceIndicator, trueRangeFactor).getValue(entryIndex));
+                    } else {
+                        return new ConstantIndicator<>(series, plus(enterPriceIndicator, trueRangeFactor).getValue(entryIndex));
+                    }
+                });
+        CombineIndicator factorBetweenStopLossAndEnterPrice = divide(enterPriceIndicator, stopLoss); // eg. 5/4==1.25 long or 4/5 = 0.8 short
+        TransformIndicator percentageGainOrLossOfStopLoss = minus(factorBetweenStopLossAndEnterPrice, 1); // 0.25 long or -0.2 short
+        Indicator<Num> percentageGainOrLossToReach = multiply(percentageGainOrLossOfStopLoss, profitGainRatio); // 0.25*2 = 0.5 long or -0.2*2 = -0.4
+        TransformIndicator factorToReachForGainOrLoss = plus(percentageGainOrLossToReach, 1); // 1.5 long or 0.6 short
+        exitTakeProfitCalculator = multiply(factorToReachForGainOrLoss, enterPriceIndicator); // 5*1.5 = 7.5 Long or 5*0.6 = 3 short
     }
 
     @Override
@@ -179,8 +226,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
 
     @Override
     protected Optional<MarketEnterType> shouldEnterMarket() {
-        boolean resultLong = ta4jStrategyLong.shouldEnter(priceTracker.getSeries().getEndIndex() - 1);
-        boolean resultShort = ta4jStrategyShort.shouldEnter(priceTracker.getSeries().getEndIndex() - 1);
+        boolean resultLong = longEntryRule.isSatisfied(priceTracker.getSeries().getEndIndex() - 1);
+        boolean resultShort = shortEntryRule.isSatisfied(priceTracker.getSeries().getEndIndex() - 1);
         LOG.info(() -> {
             Num currentLongEma = longEma.getValue(priceTracker.getSeries().getEndIndex());
             Num currentShortEma = shortEma.getValue(priceTracker.getSeries().getEndIndex());
@@ -201,20 +248,7 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
 
     @Override
     protected boolean shouldExitMarket() throws TradingApiException, ExchangeNetworkException {
-        int currentIndex = priceTracker.getSeries().getEndIndex();
-        int lastEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
-        int checkIndex = lastEntryIndex == currentIndex ? currentIndex : currentIndex - 1;
-        boolean resultLong = ta4jStrategyLong.shouldExit(checkIndex);
-        boolean resultShort = ta4jStrategyShort.shouldExit(checkIndex);
-
-        switch (stateTracker.getCurrentMarketEntry()) {
-            case SHORT_POSITION:
-                return resultShort;
-            case LONG_POSITION:
-                return resultLong;
-            default:
-                throw new IllegalStateException("Unkown entry type encountered: " + stateTracker.getCurrentMarketEntry());
-        }
+        return true;
     }
 
     @Override
