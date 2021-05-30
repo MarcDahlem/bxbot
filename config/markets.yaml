@@ -125,7 +125,7 @@ markets:
     name: XMR/EUR(ta4j-ichimoku)
     baseCurrency: XXMR
     counterCurrency: ZEUR
-    enabled: true
+    enabled: false
     marginTradingEnabled: true
     tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: UNIEUR
@@ -139,7 +139,7 @@ markets:
     name: DASH/EUR(ta4j-ichimoku)
     baseCurrency: DASH
     counterCurrency: ZEUR
-    enabled: true
+    enabled: false
     marginTradingEnabled: true
     tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: KSMEUR
@@ -153,14 +153,14 @@ markets:
     name: EOS/EUR(ta4j-ichimoku)
     baseCurrency: EOS
     counterCurrency: ZEUR
-    enabled: true
+    enabled: false
     marginTradingEnabled: true
     tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: XLMEUR
     name: XLM/EUR(ta4j-ichimoku)
     baseCurrency: XXLM
     counterCurrency: ZEUR
-    enabled: true
+    enabled: false
     marginTradingEnabled: true
     tradingStrategyId: intelligent-hidden-divergence-ta4j-strategy
   - id: LINKEUR
