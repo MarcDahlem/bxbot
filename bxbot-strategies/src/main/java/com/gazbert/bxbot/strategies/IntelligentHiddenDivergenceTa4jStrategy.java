@@ -12,7 +12,6 @@ import static org.ta4j.core.indicators.helpers.TransformIndicator.plus;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
 import com.gazbert.bxbot.strategies.helper.IntelligentStateTracker;
-import com.gazbert.bxbot.strategies.helper.IntelligentTrailIndicator;
 import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
@@ -26,20 +25,15 @@ import java.util.Optional;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
 import org.ta4j.core.indicators.ATRIndicator;
-import org.ta4j.core.indicators.ChandelierExitLongIndicator;
-import org.ta4j.core.indicators.ChandelierExitShortIndicator;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.ConstantIndicator;
-import org.ta4j.core.indicators.helpers.OpenPriceIndicator;
 import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.BooleanRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
@@ -50,12 +44,12 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private Indicator<Num> longEma;
     private Indicator<Num> shortEma;
     private Indicator<Num> rsi;
-    private Indicator<Num> highPivotPoints;
-    private Indicator<Num> lowPivotPoints;
+    private Indicator<Num> lastHigh;
+    private Indicator<Num> lastLow;
     private Indicator<Num> emaUpTrendLine;
     private Indicator<Num> emaDownTrendLine;
-    private Indicator<Num> rsiAtHighPivotPoints;
-    private Indicator<Num> rsiAtLowPivotPoints;
+    private Indicator<Num> rsiAtLastHigh;
+    private Indicator<Num> rsiAtLastLow;
     private Indicator<Num> enterPriceIndicator;
     private Rule longEntryRule;
     private Rule shortEntryRule;
@@ -78,28 +72,35 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         longEma = new EMAIndicator(closePriceIndicator, i);
         shortEma = new EMAIndicator(closePriceIndicator, j);
         rsi = new RSIIndicator(new ClosePriceIndicator(priceTracker.getSeries()), 14);
-        highPivotPoints = new HighestPivotPointIndicator(priceTracker.getSeries(), pivotCalculationFrame);
-        lowPivotPoints = new LowestPivotPointIndicator(priceTracker.getSeries(), pivotCalculationFrame);
+        lastHigh = new HighestPivotPointIndicator(priceTracker.getSeries(), pivotCalculationFrame);
+        lastLow = new LowestPivotPointIndicator(priceTracker.getSeries(), pivotCalculationFrame);
         ATRIndicator trueRangeIndicator = new ATRIndicator(priceTracker.getSeries(), 14);
         TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, 2);
         emaUpTrendLine = plus(longEma, trueRangeFactor);
         emaDownTrendLine = minus(longEma, trueRangeFactor);
 
-        rsiAtHighPivotPoints = new HighestPivotPointIndicator(priceTracker.getSeries(), rsi, pivotCalculationFrame);
-        rsiAtLowPivotPoints = new LowestPivotPointIndicator(priceTracker.getSeries(), rsi, pivotCalculationFrame);
+        rsiAtLastHigh = new HighestPivotPointIndicator(priceTracker.getSeries(), rsi, pivotCalculationFrame);
+        rsiAtLastLow = new LowestPivotPointIndicator(priceTracker.getSeries(), rsi, pivotCalculationFrame);
+
+        HighestPivotPointIndicator secondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(lastHigh, 1), pivotCalculationFrame);
+        LowestPivotPointIndicator secondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(lastLow, 1), pivotCalculationFrame);
+
+        HighestPivotPointIndicator rsiAtSecondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(rsiAtLastHigh, 1), pivotCalculationFrame);
+        LowestPivotPointIndicator rsiAtSecondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(rsiAtLastLow, 1), pivotCalculationFrame);
+
 
         Rule upTrend = new OverIndicatorRule(shortEma, emaUpTrendLine);
         Rule priceOverLongReversalArea = new OverIndicatorRule(closePriceIndicator, emaUpTrendLine);
-        Rule lowPriceMovesUp = new OverIndicatorRule(lowPivotPoints, new DelayIndicator(lowPivotPoints, 1));
-        Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLowPivotPoints, new DelayIndicator(rsiAtLowPivotPoints, 1));
+        Rule lowPriceMovesUp = new OverIndicatorRule(lastLow, secondLastLow);
+        Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLastLow, rsiAtSecondLastLow);
 
         longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown);
         enterPriceIndicator = ExitIndicator.createEnterPriceIndicator(stateTracker.getBreakEvenIndicator());
 
         Rule downTrend = new UnderIndicatorRule(shortEma, emaDownTrendLine);
         Rule priceUnderLongReversalArea = new UnderIndicatorRule(closePriceIndicator, emaDownTrendLine);
-        Rule highPriceMovesDown = new UnderIndicatorRule(highPivotPoints, new DelayIndicator(highPivotPoints, 1));
-        Rule oversoldIndicatorMovesUp = new OverIndicatorRule(rsiAtHighPivotPoints, new DelayIndicator(rsiAtHighPivotPoints, 1));
+        Rule highPriceMovesDown = new UnderIndicatorRule(lastHigh, secondLastHigh);
+        Rule oversoldIndicatorMovesUp = new OverIndicatorRule(rsiAtLastHigh, rsiAtSecondLastHigh);
 
         shortEntryRule = downTrend.and(priceUnderLongReversalArea).and(highPriceMovesDown).and(oversoldIndicatorMovesUp);
 
@@ -133,10 +134,10 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
                 rsiYAxisConfig));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(shortEma, "short trend", Ta4j2Chart.BUY_SHORT_LOOKBACK_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(longEma, "long trend", Ta4j2Chart.BUY_LONG_LOOKBACK_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(highPivotPoints, "last high", Ta4j2Chart.ASK_PRICE_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(rsiAtHighPivotPoints, "rsi at last high", Ta4j2Chart.SELL_LIMIT_1_COLOR, rsiYAxisConfig));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(lowPivotPoints, "last low", Ta4j2Chart.BID_PRICE_COLOR));
-        result.add(new Ta4j2Chart.ChartIndicatorConfig(rsiAtLowPivotPoints, "rsi at last low", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR, rsiYAxisConfig));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(lastHigh, "last high", Ta4j2Chart.ASK_PRICE_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(rsiAtLastHigh, "rsi at last high", Ta4j2Chart.SELL_LIMIT_1_COLOR, rsiYAxisConfig));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(lastLow, "last low", Ta4j2Chart.BID_PRICE_COLOR));
+        result.add(new Ta4j2Chart.ChartIndicatorConfig(rsiAtLastLow, "rsi at last low", Ta4j2Chart.SELL_CURRENT_LIMIT_COLOR, rsiYAxisConfig));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(emaUpTrendLine, "+ATR14", Ta4j2Chart.BUY_TRIGGER_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(emaDownTrendLine, "-ATR14", Ta4j2Chart.SELL_LIMIT_3_COLOR));
         result.add(new Ta4j2Chart.ChartIndicatorConfig(enterPriceIndicator, "enter price", Ta4j2Chart.SELL_LIMIT_1_COLOR));
