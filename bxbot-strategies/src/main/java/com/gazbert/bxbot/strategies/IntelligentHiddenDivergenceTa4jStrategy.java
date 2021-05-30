@@ -196,8 +196,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         BarSeries series = priceTracker.getSeries();
         ATRIndicator trueRangeIndicator = new ATRIndicator(series, 14);
         Number profitGainRatio = 2;
-        Number riskRatio = 1;
-        TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, riskRatio);
+        Number atrStopLossRatio = 2;
+        TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, atrStopLossRatio);
 
         stopLoss = new ExitIndicator(series, stateTracker.getBreakEvenIndicator(),
                 entryIndex -> enterType -> index -> {
