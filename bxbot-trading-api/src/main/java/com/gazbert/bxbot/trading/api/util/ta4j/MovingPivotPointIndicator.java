@@ -48,6 +48,9 @@ public abstract class MovingPivotPointIndicator extends CachedIndicator<Num> {
         Num valueToCheck = getPivotIndicator().getValue(index);
         int startIndex = Math.max(index - frameSize, getBarSeries().getBeginIndex());
         int endIndex = Math.min(index + frameSize, getBarSeries().getEndIndex());
+        if (endIndex-index <=2) {
+            return false;
+        }
 
         for (int inFrameIndex = startIndex; inFrameIndex <= endIndex; inFrameIndex++) {
             if (index != inFrameIndex) {
