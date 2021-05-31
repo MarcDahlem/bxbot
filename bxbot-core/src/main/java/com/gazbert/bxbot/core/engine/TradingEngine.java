@@ -225,7 +225,7 @@ public class TradingEngine {
         () ->
             "*** Sleeping "
                 + engineConfig.getTradeCycleInterval()
-                + "s til next trade cycle... ***");
+                + "ms til next trade cycle... ***");
     try {
       Thread.sleep(engineConfig.getTradeCycleInterval());
     } catch (InterruptedException e) {
@@ -243,7 +243,7 @@ public class TradingEngine {
         "A network error has occurred in Exchange Adapter! "
             + "BX-bot will try again in "
             + engineConfig.getTradeCycleInterval()
-            + "s...";
+            + "ms...";
     LOG.error(() -> errorMessage, e);
     emailAlerter.sendMessage(
             WARN_EMAIL_ALERT_SUBJECT,
