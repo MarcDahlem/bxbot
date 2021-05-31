@@ -161,6 +161,11 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     private void executeEnterPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " ENTER phase - check if the market moved up.");
+        Integer lastRecordedExitIndex = stateTracker.getBreakEvenIndicator().getLastRecordedExitIndex();
+        if(lastRecordedExitIndex != null && lastRecordedExitIndex == priceTracker.getSeries().getEndIndex()) {
+            LOG.warn(() -> market.getName() + " ENTER phase - Market was left this bar. Wait for the next bar");
+            return;
+        }
         Optional<MarketEnterType> marketEnterType = shouldEnterMarket();
         if (marketEnterType.isPresent()) {
             LOG.info(() -> market.getName() + " ENTER phase - The market did move. Place a ENTER order on the exchange -->");
@@ -177,6 +182,11 @@ public abstract class AbstractIntelligentStrategy implements TradingStrategy {
 
     private void executeExitPhase() throws TradingApiException, ExchangeNetworkException, StrategyException {
         LOG.info(() -> market.getName() + " EXIT phase - check if the market moved.");
+        Integer lastRecordedEntryIndex = stateTracker.getBreakEvenIndicator().getLastRecordedEntryIndex();
+        if(lastRecordedEntryIndex != null && lastRecordedEntryIndex == priceTracker.getSeries().getEndIndex()) {
+            LOG.warn(() -> market.getName() + " EXIT phase - Market was entered this bar. Wait for the next bar");
+            return;
+        }
         if (shouldExitMarket()) {
             LOG.info(() -> market.getName() + " EXIT phase - The market did move. Place a EXIT order on the exchange -->");
             stateTracker.placeExitOrder(exitPriceCalculator);
