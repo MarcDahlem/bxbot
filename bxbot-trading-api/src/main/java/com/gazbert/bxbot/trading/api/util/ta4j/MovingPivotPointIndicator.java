@@ -36,12 +36,20 @@ public abstract class MovingPivotPointIndicator extends AbstractIndicator<Num> {
 
     private ConfirmationMap buildConfirmationMap() {
         ConfirmationMap map = new ConfirmationMap();
+        Num maximaSinceLastOpposite = null;
         for(int i = getBarSeries().getBeginIndex(); i<= getBarSeries().getEndIndex(); i++) {
             if (isConfirmed(i)) {
-                map.addConfirmation(i, getPivotIndicator().getValue(i));
+                if (maximaSinceLastOpposite == null || contradictsPivot(maximaSinceLastOpposite, getPivotIndicator().getValue(i))) {
+                    map.addConfirmation(i, getPivotIndicator().getValue(i));
+                }
             }
             if (oppositPivotIndicator.isConfirmed(i)) {
                 map.addOppositeConfirmation(i);
+                maximaSinceLastOpposite = getPivotIndicator().getValue(i);
+            } else {
+                if (maximaSinceLastOpposite == null || contradictsPivot(maximaSinceLastOpposite, getPivotIndicator().getValue(i))) {
+                    maximaSinceLastOpposite = getPivotIndicator().getValue(i);
+                }
             }
         }
         return map;
