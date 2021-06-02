@@ -38,7 +38,7 @@ public abstract class MovingPivotPointIndicator extends AbstractIndicator<Num> {
         ConfirmationMap map = new ConfirmationMap();
         for(int i = getBarSeries().getBeginIndex(); i<= getBarSeries().getEndIndex(); i++) {
             if (isConfirmed(i)) {
-                map.addConfirmation(i, getConfirmationIndicator().getValue(i));
+                map.addConfirmation(i, getPivotIndicator().getValue(i));
             }
             if (oppositPivotIndicator.isConfirmed(i)) {
                 map.addOppositeConfirmation(i);
@@ -61,27 +61,13 @@ public abstract class MovingPivotPointIndicator extends AbstractIndicator<Num> {
             Num confirmationValue = getConfirmationIndicator().getValue(inFrameIndex);
             if (contradictsPivot(confirmationValue, lastConfirmation)) {
                 confirmations++;
-                if (confirmations>=3) {
+                if (confirmations>=2) {
                     return true;
                 }
                 lastConfirmation = confirmationValue;
             }
         }
         return false;
-    }
-
-    private boolean confirmsInThePast(int index) {
-        return true;
-        /*int startIndex = getBarSeries().getBeginIndex();
-        for (int inFrameIndex = index-1; inFrameIndex >= startIndex; inFrameIndex--) {
-            if (isPivotIndex(inFrameIndex)) {
-                return false;
-            }
-            if(oppositPivotIndicator.isPivotIndex(inFrameIndex)) {
-                return true;
-            }
-        }
-        return true;*/
     }
 
     public void setOppositPivotIndicator(MovingPivotPointIndicator oppositPivotIndicator) {
