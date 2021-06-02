@@ -2,7 +2,9 @@ package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import static org.ta4j.core.num.NaN.NaN;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeSet;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.AbstractIndicator;
@@ -26,34 +28,23 @@ public abstract class MovingPivotPointIndicator extends AbstractIndicator<Num> {
     }
 
     private Optional<Integer> getLatestPivotIndex(int index) {
-        Integer lastConfirmation = null;
-        Integer lastOppositeConfirmation = null;
-        while (index >= getBarSeries().getBeginIndex()) {
-            if (isConfirmed(index)) {
-                if (lastConfirmation==null) {
-                    lastConfirmation = index;
-                } else {
-                    Num lastConfirmationValue = getPivotIndicator().getValue(lastConfirmation);
-                    Num currentConfirmationValue = getPivotIndicator().getValue(index);
-                    if (!contradictsPivot(currentConfirmationValue, lastConfirmationValue)) {
-                        lastConfirmation = index;
-                    }
-                }
+        ConfirmationMap confirmationMap = buildConfirmationMap();
+        TreeSet<Integer> reversalPoints = confirmationMap.computeReversalPoints(this::contradictsPivot);
+        Integer lastReversalPoint = reversalPoints.floor(index);
+        return lastReversalPoint==null ? Optional.empty() : Optional.of(lastReversalPoint);
+    }
+
+    private ConfirmationMap buildConfirmationMap() {
+        ConfirmationMap map = new ConfirmationMap();
+        for(int i = getBarSeries().getBeginIndex(); i<= getBarSeries().getEndIndex(); i++) {
+            if (isConfirmed(i)) {
+                map.addConfirmation(i, getConfirmationIndicator().getValue(i));
             }
-            if (oppositPivotIndicator.isConfirmed(index)) {
-                if(lastConfirmation == null) {
-                    return getLatestPivotIndex(index-1);
-                } else {
-                    return Optional.of(lastConfirmation);
-                }
+            if (oppositPivotIndicator.isConfirmed(i)) {
+                map.addOppositeConfirmation(i);
             }
-            index--;
         }
-        if(lastConfirmation == null) {
-            return Optional.empty();
-        } else {
-            return Optional.of(lastConfirmation);
-        }
+        return map;
     }
 
     private boolean isConfirmed(int index) {
@@ -70,13 +61,13 @@ public abstract class MovingPivotPointIndicator extends AbstractIndicator<Num> {
             Num confirmationValue = getConfirmationIndicator().getValue(inFrameIndex);
             if (contradictsPivot(confirmationValue, lastConfirmation)) {
                 confirmations++;
+                if (confirmations>=3) {
+                    return true;
+                }
                 lastConfirmation = confirmationValue;
             }
-            if (oppositPivotIndicator.isConfirmed(inFrameIndex)) {
-                return confirmations>=2;
-            }
         }
-        return confirmations>=2;
+        return false;
     }
 
     private boolean confirmsInThePast(int index) {
