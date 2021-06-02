@@ -49,12 +49,12 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private Indicator<Num> longEma;
     private Indicator<Num> shortEma;
     private Indicator<Num> rsi;
-    private Indicator<Num> lastHigh;
-    private Indicator<Num> lastLow;
+    private MovingPivotPointIndicator lastHigh;
+    private MovingPivotPointIndicator lastLow;
     private Indicator<Num> emaUpTrendLine;
     private Indicator<Num> emaDownTrendLine;
-    private Indicator<Num> rsiAtLastHigh;
-    private Indicator<Num> rsiAtLastLow;
+    private MovingPivotPointIndicator rsiAtLastHigh;
+    private MovingPivotPointIndicator rsiAtLastLow;
     private Indicator<Num> enterPriceIndicator;
     private Rule longEntryRule;
     private Rule shortEntryRule;
@@ -77,22 +77,29 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         longEma = new EMAIndicator(closePriceIndicator, i);
         shortEma = new EMAIndicator(closePriceIndicator, j);
         rsi = new RSIIndicator(new ClosePriceIndicator(priceTracker.getSeries()), 14);
-        lastHigh = new HighestPivotPointIndicator(priceTracker.getSeries(), pivotCalculationFrame);
-        lastLow = new LowestPivotPointIndicator(priceTracker.getSeries(), pivotCalculationFrame);
+        lastHigh = new HighestPivotPointIndicator(priceTracker.getSeries());
+        lastLow = new LowestPivotPointIndicator(priceTracker.getSeries());
+        lastHigh.setOppositPivotIndicator(lastLow);
+        lastLow.setOppositPivotIndicator(lastHigh);
         ATRIndicator trueRangeIndicator = new ATRIndicator(priceTracker.getSeries(), 14);
         TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, 2);
         emaUpTrendLine = plus(longEma, trueRangeFactor);
         emaDownTrendLine = minus(longEma, trueRangeFactor);
 
-        rsiAtLastHigh = new HighestPivotPointIndicator(priceTracker.getSeries(), rsi, pivotCalculationFrame);
-        rsiAtLastLow = new LowestPivotPointIndicator(priceTracker.getSeries(), rsi, pivotCalculationFrame);
+        rsiAtLastHigh = new HighestPivotPointIndicator(priceTracker.getSeries(), rsi);
+        rsiAtLastLow = new LowestPivotPointIndicator(priceTracker.getSeries(), rsi);
+        rsiAtLastHigh.setOppositPivotIndicator(rsiAtLastLow);
+        rsiAtLastLow.setOppositPivotIndicator(rsiAtLastHigh);
 
-        HighestPivotPointIndicator secondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(lastHigh, 1), pivotCalculationFrame);
-        LowestPivotPointIndicator secondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(lastLow, 1), pivotCalculationFrame);
+        HighestPivotPointIndicator secondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(lastHigh, 1));
+        LowestPivotPointIndicator secondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(lastLow, 1));
+        secondLastHigh.setOppositPivotIndicator(secondLastLow);
+        secondLastLow.setOppositPivotIndicator(secondLastHigh);
 
-        HighestPivotPointIndicator rsiAtSecondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(rsiAtLastHigh, 1), pivotCalculationFrame);
-        LowestPivotPointIndicator rsiAtSecondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(rsiAtLastLow, 1), pivotCalculationFrame);
-
+        HighestPivotPointIndicator rsiAtSecondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(rsiAtLastHigh, 1));
+        LowestPivotPointIndicator rsiAtSecondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(rsiAtLastLow, 1));
+        rsiAtSecondLastHigh.setOppositPivotIndicator(rsiAtSecondLastLow);
+        rsiAtSecondLastLow.setOppositPivotIndicator(rsiAtSecondLastHigh);
 
         Rule upTrend = new OverIndicatorRule(shortEma, emaUpTrendLine);
         Rule priceOverLongReversalArea = new OverIndicatorRule(closePriceIndicator, emaUpTrendLine);

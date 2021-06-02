@@ -2,19 +2,27 @@ package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.num.Num;
 
 public class LowestPivotPointIndicator extends MovingPivotPointIndicator {
     private final LowPriceIndicator lowPriceIndicator;
     private final Indicator<Num> valueIndicator;
+    private final HighPriceIndicator highPriceIndicator;
 
-    public LowestPivotPointIndicator(BarSeries series, int frameSize) {
-        this(series, null, frameSize);
+    public LowestPivotPointIndicator(BarSeries series) {
+        this(series, null);
     }
 
-    public LowestPivotPointIndicator(BarSeries series, Indicator<Num> valueIndicator, int frameSize) {
-        super(series, frameSize);
+    @Override
+    protected Indicator<Num> getConfirmationIndicator() {
+        return highPriceIndicator;
+    }
+
+    public LowestPivotPointIndicator(BarSeries series, Indicator<Num> valueIndicator) {
+        super(series);
+        this.highPriceIndicator = new HighPriceIndicator(series);
         this.lowPriceIndicator = new LowPriceIndicator(series);
         this.valueIndicator = valueIndicator == null ? lowPriceIndicator : valueIndicator;
     }

@@ -9,14 +9,16 @@ import org.ta4j.core.num.Num;
 public class HighestPivotPointIndicator extends MovingPivotPointIndicator {
     private final HighPriceIndicator highPriceIndicator;
     private final Indicator<Num> valueIndicator;
+    private final LowPriceIndicator lowPriceIndicator;
 
-    public HighestPivotPointIndicator(BarSeries series, int frameSize) {
-        this(series, null, frameSize);
+    public HighestPivotPointIndicator(BarSeries series) {
+        this(series, null);
     }
 
-    public HighestPivotPointIndicator(BarSeries series, Indicator<Num> valueIndicator, int frameSize) {
-        super(series, frameSize);
+    public HighestPivotPointIndicator(BarSeries series, Indicator<Num> valueIndicator) {
+        super(series);
         this.highPriceIndicator = new HighPriceIndicator(series);
+        this.lowPriceIndicator = new LowPriceIndicator(series);
         this.valueIndicator = valueIndicator == null ? highPriceIndicator : valueIndicator;
     }
 
@@ -33,5 +35,10 @@ public class HighestPivotPointIndicator extends MovingPivotPointIndicator {
     @Override
     protected boolean contradictsPivot(Num valueToCheck, Num otherValue) {
         return valueToCheck.isLessThan(otherValue);
+    }
+
+    @Override
+    protected Indicator<Num> getConfirmationIndicator() {
+        return lowPriceIndicator;
     }
 }
