@@ -69,7 +69,7 @@ public abstract class MovingPivotPointIndicator extends AbstractIndicator<Num> {
             Num confirmationValue = getConfirmationIndicator().getValue(inFrameIndex);
             if (contradictsPivot(confirmationValue, lastConfirmation)) {
                 confirmations++;
-                if (confirmations>=2) {
+                if (confirmations>=3) {
                     return true;
                 }
                 lastConfirmation = confirmationValue;

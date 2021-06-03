@@ -69,10 +69,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private void initTa4jStrategy() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
-        int i = 138;
-        int j = 77;
-
-        int pivotCalculationFrame = 11;
+        int i = 200;
+        int j = 50;
 
         longEma = new EMAIndicator(closePriceIndicator, i);
         shortEma = new EMAIndicator(closePriceIndicator, j);
@@ -105,8 +103,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         Rule priceOverLongReversalArea = new OverIndicatorRule(closePriceIndicator, emaUpTrendLine);
         Rule lowPriceMovesUp = new OverIndicatorRule(lastLow, secondLastLow);
         Rule oversoldIndicatorMovesDown = new UnderIndicatorRule(rsiAtLastLow, rsiAtSecondLastLow);
-        Rule lastHighIsInFrame = new IsEqualRule(lastHigh, new HighestValueIndicator(new HighPriceIndicator(series), pivotCalculationFrame+1));
-        Rule lastLowIsInFrame = new IsEqualRule(lastLow, new LowestValueIndicator(new LowPriceIndicator(series), pivotCalculationFrame+1));
+        Rule lastHighIsInFrame = new IsEqualRule(lastHigh, new HighestValueIndicator(new HighPriceIndicator(series), 6));
+        Rule lastLowIsInFrame = new IsEqualRule(lastLow, new LowestValueIndicator(new LowPriceIndicator(series), 6));
 
         longEntryRule = upTrend.and(priceOverLongReversalArea).and(lowPriceMovesUp).and(oversoldIndicatorMovesDown).and(lastLowIsInFrame);
         enterPriceIndicator = ExitIndicator.createEnterPriceIndicator(stateTracker.getBreakEvenIndicator());
@@ -209,8 +207,8 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private void createPublicExitIndicators() throws TradingApiException, ExchangeNetworkException {
         BarSeries series = priceTracker.getSeries();
         ATRIndicator trueRangeIndicator = new ATRIndicator(series, 14);
-        Number profitGainRatio = 2;
-        Number stoplossAtrRatio = 7;
+        Number profitGainRatio = 1.75;
+        Number stoplossAtrRatio = 6;
         TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, stoplossAtrRatio);
 
         stopLoss = new ExitIndicator(series, stateTracker.getBreakEvenIndicator(),
