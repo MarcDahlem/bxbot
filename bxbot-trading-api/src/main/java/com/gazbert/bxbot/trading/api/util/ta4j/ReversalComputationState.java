@@ -43,7 +43,7 @@ public class ReversalComputationState {
         } else {
             if(currentLowPrice.isLessThan(lowestSinceLastConfirmedHigh.getLast())) {
                 lowestSinceLastConfirmedHigh.add(currentLowPrice);
-                if(doesCurrentLowPriceConfirmsLow(currentHighPrice)) {
+                if(doesCurrentHighPriceConfirmsLow(currentHighPrice)) {
                     possibleLows.add(index);
                     highAdded = addHigh();
                 }
@@ -99,7 +99,7 @@ public class ReversalComputationState {
         return false;
     }
 
-    private boolean doesCurrentLowPriceConfirmsLow(Num currentHighPrice) {
+    private boolean doesCurrentHighPriceConfirmsLow(Num currentHighPrice) {
         return highsSinceLastHigh.tailSet(currentHighPrice, false).size() >=2;
     }
 
