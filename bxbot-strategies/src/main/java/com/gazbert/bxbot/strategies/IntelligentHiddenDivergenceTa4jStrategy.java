@@ -1,13 +1,13 @@
 package com.gazbert.bxbot.strategies;
 
 import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.divide;
-import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.plus;
 import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.minus;
 import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.multiply;
+import static com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator.plus;
 import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.LONG_POSITION;
 import static com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType.SHORT_POSITION;
-import static org.ta4j.core.indicators.helpers.TransformIndicator.multiply;
 import static org.ta4j.core.indicators.helpers.TransformIndicator.minus;
+import static org.ta4j.core.indicators.helpers.TransformIndicator.multiply;
 import static org.ta4j.core.indicators.helpers.TransformIndicator.plus;
 
 import com.gazbert.bxbot.strategies.helper.IntelligentEnterPriceCalculator;
@@ -16,8 +16,12 @@ import com.gazbert.bxbot.strategy.api.StrategyConfig;
 import com.gazbert.bxbot.strategy.api.StrategyException;
 import com.gazbert.bxbot.trading.api.ExchangeNetworkException;
 import com.gazbert.bxbot.trading.api.TradingApiException;
-import com.gazbert.bxbot.trading.api.util.ta4j.*;
-
+import com.gazbert.bxbot.trading.api.util.ta4j.CombineIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.DelayIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.ExitIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.MarketEnterType;
+import com.gazbert.bxbot.trading.api.util.ta4j.ReversalPointsIndicator;
+import com.gazbert.bxbot.trading.api.util.ta4j.Ta4j2Chart;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -49,12 +53,12 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
     private Indicator<Num> longEma;
     private Indicator<Num> shortEma;
     private Indicator<Num> rsi;
-    private MovingPivotPointIndicator lastHigh;
-    private MovingPivotPointIndicator lastLow;
+    private ReversalPointsIndicator lastHigh;
+    private ReversalPointsIndicator lastLow;
     private Indicator<Num> emaUpTrendLine;
     private Indicator<Num> emaDownTrendLine;
-    private MovingPivotPointIndicator rsiAtLastHigh;
-    private MovingPivotPointIndicator rsiAtLastLow;
+    private ReversalPointsIndicator rsiAtLastHigh;
+    private ReversalPointsIndicator rsiAtLastLow;
     private Indicator<Num> enterPriceIndicator;
     private Rule longEntryRule;
     private Rule shortEntryRule;
@@ -75,29 +79,22 @@ public class IntelligentHiddenDivergenceTa4jStrategy extends AbstractIntelligent
         longEma = new EMAIndicator(closePriceIndicator, i);
         shortEma = new EMAIndicator(closePriceIndicator, j);
         rsi = new RSIIndicator(new ClosePriceIndicator(priceTracker.getSeries()), 14);
-        lastHigh = new HighestPivotPointIndicator(priceTracker.getSeries());
-        lastLow = new LowestPivotPointIndicator(priceTracker.getSeries());
-        lastHigh.setOppositPivotIndicator(lastLow);
-        lastLow.setOppositPivotIndicator(lastHigh);
+        lastHigh = new ReversalPointsIndicator(priceTracker.getSeries(), ReversalPointsIndicator.ReversalType.HIGHS);
+        lastLow = new ReversalPointsIndicator(priceTracker.getSeries(), ReversalPointsIndicator.ReversalType.LOWS);
+
         ATRIndicator trueRangeIndicator = new ATRIndicator(priceTracker.getSeries(), 14);
         TransformIndicator trueRangeFactor = multiply(trueRangeIndicator, 2);
         emaUpTrendLine = plus(longEma, trueRangeFactor);
         emaDownTrendLine = minus(longEma, trueRangeFactor);
 
-        rsiAtLastHigh = new HighestPivotPointIndicator(priceTracker.getSeries(), rsi);
-        rsiAtLastLow = new LowestPivotPointIndicator(priceTracker.getSeries(), rsi);
-        rsiAtLastHigh.setOppositPivotIndicator(rsiAtLastLow);
-        rsiAtLastLow.setOppositPivotIndicator(rsiAtLastHigh);
+        rsiAtLastHigh = new ReversalPointsIndicator(priceTracker.getSeries(), ReversalPointsIndicator.ReversalType.HIGHS, rsi);
+        rsiAtLastLow = new ReversalPointsIndicator(priceTracker.getSeries(), ReversalPointsIndicator.ReversalType.LOWS, rsi);
 
-        HighestPivotPointIndicator secondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(lastHigh, 1));
-        LowestPivotPointIndicator secondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(lastLow, 1));
-        secondLastHigh.setOppositPivotIndicator(secondLastLow);
-        secondLastLow.setOppositPivotIndicator(secondLastHigh);
+        ReversalPointsIndicator secondLastHigh = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.HIGHS, new DelayIndicator(lastHigh, 1));
+        ReversalPointsIndicator secondLastLow = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.LOWS, new DelayIndicator(lastLow, 1));
 
-        HighestPivotPointIndicator rsiAtSecondLastHigh = new HighestPivotPointIndicator(series, new DelayIndicator(rsiAtLastHigh, 1));
-        LowestPivotPointIndicator rsiAtSecondLastLow = new LowestPivotPointIndicator(series, new DelayIndicator(rsiAtLastLow, 1));
-        rsiAtSecondLastHigh.setOppositPivotIndicator(rsiAtSecondLastLow);
-        rsiAtSecondLastLow.setOppositPivotIndicator(rsiAtSecondLastHigh);
+        ReversalPointsIndicator rsiAtSecondLastHigh = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.HIGHS, new DelayIndicator(rsiAtLastHigh, 1));
+        ReversalPointsIndicator rsiAtSecondLastLow = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.LOWS, new DelayIndicator(rsiAtLastLow, 1));
 
         Rule upTrend = new OverIndicatorRule(shortEma, emaUpTrendLine);
         Rule priceOverLongReversalArea = new OverIndicatorRule(closePriceIndicator, emaUpTrendLine);
