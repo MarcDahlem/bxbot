@@ -10,7 +10,7 @@ import org.ta4j.core.num.Num;
 public class ReversalComputationState {
 
 
-    public static final int CONFIRMATIONS = 2;
+    public static final int CONFIRMATIONS = 3;
     private final HighPriceIndicator highPriceIndicator;
     private final LowPriceIndicator lowPriceIndicator;
 
@@ -116,7 +116,7 @@ public class ReversalComputationState {
         TreeSet<Num> lastLows = succeedingLowsAtLastReversal.removeLast();
         Num currentHighest = succeedingLowsSinceLastReversal.last();
         succeedingLowsSinceLastReversal.addAll(lastLows);
-        succeedingLowsSinceLastReversal = new TreeSet<>(lastLows.headSet(currentHighest, true));
+        succeedingLowsSinceLastReversal = new TreeSet<>(succeedingLowsSinceLastReversal.headSet(currentHighest, true));
 
         TreeSet<Num> lastHighs = succeedingHighsAtLastReversal.removeLast();
         Num currentLowest = succeedingHighsSinceLastReversal.first();
