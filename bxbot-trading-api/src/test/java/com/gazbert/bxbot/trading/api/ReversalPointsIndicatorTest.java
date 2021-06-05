@@ -1,6 +1,7 @@
 package com.gazbert.bxbot.trading.api;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.ta4j.core.num.NaN.NaN;
 
 import com.gazbert.bxbot.trading.api.util.ta4j.ReversalPointsIndicator;
@@ -349,5 +350,38 @@ public class ReversalPointsIndicatorTest {
     @Test
     public void resetsHighsOnNonConfirmedLows() {
         //TODO
+    }
+
+    @Test
+    public void unconfirmedLowCannotLeadToHigherLow() {
+        series.addBar(startTime,1.3, 1.4,1.1, 1.2); //unconfirmed Low
+        series.addBar(startTime.plusDays(1),4.3,4.4,4.1,4.2); //confirmed high
+        series.addBar(startTime.plusDays(2),3.3,3.4,3.1,3.2);
+        series.addBar(startTime.plusDays(3),2.3,2.4,2.1,2.2); // confirms high + first confirmed low
+        series.addBar(startTime.plusDays(4),2.31,2.41,2.11,2.21);
+        series.addBar(startTime.plusDays(5),3.31,3.41,3.11,3.21);
+        series.addBar(startTime.plusDays(6),5.3,5.4,5.1,5.2);
+
+
+        ReversalPointsIndicator lowsIndicator = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.LOWS);
+        ReversalPointsIndicator highsIndicator = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.HIGHS);
+
+        assertNotEquals(series.numOf(2.1), lowsIndicator.getValue(6));
+
+        assertEquals(series.numOf(1.1), lowsIndicator.getValue(0));
+        assertEquals(series.numOf(1.1), lowsIndicator.getValue(1));
+        assertEquals(series.numOf(1.1), lowsIndicator.getValue(2));
+        assertEquals(series.numOf(1.1), lowsIndicator.getValue(3));
+        assertEquals(series.numOf(1.1), lowsIndicator.getValue(4));
+        assertEquals(series.numOf(1.1), lowsIndicator.getValue(5));
+        assertEquals(series.numOf(1.1), lowsIndicator.getValue(6));
+
+        assertEquals(NaN, highsIndicator.getValue(0));
+        assertEquals(NaN, highsIndicator.getValue(1));
+        assertEquals(NaN, highsIndicator.getValue(2));
+        assertEquals(NaN, highsIndicator.getValue(3));
+        assertEquals(NaN, highsIndicator.getValue(4));
+        assertEquals(NaN, highsIndicator.getValue(5));
+        assertEquals(NaN, highsIndicator.getValue(6));
     }
 }

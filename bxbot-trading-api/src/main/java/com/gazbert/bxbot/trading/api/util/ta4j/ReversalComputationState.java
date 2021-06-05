@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 public class ReversalComputationState {
 
 
-    public static final int CONFIRMATIONS = 3;
+    public static final int CONFIRMATIONS = 2;
     private final HighPriceIndicator highPriceIndicator;
     private final LowPriceIndicator lowPriceIndicator;
 
@@ -87,6 +87,21 @@ public class ReversalComputationState {
                 if (confirmed) {
                     lows.add(index);
                     updateStateTo(currentHighPrice, currentLowPrice, SearchState.HIGH);
+                } else {
+                    Num lastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
+                    if (lastConfirmedLow!= null && currentLowPrice.isLessThan(lastConfirmedLow)) {
+                        highs.removeLast();
+                        revertLastReversal();
+                        lows.removeLast();
+                        revertLastReversal();
+                        Num secondLastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
+                        if (secondLastConfirmedHigh == null) {
+                            currentSearchState = SearchState.BOTH;
+                            searchStart(currentHighPrice, currentLowPrice, index);
+                        } else {
+                            searchLow(currentHighPrice, currentLowPrice, index);
+                        }
+                    }
                 }
             }
         }
@@ -113,6 +128,23 @@ public class ReversalComputationState {
                 if (confirmed) {
                     highs.add(index);
                     updateStateTo(currentHighPrice, currentLowPrice, SearchState.LOW);
+                } else {
+                    Num lastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
+                    if (lastConfirmedHigh!= null && currentHighPrice.isGreaterThan(lastConfirmedHigh)) {
+                        lows.removeLast();
+                        revertLastReversal();
+
+                        highs.removeLast();
+                        revertLastReversal();
+
+                        Num secondLastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
+                        if (secondLastConfirmedLow == null) {
+                            currentSearchState = SearchState.BOTH;
+                            searchStart(currentHighPrice, currentLowPrice, index);
+                        } else {
+                            searchHigh(currentHighPrice, currentLowPrice, index);
+                        }
+                    }
                 }
             }
         }
