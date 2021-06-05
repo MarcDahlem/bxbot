@@ -2,7 +2,6 @@ package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import java.util.Collection;
 import java.util.LinkedList;
-import java.util.NavigableSet;
 import java.util.TreeSet;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
@@ -11,19 +10,24 @@ import org.ta4j.core.num.Num;
 public class ReversalComputationState {
 
 
+    public static final int CONFIRMATIONS = 2;
     private final HighPriceIndicator highPriceIndicator;
     private final LowPriceIndicator lowPriceIndicator;
 
-    private final LinkedList<Num> lowestSinceLastConfirmedHigh = new LinkedList<>();
-    private final LinkedList<Num> highestSinceLastConfirmedLow = new LinkedList<>();
-
-
-    private final LinkedList<Integer> possibleHighs = new LinkedList<>();
-    private final LinkedList<Integer> possibleLows = new LinkedList<>();
     private final LinkedList<Integer> highs = new LinkedList<>();
     private final LinkedList<Integer> lows = new LinkedList<>();
-    private NavigableSet<Num> lowsSinceLastLow = new TreeSet<>();
-    private NavigableSet<Num> highsSinceLastHigh = new TreeSet<>();
+
+    private SearchState currentSearchState = SearchState.BOTH;
+    private final LinkedList<TreeSet<Num>> succeedingLowsAtLastReversal = new LinkedList<>();
+    private TreeSet<Num> succeedingLowsSinceLastReversal = new TreeSet<>();
+
+    private final LinkedList<TreeSet<Num>> succeedingHighsAtLastReversal = new LinkedList<>();
+    private TreeSet<Num> succeedingHighsSinceLastReversal = new TreeSet<>();
+
+    private final LinkedList<Num> lowestAtLastReversal = new LinkedList<>();
+    private Num lowestSinceLastReversal;
+    private final LinkedList<Num> highestAtLastReversal = new LinkedList<>();
+    private Num highestSinceLastReversal;
 
     public ReversalComputationState(HighPriceIndicator highPriceIndicator, LowPriceIndicator lowPriceIndicator) {
 
@@ -35,76 +39,133 @@ public class ReversalComputationState {
         Num currentHighPrice = highPriceIndicator.getValue(index);
         Num currentLowPrice = lowPriceIndicator.getValue(index);
 
-        boolean highAdded = false;
-        boolean lowAdded = false;
+        Num lastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
+        Num lastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
 
-        if(lowestSinceLastConfirmedHigh.isEmpty()) {
-            lowestSinceLastConfirmedHigh.add(currentLowPrice);
+        switch (currentSearchState) {
+            case BOTH:
+                searchStart(currentHighPrice, currentLowPrice, index);
+                break;
+            case LOW:
+                searchLow(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+                break;
+            case HIGH:
+                searchHigh(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+                break;
+            default:
+                throw new IllegalStateException("Unknown state: " + currentSearchState);
+        }
+        succeedingLowsSinceLastReversal.add(currentLowPrice);
+        succeedingLowsSinceLastReversal = new TreeSet<>(succeedingLowsSinceLastReversal.headSet(currentLowPrice, true));
+        succeedingHighsSinceLastReversal.add(currentHighPrice);
+        succeedingHighsSinceLastReversal = new TreeSet<>(succeedingHighsSinceLastReversal.tailSet(currentHighPrice, true));
+        lowestSinceLastReversal = lowestSinceLastReversal == null ? currentLowPrice : currentLowPrice.min(lowestSinceLastReversal);
+        highestSinceLastReversal = highestSinceLastReversal == null ? currentHighPrice : currentHighPrice.max(highestSinceLastReversal);
+    }
+
+    private void searchLow(Num currentHighPrice, Num currentLowPrice, Num lastConfirmedHigh, Num lastConfirmedLow, int index) {
+        if (currentHighPrice.isGreaterThan(lastConfirmedHigh)) {
+            highs.removeLast();
+
+            revertLastReversal();
+
+            if (lastConfirmedLow == null) {
+                currentSearchState = SearchState.BOTH;
+                searchStart(currentHighPrice, currentLowPrice, index);
+            } else {
+                currentSearchState = SearchState.HIGH;
+                searchHigh(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+            }
         } else {
-            if(currentLowPrice.isLessThan(lowestSinceLastConfirmedHigh.getLast())) {
-                lowestSinceLastConfirmedHigh.add(currentLowPrice);
-                if(doesCurrentHighPriceConfirmsLow(currentHighPrice)) {
-                    possibleLows.add(index);
-                    highAdded = addHigh();
+            if (currentLowPrice.isLessThan(lowestSinceLastReversal)) {
+                boolean confirmed = succeedingHighsSinceLastReversal.tailSet(currentHighPrice).size() >= CONFIRMATIONS;
+                if (confirmed) {
+                    lows.add(index);
+                    updateStateTo(currentHighPrice, currentLowPrice, SearchState.HIGH);
                 }
             }
         }
-        if(highestSinceLastConfirmedLow.isEmpty()) {
-            highestSinceLastConfirmedLow.add(currentHighPrice);
+    }
+
+    private void searchHigh(Num currentHighPrice, Num currentLowPrice, Num lastConfirmedHigh, Num lastConfirmedLow, int index) {
+        if (currentLowPrice.isLessThan(lastConfirmedLow)) {
+            lows.removeLast();
+
+            revertLastReversal();
+
+            if (lastConfirmedHigh == null) {
+                currentSearchState = SearchState.BOTH;
+                searchStart(currentHighPrice, currentLowPrice, index);
+            } else {
+                currentSearchState = SearchState.LOW;
+                searchLow(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+            }
         } else {
-            if (currentHighPrice.isGreaterThan(highestSinceLastConfirmedLow.getLast())) {
-                highestSinceLastConfirmedLow.add(currentHighPrice);
-                if(doesCurrentLowPriceConfirmsHigh(currentLowPrice)) {
-                    possibleHighs.add(index);
-                    lowAdded = addLow();
+            if (currentHighPrice.isGreaterThan(highestSinceLastReversal)) {
+                boolean confirmed = succeedingLowsSinceLastReversal.headSet(currentLowPrice).size() >= CONFIRMATIONS;
+                if (confirmed) {
+                    highs.add(index);
+                    updateStateTo(currentHighPrice, currentLowPrice, SearchState.LOW);
                 }
             }
         }
-        if (!lowAdded) {
-            lowsSinceLastLow.add(currentLowPrice);
-            lowsSinceLastLow = new TreeSet<>(lowsSinceLastLow.headSet(currentLowPrice, true));
-        }
-
-        if (!highAdded) {
-            highsSinceLastHigh.add(currentHighPrice);
-            highsSinceLastHigh = new TreeSet<>(highsSinceLastHigh.tailSet(currentHighPrice, true));
-        }
     }
 
-    private boolean addHigh() {
-        if (!possibleHighs.isEmpty()) {
-            Num lastHigh = highPriceIndicator.getValue(possibleHighs.getLast());
-            if (lastHigh.equals(highestSinceLastConfirmedLow.getLast())) {
-                highs.add(possibleHighs.getLast());
-                possibleHighs.clear();
-                lowestSinceLastConfirmedHigh.clear();
-                highsSinceLastHigh.clear();
-                return true;
+    private void revertLastReversal() {
+        TreeSet<Num> lastLows = succeedingLowsAtLastReversal.removeLast();
+        Num currentHighest = succeedingLowsSinceLastReversal.last();
+        succeedingLowsSinceLastReversal.addAll(lastLows);
+        succeedingLowsSinceLastReversal = new TreeSet<>(lastLows.headSet(currentHighest, true));
+
+        TreeSet<Num> lastHighs = succeedingHighsAtLastReversal.removeLast();
+        Num currentLowest = succeedingHighsSinceLastReversal.first();
+        succeedingHighsSinceLastReversal.addAll(lastHighs);
+        succeedingHighsSinceLastReversal = new TreeSet<>(succeedingHighsSinceLastReversal.tailSet(currentLowest, true));
+
+        lowestSinceLastReversal = lowestSinceLastReversal.min(lowestAtLastReversal.removeLast());
+        highestSinceLastReversal = highestSinceLastReversal.max(highestAtLastReversal.removeLast());
+    }
+
+    private void updateStateTo(Num currentHighPrice, Num currentLowPrice, SearchState newState) {
+        succeedingLowsAtLastReversal.add(succeedingLowsSinceLastReversal);
+        succeedingLowsSinceLastReversal = new TreeSet<>();
+
+        succeedingHighsAtLastReversal.add(succeedingHighsSinceLastReversal);
+        succeedingHighsSinceLastReversal = new TreeSet<>();
+
+        lowestAtLastReversal.add(lowestSinceLastReversal);
+        highestAtLastReversal.add(highestSinceLastReversal);
+
+        lowestSinceLastReversal = currentLowPrice;
+        highestSinceLastReversal = currentHighPrice;
+        currentSearchState = newState;
+    }
+
+    private void searchStart(Num currentHighPrice, Num currentLowPrice, int index) {
+        if(highestSinceLastReversal == null || lowestSinceLastReversal == null) {
+            return;
+        }
+
+        if (currentHighPrice.isGreaterThan(highestSinceLastReversal)) {
+                boolean confirmed = succeedingLowsSinceLastReversal.headSet(currentLowPrice).size() >= CONFIRMATIONS;
+                if (confirmed) {
+                    if (currentLowPrice.isLessThan(lowestSinceLastReversal)) {
+                        boolean highAlsoConfirmed = succeedingHighsSinceLastReversal.tailSet(currentHighPrice).size() >= CONFIRMATIONS;
+                        if (highAlsoConfirmed) {
+                            throw new IllegalStateException("Cannot find lows and highs at the same time");
+                        }
+                    }
+                    highs.add(index);
+                    updateStateTo(currentHighPrice, currentLowPrice, SearchState.LOW);
+                }
+        }
+        if (currentLowPrice.isLessThan(lowestSinceLastReversal)) {
+            boolean confirmed = succeedingHighsSinceLastReversal.tailSet(currentHighPrice).size() >= CONFIRMATIONS;
+            if (confirmed) {
+                lows.add(index);
+                updateStateTo(currentHighPrice, currentLowPrice, SearchState.HIGH);
             }
         }
-        return false;
-    }
-
-    private boolean addLow() {
-        if (!possibleLows.isEmpty()) {
-            Num lastLowPrice = lowPriceIndicator.getValue(possibleLows.getLast());
-            if (lastLowPrice.equals(lowestSinceLastConfirmedHigh.getLast())) {
-                lows.add(possibleLows.getLast());
-                possibleLows.clear();
-                highestSinceLastConfirmedLow.clear();
-                lowsSinceLastLow.clear();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean doesCurrentHighPriceConfirmsLow(Num currentHighPrice) {
-        return highsSinceLastHigh.tailSet(currentHighPrice, false).size() >=2;
-    }
-
-    private boolean doesCurrentLowPriceConfirmsHigh(Num currentLowPrice) {
-        return lowsSinceLastLow.headSet(currentLowPrice, false).size() >=2;
     }
 
     public Collection<Integer> getLows() {
@@ -116,7 +177,9 @@ public class ReversalComputationState {
     }
 
     public void finish() {
-        addLow();
-        addHigh();
+    }
+
+    private enum SearchState {
+        LOW, HIGH, BOTH;
     }
 }
