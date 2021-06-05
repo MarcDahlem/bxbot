@@ -138,7 +138,7 @@ public class ReversalPointsIndicatorTest {
     }
 
     @Test
-    public void lastHighConfirmationCannotBeConfirmedLow() {
+    public void lastHighConfirmationCanBeConfirmedLow() {
         series.addBar(startTime, 4, 4, 4, 4);
         series.addBar(startTime.plusDays(1), 3, 3, 3, 3);
         series.addBar(startTime.plusDays(2), 2, 2, 2, 2);
@@ -153,15 +153,15 @@ public class ReversalPointsIndicatorTest {
         assertEquals(series.numOf(2), lowsIndicator.getValue(3));
         assertEquals(series.numOf(2), lowsIndicator.getValue(4));
 
-        assertEquals(NaN, highsIndicator.getValue(0));
-        assertEquals(NaN, highsIndicator.getValue(1));
-        assertEquals(NaN, highsIndicator.getValue(2));
-        assertEquals(NaN, highsIndicator.getValue(3));
-        assertEquals(NaN, highsIndicator.getValue(4));
+        assertEquals(series.numOf(4), highsIndicator.getValue(0));
+        assertEquals(series.numOf(4), highsIndicator.getValue(1));
+        assertEquals(series.numOf(4), highsIndicator.getValue(2));
+        assertEquals(series.numOf(4), highsIndicator.getValue(3));
+        assertEquals(series.numOf(4), highsIndicator.getValue(4));
     }
 
     @Test
-    public void lastLowConfirmationCannotBeConfirmedHigh() {
+    public void lastLowConfirmationCanBeConfirmedHigh() {
         series.addBar(startTime, 1, 1, 1, 1);
         series.addBar(startTime.plusDays(1), 2, 2, 2, 2);
         series.addBar(startTime.plusDays(2), 3, 3, 3, 3);
@@ -171,11 +171,11 @@ public class ReversalPointsIndicatorTest {
         ReversalPointsIndicator lowsIndicator = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.LOWS);
         ReversalPointsIndicator highsIndicator = new ReversalPointsIndicator(series, ReversalPointsIndicator.ReversalType.HIGHS);
 
-        assertEquals(NaN, lowsIndicator.getValue(0));
-        assertEquals(NaN, lowsIndicator.getValue(1));
-        assertEquals(NaN, lowsIndicator.getValue(2));
-        assertEquals(NaN, lowsIndicator.getValue(3));
-        assertEquals(NaN, lowsIndicator.getValue(4));
+        assertEquals(series.numOf(1), lowsIndicator.getValue(0));
+        assertEquals(series.numOf(1), lowsIndicator.getValue(1));
+        assertEquals(series.numOf(1), lowsIndicator.getValue(2));
+        assertEquals(series.numOf(1), lowsIndicator.getValue(3));
+        assertEquals(series.numOf(1), lowsIndicator.getValue(4));
 
         assertEquals(NaN, highsIndicator.getValue(0));
         assertEquals(NaN, highsIndicator.getValue(1));
@@ -315,13 +315,13 @@ public class ReversalPointsIndicatorTest {
         assertEquals(series.numOf(1), lowsIndicator.getValue(7));
 
         assertEquals(NaN, highsIndicator.getValue(0));
-        assertEquals(NaN, highsIndicator.getValue(1));
-        assertEquals(NaN, highsIndicator.getValue(2));
-        assertEquals(NaN, highsIndicator.getValue(3));
-        assertEquals(NaN, highsIndicator.getValue(4));
-        assertEquals(NaN, highsIndicator.getValue(5));
-        assertEquals(NaN, highsIndicator.getValue(6));
-        assertEquals(NaN, highsIndicator.getValue(7));
+        assertEquals(series.numOf(30), highsIndicator.getValue(1));
+        assertEquals(series.numOf(30), highsIndicator.getValue(2));
+        assertEquals(series.numOf(30), highsIndicator.getValue(3));
+        assertEquals(series.numOf(30), highsIndicator.getValue(4));
+        assertEquals(series.numOf(30), highsIndicator.getValue(5));
+        assertEquals(series.numOf(30), highsIndicator.getValue(6));
+        assertEquals(series.numOf(30), highsIndicator.getValue(7));
 
         series.addBar(startTime.plusDays(8), 34, 35, 31, 32);
 
@@ -336,14 +336,14 @@ public class ReversalPointsIndicatorTest {
         assertEquals(series.numOf(1), lowsIndicator.getValue(8));
 
         assertEquals(NaN, highsIndicator.getValue(0));
-        assertEquals(NaN, highsIndicator.getValue(1));
-        assertEquals(NaN, highsIndicator.getValue(2));
-        assertEquals(NaN, highsIndicator.getValue(3));
-        assertEquals(NaN, highsIndicator.getValue(4));
-        assertEquals(NaN, highsIndicator.getValue(5));
-        assertEquals(NaN, highsIndicator.getValue(6));
-        assertEquals(NaN, highsIndicator.getValue(7));
-        assertEquals(NaN, highsIndicator.getValue(8));
+        assertEquals(series.numOf(30), highsIndicator.getValue(1));
+        assertEquals(series.numOf(30), highsIndicator.getValue(2));
+        assertEquals(series.numOf(30), highsIndicator.getValue(3));
+        assertEquals(series.numOf(30), highsIndicator.getValue(4));
+        assertEquals(series.numOf(30), highsIndicator.getValue(5));
+        assertEquals(series.numOf(30), highsIndicator.getValue(6));
+        assertEquals(series.numOf(30), highsIndicator.getValue(7));
+        assertEquals(series.numOf(30), highsIndicator.getValue(8));
     }
 
     @Test
