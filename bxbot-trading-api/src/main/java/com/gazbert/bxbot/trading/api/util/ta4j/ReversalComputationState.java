@@ -39,18 +39,15 @@ public class ReversalComputationState {
         Num currentHighPrice = highPriceIndicator.getValue(index);
         Num currentLowPrice = lowPriceIndicator.getValue(index);
 
-        Num lastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
-        Num lastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
-
         switch (currentSearchState) {
             case BOTH:
                 searchStart(currentHighPrice, currentLowPrice, index);
                 break;
             case LOW:
-                searchLow(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+                searchLow(currentHighPrice, currentLowPrice, index);
                 break;
             case HIGH:
-                searchHigh(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+                searchHigh(currentHighPrice, currentLowPrice, index);
                 break;
             default:
                 throw new IllegalStateException("Unknown state: " + currentSearchState);
@@ -63,18 +60,20 @@ public class ReversalComputationState {
         highestSinceLastReversal = highestSinceLastReversal == null ? currentHighPrice : currentHighPrice.max(highestSinceLastReversal);
     }
 
-    private void searchLow(Num currentHighPrice, Num currentLowPrice, Num lastConfirmedHigh, Num lastConfirmedLow, int index) {
+    private void searchLow(Num currentHighPrice, Num currentLowPrice, int index) {
+        Num lastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
         if (currentHighPrice.isGreaterThan(lastConfirmedHigh)) {
             highs.removeLast();
 
             revertLastReversal();
 
+            Num lastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
             if (lastConfirmedLow == null) {
                 currentSearchState = SearchState.BOTH;
                 searchStart(currentHighPrice, currentLowPrice, index);
             } else {
                 currentSearchState = SearchState.HIGH;
-                searchHigh(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+                searchHigh(currentHighPrice, currentLowPrice, index);
             }
         } else {
             if (currentLowPrice.isLessThan(lowestSinceLastReversal)) {
@@ -87,18 +86,20 @@ public class ReversalComputationState {
         }
     }
 
-    private void searchHigh(Num currentHighPrice, Num currentLowPrice, Num lastConfirmedHigh, Num lastConfirmedLow, int index) {
+    private void searchHigh(Num currentHighPrice, Num currentLowPrice, int index) {
+        Num lastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
         if (currentLowPrice.isLessThan(lastConfirmedLow)) {
             lows.removeLast();
 
             revertLastReversal();
 
+            Num lastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
             if (lastConfirmedHigh == null) {
                 currentSearchState = SearchState.BOTH;
                 searchStart(currentHighPrice, currentLowPrice, index);
             } else {
                 currentSearchState = SearchState.LOW;
-                searchLow(currentHighPrice, currentLowPrice, lastConfirmedHigh, lastConfirmedLow, index);
+                searchLow(currentHighPrice, currentLowPrice, index);
             }
         } else {
             if (currentHighPrice.isGreaterThan(highestSinceLastReversal)) {
@@ -174,9 +175,6 @@ public class ReversalComputationState {
 
     public Collection<Integer> getHighs() {
         return highs;
-    }
-
-    public void finish() {
     }
 
     private enum SearchState {

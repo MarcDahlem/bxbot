@@ -1,7 +1,16 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ExecutionException;
+import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
+import org.ta4j.core.BaseBar;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.AbstractIndicator;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
@@ -14,6 +23,7 @@ public class ReversalPointsIndicator extends AbstractIndicator<Num> {
 
     private final HighPriceIndicator highPriceIndicator;
     private final LowPriceIndicator lowPriceIndicator;
+    private final Cache<Bar, ReversalComputationState> savedStates;
 
     public enum ReversalType {
         LOWS, HIGHS;
@@ -34,6 +44,7 @@ public class ReversalPointsIndicator extends AbstractIndicator<Num> {
         this.valueIndicator = valueIndicator;
         this.highPriceIndicator = new HighPriceIndicator(series);
         this.lowPriceIndicator = new LowPriceIndicator(series);
+        savedStates = CacheBuilder.newBuilder().maximumSize(10).build();
     }
 
     @Override
@@ -61,11 +72,21 @@ public class ReversalPointsIndicator extends AbstractIndicator<Num> {
         lows.clear();
         highs.clear();
 
-        ReversalComputationState state = new ReversalComputationState(highPriceIndicator, lowPriceIndicator);
-        for(int index = getBarSeries().getEndIndex(); index>= getBarSeries().getBeginIndex(); index--) {
-            state.update(index);
+        Bar currentBar = getBarSeries().getLastBar();
+        ReversalComputationState state = null;
+        try {
+            state = savedStates.get(currentBar, () -> {
+                ReversalComputationState result = new ReversalComputationState(highPriceIndicator, lowPriceIndicator);
+                for (int index = getBarSeries().getEndIndex(); index >= getBarSeries().getBeginIndex(); index--) {
+                    result.update(index);
+                }
+                return result;
+            }
+            );
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Somehint stupid happened: ", e);
         }
-        state.finish();
+        savedStates.put(currentBar, state);
 
         lows.addAll(state.getLows());
         highs.addAll(state.getHighs());
