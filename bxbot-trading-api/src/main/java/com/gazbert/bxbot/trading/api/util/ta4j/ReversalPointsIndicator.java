@@ -2,37 +2,33 @@ package com.gazbert.bxbot.trading.api.util.ta4j;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import java.util.TreeSet;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.ExecutionException;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBar;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.AbstractIndicator;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.num.Num;
 
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ExecutionException;
+
 import static org.ta4j.core.num.NaN.NaN;
 
 public class ReversalPointsIndicator extends AbstractIndicator<Num> {
-
-    private final HighPriceIndicator highPriceIndicator;
-    private final LowPriceIndicator lowPriceIndicator;
-    private final Cache<Bar, ReversalComputationState> savedStates;
 
     public enum ReversalType {
         LOWS, HIGHS;
     }
 
+    private final HighPriceIndicator highPriceIndicator;
+    private final LowPriceIndicator lowPriceIndicator;
+    private final Cache<Bar, ReversalComputationState> savedStates;
+
     private final ReversalType type;
     private final Indicator<Num> valueIndicator;
-    private final TreeSet<Integer> lows = new TreeSet<>();
-    private final TreeSet<Integer> highs = new TreeSet<>();
+    private final ConcurrentSkipListSet<Integer> lows = new ConcurrentSkipListSet<>();
+    private final ConcurrentSkipListSet<Integer> highs = new ConcurrentSkipListSet<>();
 
     public ReversalPointsIndicator(BarSeries series, ReversalType type) {
         this(series, type, null);
@@ -76,12 +72,12 @@ public class ReversalPointsIndicator extends AbstractIndicator<Num> {
         ReversalComputationState state = null;
         try {
             state = savedStates.get(currentBar, () -> {
-                ReversalComputationState result = new ReversalComputationState(highPriceIndicator, lowPriceIndicator);
-                for (int index = getBarSeries().getEndIndex(); index >= getBarSeries().getBeginIndex(); index--) {
-                    result.update(index);
-                }
-                return result;
-            }
+                        ReversalComputationState result = new ReversalComputationState(highPriceIndicator, lowPriceIndicator);
+                        for (int index = getBarSeries().getEndIndex(); index >= getBarSeries().getBeginIndex(); index--) {
+                            result.update(index);
+                        }
+                        return result;
+                    }
             );
         } catch (ExecutionException e) {
             throw new IllegalStateException("Somehint stupid happened: ", e);

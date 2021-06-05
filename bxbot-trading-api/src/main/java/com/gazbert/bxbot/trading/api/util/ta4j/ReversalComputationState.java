@@ -1,11 +1,13 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.TreeSet;
 import org.ta4j.core.indicators.helpers.HighPriceIndicator;
 import org.ta4j.core.indicators.helpers.LowPriceIndicator;
 import org.ta4j.core.num.Num;
+
+import java.util.Collection;
+import java.util.NavigableSet;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 public class ReversalComputationState {
 
@@ -14,20 +16,20 @@ public class ReversalComputationState {
     private final HighPriceIndicator highPriceIndicator;
     private final LowPriceIndicator lowPriceIndicator;
 
-    private final LinkedList<Integer> highs = new LinkedList<>();
-    private final LinkedList<Integer> lows = new LinkedList<>();
+    private final ConcurrentLinkedDeque<Integer> highs = new ConcurrentLinkedDeque<>();
+    private final ConcurrentLinkedDeque<Integer> lows = new ConcurrentLinkedDeque<>();
 
     private SearchState currentSearchState = SearchState.BOTH;
-    private final LinkedList<TreeSet<Num>> succeedingLowsAtLastReversal = new LinkedList<>();
-    private TreeSet<Num> succeedingLowsSinceLastReversal = new TreeSet<>();
+    private final ConcurrentLinkedDeque<ConcurrentSkipListSet<Num>> succeedingLowsAtLastReversal = new ConcurrentLinkedDeque<>();
+    private volatile ConcurrentSkipListSet<Num> succeedingLowsSinceLastReversal = new ConcurrentSkipListSet<>();
 
-    private final LinkedList<TreeSet<Num>> succeedingHighsAtLastReversal = new LinkedList<>();
-    private TreeSet<Num> succeedingHighsSinceLastReversal = new TreeSet<>();
+    private final ConcurrentLinkedDeque<ConcurrentSkipListSet<Num>> succeedingHighsAtLastReversal = new ConcurrentLinkedDeque<>();
+    private volatile ConcurrentSkipListSet<Num> succeedingHighsSinceLastReversal = new ConcurrentSkipListSet<>();
 
-    private final LinkedList<Num> lowestAtLastReversal = new LinkedList<>();
-    private Num lowestSinceLastReversal;
-    private final LinkedList<Num> highestAtLastReversal = new LinkedList<>();
-    private Num highestSinceLastReversal;
+    private final ConcurrentLinkedDeque<Num> lowestAtLastReversal = new ConcurrentLinkedDeque<>();
+    private volatile Num lowestSinceLastReversal;
+    private final ConcurrentLinkedDeque<Num> highestAtLastReversal = new ConcurrentLinkedDeque<>();
+    private volatile Num highestSinceLastReversal;
 
     public ReversalComputationState(HighPriceIndicator highPriceIndicator, LowPriceIndicator lowPriceIndicator) {
 
@@ -53,11 +55,15 @@ public class ReversalComputationState {
                 throw new IllegalStateException("Unknown state: " + currentSearchState);
         }
         succeedingLowsSinceLastReversal.add(currentLowPrice);
-        succeedingLowsSinceLastReversal = new TreeSet<>(succeedingLowsSinceLastReversal.headSet(currentLowPrice, true));
+        NavigableSet<Num> newSucceedingLows = succeedingLowsSinceLastReversal.headSet(currentLowPrice, true);
+        succeedingLowsSinceLastReversal = new ConcurrentSkipListSet<>(newSucceedingLows);
         succeedingHighsSinceLastReversal.add(currentHighPrice);
-        succeedingHighsSinceLastReversal = new TreeSet<>(succeedingHighsSinceLastReversal.tailSet(currentHighPrice, true));
-        lowestSinceLastReversal = lowestSinceLastReversal == null ? currentLowPrice : currentLowPrice.min(lowestSinceLastReversal);
-        highestSinceLastReversal = highestSinceLastReversal == null ? currentHighPrice : currentHighPrice.max(highestSinceLastReversal);
+        NavigableSet<Num> newSucceedingHighs = succeedingHighsSinceLastReversal.tailSet(currentHighPrice, true);
+        succeedingHighsSinceLastReversal = new ConcurrentSkipListSet<>(newSucceedingHighs);
+        Num newLowest = lowestSinceLastReversal == null ? currentLowPrice : currentLowPrice.min(this.lowestSinceLastReversal);
+        this.lowestSinceLastReversal = newLowest;
+        Num newHighest = highestSinceLastReversal == null ? currentHighPrice : currentHighPrice.max(this.highestSinceLastReversal);
+        this.highestSinceLastReversal = newHighest;
     }
 
     private void searchLow(Num currentHighPrice, Num currentLowPrice, int index) {
@@ -113,26 +119,32 @@ public class ReversalComputationState {
     }
 
     private void revertLastReversal() {
-        TreeSet<Num> lastLows = succeedingLowsAtLastReversal.removeLast();
+        ConcurrentSkipListSet<Num> lastLows = succeedingLowsAtLastReversal.removeLast();
         Num currentHighest = succeedingLowsSinceLastReversal.last();
         succeedingLowsSinceLastReversal.addAll(lastLows);
-        succeedingLowsSinceLastReversal = new TreeSet<>(succeedingLowsSinceLastReversal.headSet(currentHighest, true));
+        NavigableSet<Num> extendedRevertedSucceedingLows = succeedingLowsSinceLastReversal.headSet(currentHighest, true);
+        succeedingLowsSinceLastReversal = new ConcurrentSkipListSet<>(extendedRevertedSucceedingLows);
 
-        TreeSet<Num> lastHighs = succeedingHighsAtLastReversal.removeLast();
+        ConcurrentSkipListSet<Num> lastHighs = succeedingHighsAtLastReversal.removeLast();
         Num currentLowest = succeedingHighsSinceLastReversal.first();
         succeedingHighsSinceLastReversal.addAll(lastHighs);
-        succeedingHighsSinceLastReversal = new TreeSet<>(succeedingHighsSinceLastReversal.tailSet(currentLowest, true));
+        NavigableSet<Num> extendedRevertedSucceedingHighs = succeedingHighsSinceLastReversal.tailSet(currentLowest, true);
+        succeedingHighsSinceLastReversal = new ConcurrentSkipListSet<>(extendedRevertedSucceedingHighs);
 
-        lowestSinceLastReversal = lowestSinceLastReversal.min(lowestAtLastReversal.removeLast());
-        highestSinceLastReversal = highestSinceLastReversal.max(highestAtLastReversal.removeLast());
+        Num lastLowest = lowestAtLastReversal.removeLast();
+        Num newLowest = lowestSinceLastReversal.min(lastLowest);
+        lowestSinceLastReversal = newLowest;
+        Num lastHighest = highestAtLastReversal.removeLast();
+        Num newHighest = highestSinceLastReversal.max(lastHighest);
+        highestSinceLastReversal = newHighest;
     }
 
     private void updateStateTo(Num currentHighPrice, Num currentLowPrice, SearchState newState) {
         succeedingLowsAtLastReversal.add(succeedingLowsSinceLastReversal);
-        succeedingLowsSinceLastReversal = new TreeSet<>();
+        succeedingLowsSinceLastReversal = new ConcurrentSkipListSet<>();
 
         succeedingHighsAtLastReversal.add(succeedingHighsSinceLastReversal);
-        succeedingHighsSinceLastReversal = new TreeSet<>();
+        succeedingHighsSinceLastReversal = new ConcurrentSkipListSet<>();
 
         lowestAtLastReversal.add(lowestSinceLastReversal);
         highestAtLastReversal.add(highestSinceLastReversal);
@@ -143,22 +155,22 @@ public class ReversalComputationState {
     }
 
     private void searchStart(Num currentHighPrice, Num currentLowPrice, int index) {
-        if(highestSinceLastReversal == null || lowestSinceLastReversal == null) {
+        if (highestSinceLastReversal == null || lowestSinceLastReversal == null) {
             return;
         }
 
         if (currentHighPrice.isGreaterThan(highestSinceLastReversal)) {
-                boolean confirmed = succeedingLowsSinceLastReversal.headSet(currentLowPrice).size() >= CONFIRMATIONS;
-                if (confirmed) {
-                    if (currentLowPrice.isLessThan(lowestSinceLastReversal)) {
-                        boolean highAlsoConfirmed = succeedingHighsSinceLastReversal.tailSet(currentHighPrice).size() >= CONFIRMATIONS;
-                        if (highAlsoConfirmed) {
-                            throw new IllegalStateException("Cannot find lows and highs at the same time");
-                        }
+            boolean confirmed = succeedingLowsSinceLastReversal.headSet(currentLowPrice).size() >= CONFIRMATIONS;
+            if (confirmed) {
+                if (currentLowPrice.isLessThan(lowestSinceLastReversal)) {
+                    boolean highAlsoConfirmed = succeedingHighsSinceLastReversal.tailSet(currentHighPrice).size() >= CONFIRMATIONS;
+                    if (highAlsoConfirmed) {
+                        throw new IllegalStateException("Cannot find lows and highs at the same time");
                     }
-                    highs.add(index);
-                    updateStateTo(currentHighPrice, currentLowPrice, SearchState.LOW);
                 }
+                highs.add(index);
+                updateStateTo(currentHighPrice, currentLowPrice, SearchState.LOW);
+            }
         }
         if (currentLowPrice.isLessThan(lowestSinceLastReversal)) {
             boolean confirmed = succeedingHighsSinceLastReversal.tailSet(currentHighPrice).size() >= CONFIRMATIONS;
