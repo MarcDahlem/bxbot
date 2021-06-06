@@ -73,7 +73,7 @@ public class ReversalPointsIndicator extends AbstractIndicator<Num> {
         try {
             state = savedStates.get(currentBar, () -> {
                         ReversalComputationState result = new ReversalComputationState(highPriceIndicator, lowPriceIndicator);
-                        for (int index = getBarSeries().getEndIndex(); index >= getBarSeries().getBeginIndex(); index--) {
+                        for (int index = getBarSeries().getBeginIndex(); index <= getBarSeries().getEndIndex(); index++) {
                             result.update(index);
                         }
                         return result;
