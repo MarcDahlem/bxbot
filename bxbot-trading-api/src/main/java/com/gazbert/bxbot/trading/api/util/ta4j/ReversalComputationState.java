@@ -1,12 +1,11 @@
 package com.gazbert.bxbot.trading.api.util.ta4j;
 
-import org.ta4j.core.indicators.helpers.HighPriceIndicator;
-import org.ta4j.core.indicators.helpers.LowPriceIndicator;
-import org.ta4j.core.num.Num;
-
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListSet;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowPriceIndicator;
+import org.ta4j.core.num.Num;
 
 public class ReversalComputationState {
 
@@ -17,7 +16,6 @@ public class ReversalComputationState {
 
     private final ConcurrentLinkedDeque<Integer> highs = new ConcurrentLinkedDeque<>();
     private final ConcurrentLinkedDeque<Integer> lows = new ConcurrentLinkedDeque<>();
-
 
 
     private SearchState currentSearchState = SearchState.BOTH;
@@ -49,22 +47,22 @@ public class ReversalComputationState {
         Num currentHighPrice = highPriceIndicator.getValue(index);
         Num currentLowPrice = lowPriceIndicator.getValue(index);
 
-        if (lastLow == null || currentLowPrice.compareTo(lastLow)<0 ) {
+        if (lastLow == null || currentLowPrice.compareTo(lastLow) < 0) {
             this.lastLow = currentLowPrice;
             lastLowIndex = index;
             lastLowConfirmations.clear();
         }
-        if (lastHigh == null || currentHighPrice.compareTo(lastHigh)>0 ) {
+        if (lastHigh == null || currentHighPrice.compareTo(lastHigh) > 0) {
             this.lastHigh = currentHighPrice;
             lastHighIndex = index;
             lastHighConfirmations.clear();
         }
 
-        if(lastHighConfirmations.isEmpty() || currentLowPrice.isLessThan(lastHighConfirmations.first())) {
+        if (lastHighConfirmations.isEmpty() || currentLowPrice.isLessThan(lastHighConfirmations.first())) {
             lastHighConfirmations.add(currentLowPrice);
         }
 
-        if(lastLowConfirmations.isEmpty() || currentHighPrice.isGreaterThan(lastLowConfirmations.last())) {
+        if (lastLowConfirmations.isEmpty() || currentHighPrice.isGreaterThan(lastLowConfirmations.last())) {
             lastLowConfirmations.add(currentHighPrice);
         }
 
@@ -85,47 +83,47 @@ public class ReversalComputationState {
     }
 
     private void searchLow(Num currentHighPrice, Num currentLowPrice, int index) {
-        if (lastHighIndex == index) {
-            // we are searching for a new low, but found a new high
-            // Revert the old high
-            resetLastHigh();
-            Num lastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
-            if (lastConfirmedLow == null) {
-                currentSearchState = SearchState.BOTH;
-                searchStart(currentHighPrice, currentLowPrice, index);
-            } else {
-                currentSearchState = SearchState.HIGH;
-                searchHigh(currentHighPrice, currentLowPrice, index);
-            }
-        } else {
-            boolean lastLowConfirmed = lastLowConfirmations.size() > CONFIRMATIONS;
+        boolean lastLowConfirmed = lastLowConfirmations.size() > CONFIRMATIONS;
 
-            if (lastLowConfirmed) {
-                lows.add(lastLowIndex);
-                finishLowSearching(currentHighPrice, currentLowPrice, index);
+        if (lastLowConfirmed) {
+            lows.add(lastLowIndex);
+            finishLowSearching(currentHighPrice, currentLowPrice, index);
+        } else {
+            if (lastHighIndex == index) {
+                // we are searching for a new low, but found a new high
+                // Revert the old high
+                resetLastHigh();
+                Num lastConfirmedLow = lows.isEmpty() ? null : lowPriceIndicator.getValue(lows.getLast());
+                if (lastConfirmedLow == null) {
+                    currentSearchState = SearchState.BOTH;
+                    searchStart(currentHighPrice, currentLowPrice, index);
+                } else {
+                    currentSearchState = SearchState.HIGH;
+                    searchHigh(currentHighPrice, currentLowPrice, index);
+                }
             }
         }
     }
 
     private void searchHigh(Num currentHighPrice, Num currentLowPrice, int index) {
-        if (lastLowIndex == index) {
-            // we are searching for a new high, but found a new low
-            // Revert the old low
-            resetLastLow();
-            Num lastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
-            if (lastConfirmedHigh == null) {
-                currentSearchState = SearchState.BOTH;
-                searchStart(currentHighPrice, currentLowPrice, index);
-            } else {
-                currentSearchState = SearchState.LOW;
-                searchLow(currentHighPrice, currentLowPrice, index);
-            }
-        } else {
-            boolean lastHighConfirmed = lastHighConfirmations.size() > CONFIRMATIONS;
+        boolean lastHighConfirmed = lastHighConfirmations.size() > CONFIRMATIONS;
 
-            if (lastHighConfirmed) {
-                highs.add(lastHighIndex);
-                finishHighSearching(currentHighPrice, currentLowPrice, index);
+        if (lastHighConfirmed) {
+            highs.add(lastHighIndex);
+            finishHighSearching(currentHighPrice, currentLowPrice, index);
+        } else {
+            if (lastLowIndex == index) {
+                // we are searching for a new high, but found a new low
+                // Revert the old low
+                resetLastLow();
+                Num lastConfirmedHigh = highs.isEmpty() ? null : highPriceIndicator.getValue(highs.getLast());
+                if (lastConfirmedHigh == null) {
+                    currentSearchState = SearchState.BOTH;
+                    searchStart(currentHighPrice, currentLowPrice, index);
+                } else {
+                    currentSearchState = SearchState.LOW;
+                    searchLow(currentHighPrice, currentLowPrice, index);
+                }
             }
         }
     }
