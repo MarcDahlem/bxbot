@@ -89,7 +89,7 @@ public class ReversalComputationState {
             lows.add(lastLowIndex);
             finishLowSearching(currentHighPrice, currentLowPrice, index);
         } else {
-            if (lastHighIndex == index) {
+            if (lastHighIndex > highs.getLast()) {
                 // we are searching for a new low, but found a new high
                 // Revert the old high
                 resetLastHigh();
@@ -112,7 +112,7 @@ public class ReversalComputationState {
             highs.add(lastHighIndex);
             finishHighSearching(currentHighPrice, currentLowPrice, index);
         } else {
-            if (lastLowIndex == index) {
+            if (lastLowIndex > lows.getLast()) {
                 // we are searching for a new high, but found a new low
                 // Revert the old low
                 resetLastLow();
@@ -169,6 +169,8 @@ public class ReversalComputationState {
         cacheOfLastHighIndeces.add(lastHighIndex);
         cacheOfLastHighConfirmations.add(lastHighConfirmations);
 
+        //lastHigh = lastLowConfirmations.last();
+        //lastHighIndex = lastLowIndex;
         lastHigh = currentHighPrice;
         lastHighIndex = index;
         lastHighConfirmations = new ConcurrentSkipListSet<>();
@@ -182,6 +184,8 @@ public class ReversalComputationState {
         cacheOfLastLowIndeces.add(lastLowIndex);
         cacheOfLastLowConfirmations.add(lastLowConfirmations);
 
+        //lastLow = lastHighConfirmations.last();
+        //lastLowIndex = lastHighIndex;
         lastLow = currentLowPrice;
         lastLowIndex = index;
         lastLowConfirmations = new ConcurrentSkipListSet<>();
